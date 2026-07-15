@@ -49,17 +49,17 @@
 @endif
 
 <!-- HR DASHBOARD -->
-<!-- POSITION MANAGEMENT MODULE -->
-@if(session('role_id') == 2 || session('role_id') == 3)
-<div class="row g-4 mt-2">
+@if(session('role_id') == 2)
+<div class="row g-4">
     <div class="col-12">
         <div class="card p-4 shadow-sm border-0">
             <div class="d-flex justify-content-between align-items-center mb-4">
                 <h5 class="text-accent fw-bold mb-0">Manage Positions</h5>
+                <!-- Form to add new position -->
                 <form action="{{ route('hr.positions.store') }}" method="POST" class="d-flex gap-2">
                     @csrf
                     <input type="text" name="position_name" class="form-control form-control-sm text-uppercase" placeholder="New Position Name" required>
-                    <button type="submit" class="btn btn-accent btn-sm fw-bold">Add</button>
+                    <button type="submit" class="btn btn-accent btn-sm fw-bold">Add Position</button>
                 </form>
             </div>
 
@@ -69,14 +69,17 @@
                         <tr>
                             <th>ID</th>
                             <th>Position Name</th>
+                            <th>Created At</th>
                             <th>Action</th>
                         </tr>
                     </thead>
                     <tbody>
-                        @forelse($positions ?? [] as $pos)
+                        {{-- Make sure your DashboardController passes $positions to the view --}}
+                        @forelse($positions as $pos)
                         <tr>
                             <td>{{ $pos->id }}</td>
                             <td class="fw-bold text-uppercase">{{ $pos->position_name }}</td>
+                            <td>{{ \Carbon\Carbon::parse($pos->created_at)->format('M d, Y') }}</td>
                             <td>
                                 <form action="{{ route('hr.positions.destroy', $pos->id) }}" method="POST" onsubmit="return confirm('Delete this position?');">
                                     @csrf
@@ -86,7 +89,7 @@
                         </tr>
                         @empty
                         <tr>
-                            <td colspan="3" class="text-center text-muted">No positions created yet.</td>
+                            <td colspan="4" class="text-center text-muted">No positions created yet.</td>
                         </tr>
                         @endforelse
                     </tbody>
