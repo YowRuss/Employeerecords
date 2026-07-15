@@ -55,7 +55,7 @@
             </ul>
 
             <div class="tab-content p-3 p-md-4">
-                
+
                 <!-- TAB 1: BASIC INFO -->
                 <div class="tab-pane fade {{ $activeTab == 'info' ? 'show active' : '' }}" id="info">
                     <form action="{{ route('saln.update_info') }}" method="POST">
@@ -76,11 +76,38 @@
                         <div class="row g-4">
                             <div class="col-lg-6">
                                 <h6 class="bg-secondary text-white p-2 rounded-1 fw-bold">DECLARANT</h6>
-                                <div class="mb-2"><label class="small text-muted fw-bold">Full Name</label><input type="text" name="declarant_name" class="form-control text-uppercase" value="{{ $saln_info->declarant_name ?? '' }}"></div>
-                                <div class="mb-2"><label class="small text-muted fw-bold">Address</label><input type="text" name="declarant_address" class="form-control text-uppercase" value="{{ $saln_info->declarant_address ?? '' }}"></div>
-                                <div class="mb-2"><label class="small text-muted fw-bold">Position</label><input type="text" name="declarant_position" class="form-control text-uppercase" value="{{ $saln_info->declarant_position ?? '' }}"></div>
-                                <div class="mb-2"><label class="small text-muted fw-bold">Agency/Office</label><input type="text" name="declarant_agency" class="form-control text-uppercase" value="{{ $saln_info->declarant_agency ?? '' }}"></div>
-                                <div class="mb-2"><label class="small text-muted fw-bold">Office Address</label><input type="text" name="declarant_office_address" class="form-control text-uppercase" value="{{ $saln_info->declarant_office_address ?? '' }}"></div>
+
+                                <!-- Auto-fills from PDS if no SALN record exists yet -->
+                                <div class="mb-2">
+                                    <label class="small text-muted fw-bold">Full Name</label>
+                                    <input type="text" name="declarant_name" class="form-control text-uppercase"
+                                        value="{{ $saln_info->declarant_name ?? $auto_name }}">
+                                </div>
+
+                                <div class="mb-2">
+                                    <label class="small text-muted fw-bold">Address</label>
+                                    <input type="text" name="declarant_address" class="form-control text-uppercase"
+                                        value="{{ $saln_info->declarant_address ?? '' }}">
+                                </div>
+
+                                <!-- Auto-fills from the latest Service Record Designation if no SALN record exists yet -->
+                                <div class="mb-2">
+                                    <label class="small text-muted fw-bold">Position</label>
+                                    <input type="text" name="declarant_position" class="form-control text-uppercase"
+                                        value="{{ $saln_info->declarant_position ?? $auto_position }}">
+                                </div>
+
+                                <div class="mb-2">
+                                    <label class="small text-muted fw-bold">Agency/Office</label>
+                                    <input type="text" name="declarant_agency" class="form-control text-uppercase"
+                                        value="{{ $saln_info->declarant_agency ?? 'CNHS-JHS' }}">
+                                </div>
+
+                                <div class="mb-2">
+                                    <label class="small text-muted fw-bold">Office Address</label>
+                                    <input type="text" name="declarant_office_address" class="form-control text-uppercase"
+                                        value="{{ $saln_info->declarant_office_address ?? 'VIGAN CITY' }}">
+                                </div>
                             </div>
                             <div class="col-lg-6">
                                 <h6 class="bg-secondary text-white p-2 rounded-1 fw-bold">SPOUSE</h6>
@@ -94,19 +121,30 @@
                     </form>
 
                     <hr class="text-muted opacity-25 my-5">
-                    
+
                     <h6 class="fw-bold text-accent">UNMARRIED CHILDREN BELOW EIGHTEEN (18) YEARS OF AGE</h6>
                     <div class="table-responsive mb-3">
                         <table class="table table-bordered table-sm text-center shadow-sm">
-                            <thead class="table-light text-muted"><tr><th>Name</th><th>Date of Birth</th><th>Age</th><th width="5%"></th></tr></thead>
+                            <thead class="table-light text-muted">
+                                <tr>
+                                    <th>Name</th>
+                                    <th>Date of Birth</th>
+                                    <th>Age</th>
+                                    <th width="5%"></th>
+                                </tr>
+                            </thead>
                             <tbody>
                                 @forelse($children as $child)
                                 <tr>
-                                    <td class="text-start fw-bold">{{ $child->name }}</td><td>{{ $child->date_of_birth }}</td><td>{{ $child->age }}</td>
+                                    <td class="text-start fw-bold">{{ $child->name }}</td>
+                                    <td>{{ $child->date_of_birth }}</td>
+                                    <td>{{ $child->age }}</td>
                                     <td><button class="btn btn-sm btn-outline-danger p-1" data-bs-toggle="modal" data-bs-target="#deleteConfirmModal" data-url="{{ route('saln.delete_record', ['table' => 'saln_unmarried_children', 'id' => $child->id]) }}"><i class="bi bi-trash"></i></button></td>
                                 </tr>
                                 @empty
-                                <tr><td colspan="4" class="text-muted py-3">No children recorded.</td></tr>
+                                <tr>
+                                    <td colspan="4" class="text-muted py-3">No children recorded.</td>
+                                </tr>
                                 @endforelse
                             </tbody>
                         </table>
@@ -125,14 +163,29 @@
                     <div class="table-responsive mb-3">
                         <table class="table table-bordered table-sm text-center shadow-sm" style="font-size:0.8rem;">
                             <thead class="table-light align-middle text-muted">
-                                <tr><th>Description</th><th>Kind</th><th>Location</th><th>Assessed Value</th><th>Current Fair Market Value</th><th>Acq. Year</th><th>Acq. Mode</th><th>Acq. Cost</th><th width="5%"></th></tr>
+                                <tr>
+                                    <th>Description</th>
+                                    <th>Kind</th>
+                                    <th>Location</th>
+                                    <th>Assessed Value</th>
+                                    <th>Current Fair Market Value</th>
+                                    <th>Acq. Year</th>
+                                    <th>Acq. Mode</th>
+                                    <th>Acq. Cost</th>
+                                    <th width="5%"></th>
+                                </tr>
                             </thead>
                             <tbody>
                                 @foreach($real_properties as $rp)
                                 <tr>
-                                    <td class="fw-bold">{{ $rp->description }}</td><td>{{ $rp->kind }}</td><td>{{ $rp->exact_location }}</td>
-                                    <td>₱{{ number_format($rp->assessed_value, 2) }}</td><td>₱{{ number_format($rp->fair_market_value, 2) }}</td>
-                                    <td>{{ $rp->acquisition_year }}</td><td>{{ $rp->acquisition_mode }}</td><td class="fw-bold text-success">₱{{ number_format($rp->acquisition_cost, 2) }}</td>
+                                    <td class="fw-bold">{{ $rp->description }}</td>
+                                    <td>{{ $rp->kind }}</td>
+                                    <td>{{ $rp->exact_location }}</td>
+                                    <td>₱{{ number_format($rp->assessed_value, 2) }}</td>
+                                    <td>₱{{ number_format($rp->fair_market_value, 2) }}</td>
+                                    <td>{{ $rp->acquisition_year }}</td>
+                                    <td>{{ $rp->acquisition_mode }}</td>
+                                    <td class="fw-bold text-success">₱{{ number_format($rp->acquisition_cost, 2) }}</td>
                                     <td><button class="btn btn-sm btn-outline-danger p-1" data-bs-toggle="modal" data-bs-target="#deleteConfirmModal" data-url="{{ route('saln.delete_record', ['table' => 'saln_real_properties', 'id' => $rp->id]) }}"><i class="bi bi-trash"></i></button></td>
                                 </tr>
                                 @endforeach
@@ -155,11 +208,20 @@
                     <h6 class="bg-secondary text-white p-2 rounded-1 fw-bold">2. PERSONAL PROPERTIES</h6>
                     <div class="table-responsive mb-3">
                         <table class="table table-bordered table-sm text-center shadow-sm">
-                            <thead class="table-light text-muted"><tr><th>Description</th><th>Year Acquired</th><th>Acquisition Cost/Amount</th><th width="5%"></th></tr></thead>
+                            <thead class="table-light text-muted">
+                                <tr>
+                                    <th>Description</th>
+                                    <th>Year Acquired</th>
+                                    <th>Acquisition Cost/Amount</th>
+                                    <th width="5%"></th>
+                                </tr>
+                            </thead>
                             <tbody>
                                 @foreach($personal_properties as $pp)
                                 <tr>
-                                    <td class="text-start fw-bold">{{ $pp->description }}</td><td>{{ $pp->year_acquired }}</td><td class="fw-bold text-success">₱{{ number_format($pp->acquisition_cost, 2) }}</td>
+                                    <td class="text-start fw-bold">{{ $pp->description }}</td>
+                                    <td>{{ $pp->year_acquired }}</td>
+                                    <td class="fw-bold text-success">₱{{ number_format($pp->acquisition_cost, 2) }}</td>
                                     <td><button class="btn btn-sm btn-outline-danger p-1" data-bs-toggle="modal" data-bs-target="#deleteConfirmModal" data-url="{{ route('saln.delete_record', ['table' => 'saln_personal_properties', 'id' => $pp->id]) }}"><i class="bi bi-trash"></i></button></td>
                                 </tr>
                                 @endforeach
@@ -180,11 +242,20 @@
                     <h6 class="bg-secondary text-white p-2 rounded-1 fw-bold">LIABILITIES</h6>
                     <div class="table-responsive mb-3">
                         <table class="table table-bordered table-sm text-center shadow-sm">
-                            <thead class="table-light text-muted"><tr><th>Nature</th><th>Name of Creditors</th><th>Outstanding Balance</th><th width="5%"></th></tr></thead>
+                            <thead class="table-light text-muted">
+                                <tr>
+                                    <th>Nature</th>
+                                    <th>Name of Creditors</th>
+                                    <th>Outstanding Balance</th>
+                                    <th width="5%"></th>
+                                </tr>
+                            </thead>
                             <tbody>
                                 @foreach($liabilities as $lia)
                                 <tr>
-                                    <td class="text-start fw-bold">{{ $lia->nature }}</td><td class="text-start">{{ $lia->name_of_creditors }}</td><td class="fw-bold text-danger">₱{{ number_format($lia->outstanding_balance, 2) }}</td>
+                                    <td class="text-start fw-bold">{{ $lia->nature }}</td>
+                                    <td class="text-start">{{ $lia->name_of_creditors }}</td>
+                                    <td class="fw-bold text-danger">₱{{ number_format($lia->outstanding_balance, 2) }}</td>
                                     <td><button class="btn btn-sm btn-outline-danger p-1" data-bs-toggle="modal" data-bs-target="#deleteConfirmModal" data-url="{{ route('saln.delete_record', ['table' => 'saln_liabilities', 'id' => $lia->id]) }}"><i class="bi bi-trash"></i></button></td>
                                 </tr>
                                 @endforeach
@@ -205,11 +276,22 @@
                     <h6 class="bg-secondary text-white p-2 rounded-1 fw-bold">BUSINESS INTERESTS AND FINANCIAL CONNECTIONS</h6>
                     <div class="table-responsive mb-3">
                         <table class="table table-bordered table-sm text-center shadow-sm">
-                            <thead class="table-light text-muted"><tr><th>Name of Entity/Business</th><th>Business Address</th><th>Nature of Business</th><th>Date of Acquisition</th><th width="5%"></th></tr></thead>
+                            <thead class="table-light text-muted">
+                                <tr>
+                                    <th>Name of Entity/Business</th>
+                                    <th>Business Address</th>
+                                    <th>Nature of Business</th>
+                                    <th>Date of Acquisition</th>
+                                    <th width="5%"></th>
+                                </tr>
+                            </thead>
                             <tbody>
                                 @foreach($businesses as $bus)
                                 <tr>
-                                    <td class="text-start fw-bold">{{ $bus->business_name }}</td><td>{{ $bus->business_address }}</td><td>{{ $bus->nature_of_business }}</td><td>{{ $bus->date_of_acquisition }}</td>
+                                    <td class="text-start fw-bold">{{ $bus->business_name }}</td>
+                                    <td>{{ $bus->business_address }}</td>
+                                    <td>{{ $bus->nature_of_business }}</td>
+                                    <td>{{ $bus->date_of_acquisition }}</td>
                                     <td><button class="btn btn-sm btn-outline-danger p-1" data-bs-toggle="modal" data-bs-target="#deleteConfirmModal" data-url="{{ route('saln.delete_record', ['table' => 'saln_business_interests', 'id' => $bus->id]) }}"><i class="bi bi-trash"></i></button></td>
                                 </tr>
                                 @endforeach
@@ -231,11 +313,22 @@
                     <h6 class="bg-secondary text-white p-2 rounded-1 fw-bold">RELATIVES IN THE GOVERNMENT SERVICE</h6>
                     <div class="table-responsive mb-3">
                         <table class="table table-bordered table-sm text-center shadow-sm">
-                            <thead class="table-light text-muted"><tr><th>Name of Relative</th><th>Relationship</th><th>Position</th><th>Name of Agency/Office and Address</th><th width="5%"></th></tr></thead>
+                            <thead class="table-light text-muted">
+                                <tr>
+                                    <th>Name of Relative</th>
+                                    <th>Relationship</th>
+                                    <th>Position</th>
+                                    <th>Name of Agency/Office and Address</th>
+                                    <th width="5%"></th>
+                                </tr>
+                            </thead>
                             <tbody>
                                 @foreach($relatives as $rel)
                                 <tr>
-                                    <td class="text-start fw-bold">{{ $rel->relative_name }}</td><td>{{ $rel->relationship }}</td><td>{{ $rel->position }}</td><td>{{ $rel->agency_address }}</td>
+                                    <td class="text-start fw-bold">{{ $rel->relative_name }}</td>
+                                    <td>{{ $rel->relationship }}</td>
+                                    <td>{{ $rel->position }}</td>
+                                    <td>{{ $rel->agency_address }}</td>
                                     <td><button class="btn btn-sm btn-outline-danger p-1" data-bs-toggle="modal" data-bs-target="#deleteConfirmModal" data-url="{{ route('saln.delete_record', ['table' => 'saln_relatives_gov', 'id' => $rel->id]) }}"><i class="bi bi-trash"></i></button></td>
                                 </tr>
                                 @endforeach

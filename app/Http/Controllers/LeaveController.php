@@ -49,25 +49,21 @@ class LeaveController extends Controller
 
         $user_id = Session::get('user_id');
 
-        // Update the query to join the positions table to get the position_name
-        $user = DB::table('users')
-            
-            ->select('users.*', 'positions.position_name')
-            ->where('users.id', $user_id)
-            ->first();
+        $user = DB::table('users')->where('id', $user_id)->first();
 
         if (!$user) {
             Session::forget('user_id');
             return redirect()->route('login')->with('error', 'Your session is no longer valid. Please log in again.');
         }
 
-        // Fetch the employee's most recent Service Record to get their current salary
+        // Fetch the employee's most recent Service Record
         $latest_service_record = DB::table('service_records')
             ->where('user_id', $user_id)
             ->orderBy('date_from', 'desc')
             ->first();
             
-        // If a record exists, use that salary. Otherwise, default to empty.
+        // Extract designation (position) and salary, defaulting to empty if no record exists
+        $current_position = $latest_service_record ? $latest_service_record->designation : '';
         $current_salary = $latest_service_record ? $latest_service_record->salary : '';
 
         $leaves = DB::table('leave_applications')
@@ -75,8 +71,8 @@ class LeaveController extends Controller
             ->orderBy('created_at', 'desc')
             ->get();
 
-        // Pass $current_salary to the view
-        return view('employee.leaves', compact('user', 'leaves', 'current_salary'));
+        // Pass $current_position and $current_salary to the view
+        return view('employee.leaves', compact('user', 'leaves', 'current_position', 'current_salary'));
     }
 
     public function store(Request $request)

@@ -25,7 +25,7 @@ class PdsController extends Controller
         $education        = DB::table('pds_education')->where('user_id', $user_id)->get();
         $eligibilities    = DB::table('pds_eligibility')->where('user_id', $user_id)->get();
         $work_experiences = DB::table('pds_work_experience')->where('user_id', $user_id)->orderBy('date_from', 'desc')->get();
-        
+
         // PAGE 3 DATA
         $voluntary_works  = DB::table('pds_voluntary_work')->where('user_id', $user_id)->orderBy('date_from', 'desc')->get();
         $learnings        = DB::table('pds_learning_development')->where('user_id', $user_id)->orderBy('date_from', 'desc')->get();
@@ -34,10 +34,19 @@ class PdsController extends Controller
         $questionnaire = DB::table('pds_questionnaire')->where('user_id', $user_id)->first();
         $references    = DB::table('pds_references')->where('user_id', $user_id)->get();
         $page4_details = DB::table('pds_page4_details')->where('user_id', $user_id)->first();
-        
+
         return view('employee.pds', compact(
-            'personal_info', 'children', 'education', 'eligibilities', 'work_experiences',
-            'voluntary_works', 'learnings', 'other_info', 'questionnaire', 'references', 'page4_details'
+            'personal_info',
+            'children',
+            'education',
+            'eligibilities',
+            'work_experiences',
+            'voluntary_works',
+            'learnings',
+            'other_info',
+            'questionnaire',
+            'references',
+            'page4_details'
         ));
     }
 
@@ -47,7 +56,20 @@ class PdsController extends Controller
     public function updatePersonalInfo(Request $request)
     {
         $user_id = Session::get('user_id');
-        $data = $request->except(['_token']);
+        
+        // Exclude the dropdown '_code' fields so MySQL doesn't look for them
+        $data = $request->except([
+            '_token',
+            'res_region_code',
+            'res_province_code',
+            'res_city_code',
+            'res_barangay_code',
+            'perm_region_code',
+            'perm_province_code',
+            'perm_city_code',
+            'perm_barangay_code'
+        ]);
+        
         $data['updated_at'] = now();
 
         $existing = DB::table('pds_personal_info')->where('user_id', $user_id)->first();
@@ -59,6 +81,7 @@ class PdsController extends Controller
             $data['created_at'] = now();
             DB::table('pds_personal_info')->insert($data);
         }
+        
         return back()->with('success', 'Personal Information saved!')->with('active_tab', 'family');
     }
 
@@ -112,7 +135,7 @@ class PdsController extends Controller
         $request->validate([
             'e_signature' => 'required|image|mimes:jpeg,png,jpg|max:2048',
             'signature_date' => 'required|date',
-            'active_tab' => 'nullable|string' // Grab the tab the user was on
+            'active_tab' => 'nullable|string'
         ]);
 
         $data = ['signature_date' => $request->signature_date, 'updated_at' => now()];
@@ -123,8 +146,7 @@ class PdsController extends Controller
         }
 
         DB::table('pds_personal_info')->where('user_id', $user_id)->update($data);
-        
-        // Return to whichever tab they uploaded the signature from
+
         $tab = $request->active_tab ?? 'education';
         return back()->with('success', 'E-Signature (BLOB) and Date saved successfully!')->with('active_tab', $tab);
     }
@@ -188,16 +210,28 @@ class PdsController extends Controller
     public function addLearning(Request $request)
     {
         $user_id = Session::get('user_id');
+
+        // Extract the raw binary data if the files were uploaded
+        $proofCompletion = $request->hasFile('proof_of_completion') 
+            ? file_get_contents($request->file('proof_of_completion')->getRealPath()) 
+            : null;
+
+        $proofInvitation = $request->hasFile('proof_of_invitation') 
+            ? file_get_contents($request->file('proof_of_invitation')->getRealPath()) 
+            : null;
+
         DB::table('pds_learning_development')->insert([
-            'user_id'         => $user_id,
-            'training_title'  => strtoupper($request->training_title),
-            'date_from'       => $request->date_from,
-            'date_to'         => strtoupper($request->date_to),
-            'number_of_hours' => $request->number_of_hours,
-            'ld_type'         => strtoupper($request->ld_type),
-            'sponsored_by'    => strtoupper($request->sponsored_by),
-            'created_at'      => now(),
-            'updated_at'      => now()
+            'user_id'             => $user_id,
+            'training_title'      => strtoupper($request->training_title),
+            'date_from'           => $request->date_from,
+            'date_to'             => strtoupper($request->date_to),
+            'number_of_hours'     => $request->number_of_hours,
+            'ld_type'             => strtoupper($request->ld_type),
+            'sponsored_by'        => strtoupper($request->sponsored_by),
+            'proof_of_completion' => $proofCompletion, // LONGBLOB
+            'proof_of_invitation' => $proofInvitation, // LONGBLOB
+            'created_at'          => now(),
+            'updated_at'          => now()
         ]);
         return back()->with('success', 'Learning & Development record added!')->with('active_tab', 'learning');
     }
@@ -214,6 +248,33 @@ class PdsController extends Controller
         ]);
         return back()->with('success', 'Information added!')->with('active_tab', 'other');
     }
+
+    public function downloadDocument($id, $column)
+    {
+        $record = DB::table('pds_learning_development')->where('id', $id)->first();
+
+        // Safety check to ensure they are only requesting allowed columns
+        if (!$record || !in_array($column, ['proof_of_completion', 'proof_of_invitation']) || empty($record->$column)) {
+            abort(404);
+        }
+
+        // Determine mime type based on magic bytes (PDF vs Image)
+        $blob = $record->$column;
+        $mimeType = 'application/pdf'; // Default fallback
+        if (strpos($blob, '%PDF') === 0) {
+            $mimeType = 'application/pdf';
+        } elseif (strpos($blob, "\xFF\xD8\xFF") === 0) {
+            $mimeType = 'image/jpeg';
+        } elseif (strpos($blob, "\x89PNG\x0D\x0A\x1A\x0A") === 0) {
+            $mimeType = 'image/png';
+        }
+
+        // Return the file stream
+        return response($blob)
+            ->header('Content-Type', $mimeType)
+            ->header('Content-Disposition', 'inline; filename="' . $column . '_' . $id . '"');
+    }
+
     // =========================================================
     // 6. SAVE SECTION IX: Page 4 (Questionnaire & Final Details)
     // =========================================================
@@ -260,23 +321,44 @@ class PdsController extends Controller
         DB::table('pds_page4_details')->updateOrInsert(['user_id' => $user_id], $data);
         return back()->with('success', 'Gov ID and Images saved!')->with('active_tab', 'page4');
     }
+
     // =========================================================
     // 7. UNIVERSAL DELETE FUNCTION
     // =========================================================
     public function deleteRecord($table, $id)
     {
         $user_id = Session::get('user_id');
-        
+
         // Security check: Only allow deletion from these specific PDS tables
         $allowedTables = [
-            'pds_children', 'pds_education', 'pds_eligibility', 
-            'pds_work_experience', 'pds_voluntary_work', 'pds_learning_development', 
-            'pds_other_information', 'pds_references'
+            'pds_children',
+            'pds_education',
+            'pds_eligibility',
+            'pds_work_experience',
+            'pds_voluntary_work',
+            'pds_learning_development',
+            'pds_other_information',
+            'pds_references'
         ];
 
         if (in_array($table, $allowedTables)) {
             DB::table($table)->where('id', $id)->where('user_id', $user_id)->delete();
-            return back()->with('success', 'Record deleted successfully!');
+            
+            // Map table to the correct active tab so the user stays on the same page
+            $tabMapping = [
+                'pds_children' => 'family',
+                'pds_education' => 'education',
+                'pds_eligibility' => 'eligibility',
+                'pds_work_experience' => 'work',
+                'pds_voluntary_work' => 'voluntary',
+                'pds_learning_development' => 'learning',
+                'pds_other_information' => 'other',
+                'pds_references' => 'page4'
+            ];
+            
+            $activeTab = $tabMapping[$table] ?? 'personal';
+            
+            return back()->with('success', 'Record deleted successfully!')->with('active_tab', $activeTab);
         }
 
         return back()->with('error', 'Invalid table reference.');
@@ -306,13 +388,13 @@ class PdsController extends Controller
 
         // 3. Load the Official Excel Template
         $templatePath = storage_path('app/templates/ANNEX-H-1-CS-Form-No.-212-Revised-2025-Personal-Data-Sheet.xlsx');
-        
+
         if (!file_exists($templatePath)) {
             return back()->with('error', 'Template file not found on the server.');
         }
 
         $spreadsheet = IOFactory::load($templatePath);
-        
+
         // ==========================================================
         // PAGE 1: PERSONAL INFO
         // ==========================================================
@@ -330,7 +412,7 @@ class PdsController extends Controller
         $sheet1->setCellValue('D19', $personal_info->height ?? 'N/A');
         $sheet1->setCellValue('D20', $personal_info->weight ?? 'N/A');
         $sheet1->setCellValue('D21', $personal_info->blood_type ?? 'N/A');
-        
+
         // IDs
         $sheet1->setCellValue('D22', $personal_info->gsis_no ?? 'N/A');
         $sheet1->setCellValue('D24', $personal_info->pagibig_no ?? 'N/A');
@@ -383,7 +465,7 @@ class PdsController extends Controller
 
         // 4. Force Download as Excel File
         $fileName = 'PDS_' . strtoupper($personal_info->last_name) . '_' . date('Ymd') . '.xlsx';
-        
+
         header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
         header('Content-Disposition: attachment;filename="' . $fileName . '"');
         header('Cache-Control: max-age=0');

@@ -32,10 +32,28 @@ class SalnController extends Controller
         $total_liabilities = $liabilities->sum('outstanding_balance');
         $net_worth = $total_assets - $total_liabilities;
 
+        // --- 1. GET AUTO-FILL NAME FROM PDS ---
+        $pds = DB::table('pds_personal_info')->where('user_id', $user_id)->first();
+        $auto_name = '';
+        if ($pds) {
+            // Formats as "LASTNAME, FIRSTNAME MIDDLENAME EXTENSION"
+            $auto_name = trim("{$pds->last_name}, {$pds->first_name} {$pds->middle_name} {$pds->name_extension}");
+            $auto_name = trim($auto_name, " ,"); // Cleans up if some fields are empty
+        }
+
+        // --- 2. GET AUTO-FILL POSITION FROM LATEST SERVICE RECORD ---
+        $latest_sr = DB::table('service_records')
+            ->where('user_id', $user_id)
+            ->orderBy('date_from', 'desc')
+            ->first();
+        $auto_position = $latest_sr ? $latest_sr->designation : '';
+
+        // --- 3. RETURN TO VIEW ---
         return view('employee.saln', compact(
-            'saln_info', 'children', 'real_properties', 'personal_properties',
+            'saln_info', 'total_assets', 'total_liabilities', 'net_worth', 
+            'children', 'real_properties', 'personal_properties', 
             'liabilities', 'businesses', 'relatives', 
-            'total_assets', 'total_liabilities', 'net_worth'
+            'auto_name', 'auto_position'
         ));
     }
 

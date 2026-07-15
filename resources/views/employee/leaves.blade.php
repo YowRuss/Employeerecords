@@ -117,8 +117,8 @@
                     <!-- Update Section 4 and Section 5 inside your Leave Application Form -->
                     <div class="col-md-4">
                         <label class="form-label small fw-bold text-muted mb-1">4. Position <span class="text-danger">*</span></label>
-                        <!-- Autofilled from the user's assigned position -->
-                        <input type="text" name="position" class="form-control form-control-sm text-uppercase" value="{{ $user->position_name ?? '' }}" placeholder="e.g. TEACHER I" required readonly>
+                        <!-- Autofilled from the designation in the latest Service Record -->
+                        <input type="text" name="position" class="form-control form-control-sm text-uppercase" value="{{ $current_position }}" placeholder="e.g. TEACHER I" required readonly>
                     </div>
                     <div class="col-md-4">
                         <label class="form-label small fw-bold text-muted mb-1">5. Salary <span class="text-danger">*</span></label>

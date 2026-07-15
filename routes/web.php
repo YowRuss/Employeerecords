@@ -35,6 +35,7 @@ Route::post('/my-pds/add-reference', [App\Http\Controllers\PdsController::class,
 Route::post('/my-pds/update-page4-details', [App\Http\Controllers\PdsController::class, 'updatePage4Details'])->name('pds.update_page4_details');
 Route::post('/my-pds/delete-record/{table}/{id}', [App\Http\Controllers\PdsController::class, 'deleteRecord'])->name('pds.delete_record');
 Route::get('/my-pds/print', [App\Http\Controllers\PdsController::class, 'printPds'])->name('pds.print');
+Route::get('/pds/document/{id}/{column}', [App\Http\Controllers\PdsController::class, 'downloadDocument'])->name('pds.document');
 
 // Employee Routes (SALN)
 Route::get('/my-saln', [App\Http\Controllers\SalnController::class, 'editSaln'])->name('saln.edit');
@@ -49,6 +50,7 @@ Route::post('/my-saln/add-liability', [App\Http\Controllers\SalnController::clas
 Route::post('/my-saln/add-business', [App\Http\Controllers\SalnController::class, 'addBusiness'])->name('saln.add_business');
 Route::post('/my-saln/add-relative', [App\Http\Controllers\SalnController::class, 'addRelative'])->name('saln.add_relative');
 Route::post('/my-saln/delete/{table}/{id}', [App\Http\Controllers\SalnController::class, 'deleteRecord'])->name('saln.delete_record');
+
 
 // HR Management Routes
 Route::get('/hr/employee/{id}/pds', [App\Http\Controllers\HrController::class, 'viewPds'])->name('hr.view_pds');
@@ -90,6 +92,11 @@ Route::post('/hr/service-record/delete/{id}', [App\Http\Controllers\ServiceRecor
 //Route::post('/hr/service-record/store', [App\Http\Controllers\HrController::class, 'storeServiceRecord'])->name('hr.store_service_record');
 // HR Service Records Directory (Shows list of employees)
 Route::get('/hr/service-records-directory', [App\Http\Controllers\ServiceRecordController::class, 'hrDirectory'])->name('hr.service_record.directory');
+// routes/web.php
+Route::get('/hr/staff-profiling', [App\Http\Controllers\HrController::class, 'staffProfiling'])->name('hr.staff_profiling');
+Route::post('/hr/employee/{id}/update-position', [App\Http\Controllers\HrController::class, 'updatePosition'])->name('hr.update_position');
+// HR view employee profile route
+Route::get('/hr/employee/{id}/profile', [App\Http\Controllers\HrController::class, 'viewProfile'])->name('hr.view_profile');
 
 // Employee Routes (Service Record)
 Route::get('/my-service-record', [App\Http\Controllers\EmployeeController::class, 'myServiceRecord'])->name('employee.service_record');
