@@ -4,8 +4,8 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Session;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Session;
 
 class LeaveController extends Controller
 {
@@ -15,9 +15,10 @@ class LeaveController extends Controller
      */
     private function requireAuth()
     {
-        if (!Session::has('user_id')) {
+        if (! Session::has('user_id')) {
             return redirect()->route('login');
         }
+
         return null;
     }
 
@@ -51,8 +52,9 @@ class LeaveController extends Controller
 
         $user = DB::table('users')->where('id', $user_id)->first();
 
-        if (!$user) {
+        if (! $user) {
             Session::forget('user_id');
+
             return redirect()->route('login')->with('error', 'Your session is no longer valid. Please log in again.');
         }
 
@@ -61,7 +63,7 @@ class LeaveController extends Controller
             ->where('user_id', $user_id)
             ->orderBy('date_from', 'desc')
             ->first();
-            
+
         // Extract designation (position) and salary, defaulting to empty if no record exists
         $current_position = $latest_service_record ? $latest_service_record->designation : '';
         $current_salary = $latest_service_record ? $latest_service_record->salary : '';
@@ -84,16 +86,16 @@ class LeaveController extends Controller
         $user_id = Session::get('user_id');
 
         $validated = $request->validate([
-            'date_of_filing'         => ['required', 'date'],
-            'position'               => ['required', 'string', 'max:255'],
-            'salary'                 => ['required', 'string', 'max:50'],
-            'leave_type'             => ['required', 'string', 'in:' . implode(',', $this->leaveTypes())],
-            'leave_type_others'      => ['nullable', 'required_if:leave_type,Others', 'string', 'max:255'],
-            'leave_details'          => ['nullable', 'string', 'max:255'],
+            'date_of_filing' => ['required', 'date'],
+            'position' => ['required', 'string', 'max:255'],
+            'salary' => ['required', 'string', 'max:50'],
+            'leave_type' => ['required', 'string', 'in:'.implode(',', $this->leaveTypes())],
+            'leave_type_others' => ['nullable', 'required_if:leave_type,Others', 'string', 'max:255'],
+            'leave_details' => ['nullable', 'string', 'max:255'],
             'leave_details_specific' => ['nullable', 'string', 'max:255'],
-            'working_days'           => ['required', 'integer', 'min:1', 'max:365'],
-            'inclusive_dates'        => ['required', 'string', 'max:255'],
-            'commutation'            => ['required', 'in:Requested,Not Requested'],
+            'working_days' => ['required', 'integer', 'min:1', 'max:365'],
+            'inclusive_dates' => ['required', 'string', 'max:255'],
+            'commutation' => ['required', 'in:Requested,Not Requested'],
         ], [
             'leave_type_others.required_if' => 'Please specify the leave type when selecting "Others".',
         ]);
@@ -105,25 +107,25 @@ class LeaveController extends Controller
         }
 
         $leaveDetailsMap = [
-            'Vacation Leave'                     => ['Within the Philippines', 'Abroad', 'Monetization of Leave Credits', 'Terminal Leave'],
-            'Mandatory/Forced Leave'              => ['Monetization of Leave Credits', 'Terminal Leave'],
-            'Sick Leave'                          => ['In Hospital', 'Out Patient', 'Monetization of Leave Credits', 'Terminal Leave'],
-            'Paternity Leave'                     => ['Monetization of Leave Credits', 'Terminal Leave'],
-            'Special Privilege Leave'             => ['Within the Philippines', 'Abroad', 'Monetization of Leave Credits', 'Terminal Leave'],
-            'Solo Parent Leave'                   => ['Monetization of Leave Credits', 'Terminal Leave'],
-            'Study Leave'                         => ["Completion of Master's Degree", 'BAR/Board Examination Review', 'Monetization of Leave Credits', 'Terminal Leave'],
-            '10-Day VAWC Leave'                   => ['Monetization of Leave Credits', 'Terminal Leave'],
-            'Rehabilitation Privilege'            => ['Monetization of Leave Credits', 'Terminal Leave'],
-            'Special Leave Benefits for Women'    => ['Monetization of Leave Credits', 'Terminal Leave'],
-            'Special Emergency (Calamity) Leave'  => ['Monetization of Leave Credits', 'Terminal Leave'],
-            'Adoption Leave'                      => ['Monetization of Leave Credits', 'Terminal Leave'],
-            'Others'                              => ['Monetization of Leave Credits', 'Terminal Leave'],
-            'Maternity Leave'                     => [], // no details allowed at all
+            'Vacation Leave' => ['Within the Philippines', 'Abroad', 'Monetization of Leave Credits', 'Terminal Leave'],
+            'Mandatory/Forced Leave' => ['Monetization of Leave Credits', 'Terminal Leave'],
+            'Sick Leave' => ['In Hospital', 'Out Patient', 'Monetization of Leave Credits', 'Terminal Leave'],
+            'Paternity Leave' => ['Monetization of Leave Credits', 'Terminal Leave'],
+            'Special Privilege Leave' => ['Within the Philippines', 'Abroad', 'Monetization of Leave Credits', 'Terminal Leave'],
+            'Solo Parent Leave' => ['Monetization of Leave Credits', 'Terminal Leave'],
+            'Study Leave' => ["Completion of Master's Degree", 'BAR/Board Examination Review', 'Monetization of Leave Credits', 'Terminal Leave'],
+            '10-Day VAWC Leave' => ['Monetization of Leave Credits', 'Terminal Leave'],
+            'Rehabilitation Privilege' => ['Monetization of Leave Credits', 'Terminal Leave'],
+            'Special Leave Benefits for Women' => ['Monetization of Leave Credits', 'Terminal Leave'],
+            'Special Emergency (Calamity) Leave' => ['Monetization of Leave Credits', 'Terminal Leave'],
+            'Adoption Leave' => ['Monetization of Leave Credits', 'Terminal Leave'],
+            'Others' => ['Monetization of Leave Credits', 'Terminal Leave'],
+            'Maternity Leave' => [], // no details allowed at all
         ];
 
-        if (!empty($validated['leave_details'])) {
+        if (! empty($validated['leave_details'])) {
             $allowed = $leaveDetailsMap[$validated['leave_type']] ?? [];
-            if (!in_array($validated['leave_details'], $allowed, true)) {
+            if (! in_array($validated['leave_details'], $allowed, true)) {
                 return back()->withInput()->withErrors([
                     'leave_details' => 'The selected detail does not apply to this leave type.',
                 ]);
@@ -132,24 +134,25 @@ class LeaveController extends Controller
 
         try {
             DB::table('leave_applications')->insert([
-                'user_id'                => $user_id,
-                'office_department'      => 'CNHS-JH', // hardcoded server-side, never trust client input for this
-                'date_of_filing'         => $validated['date_of_filing'],
-                'position'               => strtoupper($validated['position']),
-                'salary'                 => strtoupper($validated['salary']),
-                'leave_type'             => $validated['leave_type'],
-                'leave_type_others'      => strtoupper($validated['leave_type_others'] ?? ''),
-                'leave_details'          => $validated['leave_details'] ?? null,
+                'user_id' => $user_id,
+                'office_department' => 'CNHS-JH', // hardcoded server-side, never trust client input for this
+                'date_of_filing' => $validated['date_of_filing'],
+                'position' => strtoupper($validated['position']),
+                'salary' => strtoupper($validated['salary']),
+                'leave_type' => $validated['leave_type'],
+                'leave_type_others' => strtoupper($validated['leave_type_others'] ?? ''),
+                'leave_details' => $validated['leave_details'] ?? null,
                 'leave_details_specific' => strtoupper($validated['leave_details_specific'] ?? ''),
-                'working_days'           => $validated['working_days'],
-                'inclusive_dates'        => strtoupper($validated['inclusive_dates']),
-                'commutation'            => $validated['commutation'],
-                'status'                 => 'PENDING',
-                'created_at'             => now(),
-                'updated_at'             => now(),
+                'working_days' => $validated['working_days'],
+                'inclusive_dates' => strtoupper($validated['inclusive_dates']),
+                'commutation' => $validated['commutation'],
+                'status' => 'PENDING',
+                'created_at' => now(),
+                'updated_at' => now(),
             ]);
         } catch (\Throwable $e) {
-            Log::error('Leave application insert failed: ' . $e->getMessage());
+            Log::error('Leave application insert failed: '.$e->getMessage());
+
             return back()->withInput()->with('error', 'Something went wrong while submitting your application. Please try again.');
         }
 
@@ -169,7 +172,7 @@ class LeaveController extends Controller
             ->where('user_id', $user_id)
             ->first();
 
-        if (!$leave) {
+        if (! $leave) {
             return back()->with('error', 'Leave application not found.');
         }
 
@@ -180,7 +183,8 @@ class LeaveController extends Controller
         try {
             DB::table('leave_applications')->where('id', $id)->delete();
         } catch (\Throwable $e) {
-            Log::error('Leave application delete failed: ' . $e->getMessage());
+            Log::error('Leave application delete failed: '.$e->getMessage());
+
             return back()->with('error', 'Something went wrong while cancelling. Please try again.');
         }
 
@@ -190,45 +194,54 @@ class LeaveController extends Controller
     // =========================================================
     // HR & PRINCIPAL VIEW (MANAGEMENT)
     // =========================================================
-    
-    // Show all leave applications to HR
-    public function hrIndex()
+
+    public function hrIndex(Request $request)
     {
-        if (!Session::has('user_id') || Session::get('role_id') == 1) { // Assuming role_id 1 is Employee
+        if (! Session::has('user_id') || Session::get('role_id') == 1) { // Assuming role_id 1 is Employee
             return redirect()->route('dashboard')->with('error', 'Unauthorized access.');
         }
 
-        // Fetch all leave applications and join with the users table to get the employee's name
-        $leaves = DB::table('leave_applications')
+        $query = DB::table('leave_applications')
             ->join('users', 'leave_applications.user_id', '=', 'users.id')
-            ->select('leave_applications.*', 'users.first_name', 'users.last_name', 'users.profile_image', 'users.image_type')
-            ->orderBy('leave_applications.created_at', 'desc')
-            ->get();
+            ->select('leave_applications.*', 'users.first_name', 'users.last_name');
 
-        return view('hr.leave_monitoring', compact('leaves'));
+        if ($request->has('status') && $request->status != 'All') {
+            $query->where('leave_applications.status', strtoupper($request->status));
+        } else {
+            $query->orderByRaw("FIELD(leave_applications.status, 'PENDING', 'APPROVED', 'DISAPPROVED')")
+                ->orderBy('leave_applications.created_at', 'desc');
+        }
+
+        $leaves = $query->get();
+
+        $stats = [
+            'pending' => $leaves->where('status', 'PENDING')->count(),
+            'approved' => $leaves->where('status', 'APPROVED')->count(),
+            'denied' => $leaves->where('status', 'DISAPPROVED')->count(),
+        ];
+
+        return view('hr.leaves.index', compact('leaves', 'stats'));
     }
 
-    // Approve Leave
-    public function hrApprove(Request $request, $id)
+    public function hrUpdateStatus(Request $request, $id)
     {
-        DB::table('leave_applications')->where('id', $id)->update([
-            'status' => 'APPROVED',
-            'hr_remarks' => strtoupper($request->hr_remarks ?? 'APPROVED WITH PAY'),
-            'updated_at' => now()
+        if (! Session::has('user_id') || Session::get('role_id') == 1) {
+            return back()->with('error', 'Unauthorized action.');
+        }
+
+        $request->validate([
+            'status' => 'required|in:APPROVED,DISAPPROVED',
+            'hr_remarks' => 'nullable|string',
         ]);
 
-        return back()->with('success', 'Leave application approved successfully!');
-    }
-
-    // Reject Leave
-    public function hrReject(Request $request, $id)
-    {
         DB::table('leave_applications')->where('id', $id)->update([
-            'status' => 'DISAPPROVED',
-            'hr_remarks' => strtoupper($request->hr_remarks ?? 'DISAPPROVED'),
-            'updated_at' => now()
+            'status' => $request->status,
+            'hr_remarks' => strtoupper($request->hr_remarks),
+            'updated_at' => now(),
         ]);
 
-        return back()->with('success', 'Leave application has been disapproved.');
+        $message = $request->status == 'APPROVED' ? 'Leave application approved.' : 'Leave application disapproved.';
+
+        return back()->with('success', $message);
     }
 }

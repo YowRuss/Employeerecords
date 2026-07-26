@@ -20,13 +20,13 @@
     </div>
 
     @php
-        $sections = [
-            $personal_info, $children->count(), $education->count(), $eligibilities->count(), 
-            $work_experiences->count(), $voluntary_works->count(), $learnings->count(), 
-            $other_info->count(), $questionnaire
-        ];
-        $completedSections = count(array_filter($sections));
-        $progress = round(($completedSections / 9) * 100);
+    $sections = [
+    $personal_info, $children->count(), $education->count(), $eligibilities->count(),
+    $work_experiences->count(), $voluntary_works->count(), $learnings->count(),
+    $other_info->count(), $questionnaire
+    ];
+    $completedSections = count(array_filter($sections));
+    $progress = round(($completedSections / 9) * 100);
     @endphp
 
     @if(session('success'))
@@ -63,22 +63,25 @@
                         <div class="pds-section-card">
                             <div class="pds-section-header">I. Personal Information</div>
                             <div class="pds-section-body">
+                                <div class="alert py-2 small mb-3 border-0 shadow-sm" style="background-color: #fafaf8ff; border-left: 4px solid #f9fd0dff !important;">
+                                    <i class="bi bi-info-circle-fill text-warning me-1"></i> <strong class="text-dark">Note:</strong> <span class="text-muted">Contact HR to change your official name.</span>
+                                </div>
                                 <div class="row g-3">
                                     <div class="col-md-3">
                                         <label class="form-label fw-bold">Surname <span class="text-danger">*</span></label>
-                                        <input type="text" name="last_name" class="form-control text-uppercase" value="{{ $personal_info->last_name ?? '' }}" required>
+                                        <input type="text" name="last_name" class="form-control text-uppercase bg-light" value="{{ $personal_info->last_name ?? '' }}" readonly required>
                                     </div>
                                     <div class="col-md-4">
                                         <label class="form-label fw-bold">First Name <span class="text-danger">*</span></label>
-                                        <input type="text" name="first_name" class="form-control text-uppercase" value="{{ $personal_info->first_name ?? '' }}" required>
+                                        <input type="text" name="first_name" class="form-control text-uppercase bg-light" value="{{ $personal_info->first_name ?? '' }}" readonly required>
                                     </div>
                                     <div class="col-md-2">
                                         <label class="form-label fw-bold">Extension <small class="text-muted">(Jr, Sr)</small></label>
-                                        <input type="text" name="name_extension" class="form-control text-uppercase" value="{{ $personal_info->name_extension ?? '' }}">
+                                        <input type="text" name="name_extension" class="form-control text-uppercase bg-light" value="{{ $personal_info->name_extension ?? '' }}" readonly>
                                     </div>
                                     <div class="col-md-3">
                                         <label class="form-label fw-bold">Middle Name</label>
-                                        <input type="text" name="middle_name" class="form-control text-uppercase" value="{{ $personal_info->middle_name ?? '' }}">
+                                        <input type="text" name="middle_name" class="form-control text-uppercase bg-light" value="{{ $personal_info->middle_name ?? '' }}" readonly>
                                     </div>
 
                                     <div class="col-md-3">
@@ -93,11 +96,13 @@
                                         <label class="form-label fw-bold">Sex <span class="text-danger">*</span></label>
                                         <div class="d-flex align-items-center mt-2">
                                             <div class="form-check form-check-inline">
-                                                <input class="form-check-input" type="radio" name="sex" id="sexMale" value="Male" {{ ($personal_info->sex ?? '') == 'Male' ? 'checked' : '' }} required>
+                                                <!-- value="1" for Male -->
+                                                <input class="form-check-input" type="radio" name="sex" id="sexMale" value="1" {{ ($personal_info->sex ?? '') == '1' ? 'checked' : '' }} required>
                                                 <label class="form-check-label" for="sexMale">Male</label>
                                             </div>
                                             <div class="form-check form-check-inline">
-                                                <input class="form-check-input" type="radio" name="sex" id="sexFemale" value="Female" {{ ($personal_info->sex ?? '') == 'Female' ? 'checked' : '' }}>
+                                                <!-- value="0" for Female -->
+                                                <input class="form-check-input" type="radio" name="sex" id="sexFemale" value="0" {{ ($personal_info->sex ?? '') == '0' ? 'checked' : '' }}>
                                                 <label class="form-check-label" for="sexFemale">Female</label>
                                             </div>
                                         </div>
@@ -127,14 +132,19 @@
                                     </div>
                                     <div class="col-md-3">
                                         <label class="form-label fw-bold">Citizenship <span class="text-danger">*</span></label>
-                                        <select name="citizenship" class="form-select" required>
-                                            <option value="Filipino" selected>Filipino</option>
-                                            <option value="Dual Citizenship">Dual Citizenship</option>
+                                        <select name="citizenship" id="citizenshipType" class="form-select" onchange="$('#dualCountry').prop('disabled', this.value !== 'Dual Citizenship');" required>
+                                            <option value="Filipino" {{ ($personal_info->citizenship ?? 'Filipino') == 'Filipino' ? 'selected' : '' }}>Filipino</option>
+                                            <option value="Dual Citizenship" {{ ($personal_info->citizenship ?? '') == 'Dual Citizenship' ? 'selected' : '' }}>Dual Citizenship</option>
                                         </select>
                                     </div>
                                     <div class="col-md-3">
-                                        <label class="form-label fw-bold">If Dual, Country</label>
-                                        <input type="text" name="citizenship_country" class="form-control text-uppercase" placeholder="Indicate Country">
+                                        <label class="form-label fw-bold text-muted small">If Dual, Country</label>
+                                        <select name="citizenship_country_id" id="dualCountry" class="form-select select2-search" {{ ($personal_info->citizenship ?? '') == 'Dual Citizenship' ? '' : 'disabled' }}>
+                                            <option value="" selected disabled>Select Country...</option>
+                                            @foreach($countries as $country)
+                                                <option value="{{ $country->id }}" {{ ($personal_info->citizenship_country_id ?? '') == $country->id ? 'selected' : '' }}>{{ $country->name }}</option>
+                                            @endforeach
+                                        </select>
                                     </div>
                                 </div>
                             </div>
@@ -158,8 +168,8 @@
                                         <input type="text" name="philhealth_no" class="form-control" value="{{ $personal_info->philhealth_no ?? '' }}">
                                     </div>
                                     <div class="col-md-4">
-                                        <label class="form-label fw-bold">SSS NO.</label>
-                                        <input type="text" name="sss_no" class="form-control" value="{{ $personal_info->sss_no ?? '' }}">
+                                        <label class="form-label fw-bold">PhilSys Number (PSN)</label>
+                                        <input type="text" name="psn_no" class="form-control" value="{{ $personal_info->psn_no ?? '' }}">
                                     </div>
                                     <div class="col-md-4">
                                         <label class="form-label fw-bold">TIN NO.</label>
@@ -194,31 +204,27 @@
                                             </div>
                                             <div class="col-md-6">
                                                 <label class="form-label fw-bold">Region <span class="text-danger">*</span></label>
-                                                <select name="res_region_code" id="res_region" class="form-select select2-search" required>
-                                                    <option value="" disabled selected>Search...</option>
+                                                <select name="res_region" id="res_region" class="form-select select2-search" data-selected="{{ $personal_info->res_region ?? '' }}" required>
+                                                    <option value="" disabled selected>Search Region...</option>
                                                 </select>
-                                                <input type="hidden" name="res_region" id="res_region_text" value="{{ $personal_info->res_region ?? '' }}">
                                             </div>
                                             <div class="col-md-6">
                                                 <label class="form-label fw-bold">Province <span class="text-danger">*</span></label>
-                                                <select name="res_province_code" id="res_province" class="form-select select2-search" required>
-                                                    <option value="" disabled selected>Search...</option>
+                                                <select name="res_province" id="res_province" class="form-select select2-search" data-selected="{{ $personal_info->res_province ?? '' }}" required>
+                                                    <option value="" disabled selected>Search Province...</option>
                                                 </select>
-                                                <input type="hidden" name="res_province" id="res_province_text" value="{{ $personal_info->res_province ?? '' }}">
                                             </div>
                                             <div class="col-md-6">
                                                 <label class="form-label fw-bold">City/Municipality <span class="text-danger">*</span></label>
-                                                <select name="res_city_code" id="res_city" class="form-select select2-search" required>
-                                                    <option value="" disabled selected>Search...</option>
+                                                <select name="res_city" id="res_city" class="form-select select2-search" data-selected="{{ $personal_info->res_city ?? '' }}" required>
+                                                    <option value="" disabled selected>Search City/Municipality...</option>
                                                 </select>
-                                                <input type="hidden" name="res_city" id="res_city_text" value="{{ $personal_info->res_city ?? '' }}">
                                             </div>
                                             <div class="col-md-6">
                                                 <label class="form-label fw-bold">Barangay <span class="text-danger">*</span></label>
-                                                <select name="res_barangay_code" id="res_barangay" class="form-select select2-search" required>
-                                                    <option value="" disabled selected>Search...</option>
+                                                <select name="res_barangay" id="res_barangay" class="form-select select2-search" data-selected="{{ $personal_info->res_barangay ?? '' }}" required>
+                                                    <option value="" disabled selected>Search Barangay...</option>
                                                 </select>
-                                                <input type="hidden" name="res_barangay" id="res_barangay_text" value="{{ $personal_info->res_barangay ?? '' }}">
                                             </div>
                                             <div class="col-md-6">
                                                 <label class="form-label fw-bold">ZIP Code</label>
@@ -255,31 +261,27 @@
                                             </div>
                                             <div class="col-md-6">
                                                 <label class="form-label fw-bold">Region <span class="text-danger">*</span></label>
-                                                <select name="perm_region_code" id="perm_region" class="form-select select2-search" required>
-                                                    <option value="" disabled selected>Search...</option>
+                                                <select name="perm_region" id="perm_region" class="form-select select2-search" data-selected="{{ $personal_info->perm_region ?? '' }}" required>
+                                                    <option value="" disabled selected>Search Region...</option>
                                                 </select>
-                                                <input type="hidden" name="perm_region" id="perm_region_text" value="{{ $personal_info->perm_region ?? '' }}">
                                             </div>
                                             <div class="col-md-6">
                                                 <label class="form-label fw-bold">Province <span class="text-danger">*</span></label>
-                                                <select name="perm_province_code" id="perm_province" class="form-select select2-search" required>
-                                                    <option value="" disabled selected>Search...</option>
+                                                <select name="perm_province" id="perm_province" class="form-select select2-search" data-selected="{{ $personal_info->perm_province ?? '' }}" required>
+                                                    <option value="" disabled selected>Search Province...</option>
                                                 </select>
-                                                <input type="hidden" name="perm_province" id="perm_province_text" value="{{ $personal_info->perm_province ?? '' }}">
                                             </div>
                                             <div class="col-md-6">
                                                 <label class="form-label fw-bold">City/Municipality <span class="text-danger">*</span></label>
-                                                <select name="perm_city_code" id="perm_city" class="form-select select2-search" required>
-                                                    <option value="" disabled selected>Search...</option>
+                                                <select name="perm_city" id="perm_city" class="form-select select2-search" data-selected="{{ $personal_info->perm_city ?? '' }}" required>
+                                                    <option value="" disabled selected>Search City/Municipality...</option>
                                                 </select>
-                                                <input type="hidden" name="perm_city" id="perm_city_text" value="{{ $personal_info->perm_city ?? '' }}">
                                             </div>
                                             <div class="col-md-6">
                                                 <label class="form-label fw-bold">Barangay <span class="text-danger">*</span></label>
-                                                <select name="perm_barangay_code" id="perm_barangay" class="form-select select2-search" required>
-                                                    <option value="" disabled selected>Search...</option>
+                                                <select name="perm_barangay" id="perm_barangay" class="form-select select2-search" data-selected="{{ $personal_info->perm_barangay ?? '' }}" required>
+                                                    <option value="" disabled selected>Search Barangay...</option>
                                                 </select>
-                                                <input type="hidden" name="perm_barangay" id="perm_barangay_text" value="{{ $personal_info->perm_barangay ?? '' }}">
                                             </div>
                                             <div class="col-md-6">
                                                 <label class="form-label fw-bold">ZIP Code</label>
@@ -403,7 +405,7 @@
                                                 <tr>
                                                     <th class="text-muted">FULL NAME</th>
                                                     <th class="text-muted">DATE OF BIRTH</th>
-                                                    <th></th>
+                                                    <th class="text-muted text-center" width="5%">ACTION</th>
                                                 </tr>
                                             </thead>
                                             <tbody>
@@ -474,7 +476,7 @@
                                             <th rowspan="2">Highest Level/Units</th>
                                             <th rowspan="2">Year Grad</th>
                                             <th rowspan="2">Honors</th>
-                                            <th rowspan="2"></th>
+                                            <th rowspan="2" class="text-center" width="5%">Action</th>
                                         </tr>
                                         <tr>
                                             <th>From</th>
@@ -560,7 +562,7 @@
                                             <th rowspan="2">Date of Exam</th>
                                             <th rowspan="2">Place of Exam</th>
                                             <th colspan="2">License (if applicable)</th>
-                                            <th rowspan="2"></th>
+                                            <th rowspan="2" class="text-center" width="5%">Action</th>
                                         </tr>
                                         <tr>
                                             <th>Number</th>
@@ -640,8 +642,8 @@
                                             <th rowspan="2">Position Title</th>
                                             <th rowspan="2">Department / Agency / Company</th>
                                             <th rowspan="2">Status of Appointment</th>
-                                            <th rowspan="2">Gov't Service</th>
-                                            <th rowspan="2"></th>
+                                            <th rowspan="2">Gov't Service (Y/N)</th>
+                                            <th rowspan="2" class="text-center" width="5%">Action</th>
                                         </tr>
                                         <tr>
                                             <th>From</th>
@@ -723,7 +725,7 @@
                                             <th colspan="2">Inclusive Dates</th>
                                             <th rowspan="2">Hours</th>
                                             <th rowspan="2">Position / Nature of Work</th>
-                                            <th rowspan="2"></th>
+                                            <th rowspan="2" class="text-center" width="5%">Action</th>
                                         </tr>
                                         <tr>
                                             <th>From</th>
@@ -794,9 +796,20 @@
                                 <table class="table table-bordered table-hover align-middle shadow-sm text-center bg-white mb-0" style="font-size: 0.85rem;">
                                     <thead class="table-light align-middle text-muted">
                                         <tr>
-                                            <th rowspan="2" width="20%">Training Title</th><th colspan="2">Inclusive Dates</th><th rowspan="2" width="5%">Hours</th><th rowspan="2" width="10%">Type</th><th rowspan="2" width="15%">Conducted By</th><th colspan="2">Supporting Documents</th><th rowspan="2" width="5%"></th>
+                                            <th rowspan="2" width="20%">Training Title</th>
+                                            <th colspan="2">Inclusive Dates</th>
+                                            <th rowspan="2" width="5%">Hours</th>
+                                            <th rowspan="2" width="10%">Type</th>
+                                            <th rowspan="2">Conducted/Sponsored By</th>
+                                            <th colspan="2">Supporting Documents</th>
+                                            <th rowspan="2" class="text-center" width="5%">Action</th>
                                         </tr>
-                                        <tr><th>From</th><th>To</th><th>Completion</th><th>Invitation</th></tr>
+                                        <tr>
+                                            <th>From</th>
+                                            <th>To</th>
+                                            <th>Completion</th>
+                                            <th>Invitation</th>
+                                        </tr>
                                     </thead>
                                     <tbody>
                                         @forelse($learnings as $ld)
@@ -804,32 +817,33 @@
                                             <td class="text-start fw-bold text-uppercase">{{ $ld->training_title }}</td>
                                             <td>{{ \Carbon\Carbon::parse($ld->date_from)->format('m/d/Y') }}</td>
                                             <td>{{ $ld->date_to == 'PRESENT' ? 'PRESENT' : \Carbon\Carbon::parse($ld->date_to)->format('m/d/Y') }}</td>
-                                            <td>{{ $ld->number_of_hours ?? 'N/A' }}</td><td class="text-uppercase">{{ $ld->ld_type ?? 'N/A' }}</td>
+                                            <td>{{ $ld->number_of_hours ?? 'N/A' }}</td>
+                                            <td class="text-uppercase">{{ $ld->ld_type ?? 'N/A' }}</td>
                                             <td class="text-start text-uppercase">{{ $ld->sponsored_by }}</td>
-                                            
+
                                             <!-- Completion Doc -->
                                             <td>
                                                 @if(!empty($ld->proof_of_completion))
-                                                    <span class="badge bg-success shadow-sm p-1 w-100" data-bs-toggle="tooltip" title="Verified Document"><i class="bi bi-check-circle"></i> Uploaded</span>
-                                                    <div class="mt-1 d-flex justify-content-center gap-2">
-                                                        <a href="{{ route('pds.document', ['id' => $ld->id, 'column' => 'proof_of_completion']) }}" target="_blank" class="text-primary small" title="View"><i class="bi bi-eye-fill"></i></a>
-                                                        <a href="{{ route('pds.document', ['id' => $ld->id, 'column' => 'proof_of_completion']) }}" download class="text-success small" title="Download"><i class="bi bi-download"></i></a>
-                                                    </div>
+                                                <span class="badge bg-success shadow-sm p-1 w-100" data-bs-toggle="tooltip" title="Verified Document"><i class="bi bi-check-circle"></i> Uploaded</span>
+                                                <div class="mt-1 d-flex justify-content-center gap-2">
+                                                    <a href="{{ route('pds.document', ['id' => $ld->id, 'column' => 'proof_of_completion']) }}" target="_blank" class="text-primary small" title="View"><i class="bi bi-eye-fill"></i></a>
+                                                    <a href="{{ route('pds.document', ['id' => $ld->id, 'column' => 'proof_of_completion']) }}" download class="text-success small" title="Download"><i class="bi bi-download"></i></a>
+                                                </div>
                                                 @else
-                                                    <span class="badge bg-danger shadow-sm p-1 w-100" data-bs-toggle="tooltip" title="Required Document Missing"><i class="bi bi-x-circle"></i> Missing</span>
+                                                <span class="badge bg-danger shadow-sm p-1 w-100" data-bs-toggle="tooltip" title="Required Document Missing"><i class="bi bi-x-circle"></i> Missing</span>
                                                 @endif
                                             </td>
 
                                             <!-- Invitation Doc -->
                                             <td>
                                                 @if(!empty($ld->proof_of_invitation))
-                                                    <span class="badge bg-success shadow-sm p-1 w-100" data-bs-toggle="tooltip" title="Verified Document"><i class="bi bi-check-circle"></i> Uploaded</span>
-                                                    <div class="mt-1 d-flex justify-content-center gap-2">
-                                                        <a href="{{ route('pds.document', ['id' => $ld->id, 'column' => 'proof_of_invitation']) }}" target="_blank" class="text-primary small" title="View"><i class="bi bi-eye-fill"></i></a>
-                                                        <a href="{{ route('pds.document', ['id' => $ld->id, 'column' => 'proof_of_invitation']) }}" download class="text-success small" title="Download"><i class="bi bi-download"></i></a>
-                                                    </div>
+                                                <span class="badge bg-success shadow-sm p-1 w-100" data-bs-toggle="tooltip" title="Verified Document"><i class="bi bi-check-circle"></i> Uploaded</span>
+                                                <div class="mt-1 d-flex justify-content-center gap-2">
+                                                    <a href="{{ route('pds.document', ['id' => $ld->id, 'column' => 'proof_of_invitation']) }}" target="_blank" class="text-primary small" title="View"><i class="bi bi-eye-fill"></i></a>
+                                                    <a href="{{ route('pds.document', ['id' => $ld->id, 'column' => 'proof_of_invitation']) }}" download class="text-success small" title="Download"><i class="bi bi-download"></i></a>
+                                                </div>
                                                 @else
-                                                    <span class="badge bg-danger shadow-sm p-1 w-100" data-bs-toggle="tooltip" title="Required Document Missing"><i class="bi bi-x-circle"></i> Missing</span>
+                                                <span class="badge bg-danger shadow-sm p-1 w-100" data-bs-toggle="tooltip" title="Required Document Missing"><i class="bi bi-x-circle"></i> Missing</span>
                                                 @endif
                                             </td>
 
@@ -838,7 +852,9 @@
                                             </td>
                                         </tr>
                                         @empty
-                                        <tr><td colspan="9" class="text-center text-muted py-4">No Learning & Development records found.</td></tr>
+                                        <tr>
+                                            <td colspan="9" class="text-center text-muted py-4">No Learning & Development records found.</td>
+                                        </tr>
                                         @endforelse
                                     </tbody>
                                 </table>
@@ -1156,7 +1172,7 @@
                                                     <th>NAME</th>
                                                     <th>ADDRESS</th>
                                                     <th>CONTACT NO.</th>
-                                                    <th></th>
+                                                    <th class="text-center" width="5%">ACTION</th>
                                                 </tr>
                                             </thead>
                                             <tbody>

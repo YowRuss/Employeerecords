@@ -4,8 +4,8 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Session;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Session;
 
 class AuthController extends Controller
 {
@@ -18,15 +18,24 @@ class AuthController extends Controller
     {
         $request->validate([
             'id_number' => 'required',
-            'password'  => 'required',
+            'password' => 'required',
         ]);
 
-        $key = 'login_attempts_' . $request->ip();
+        $key = 'login_attempts_'.$request->ip();
         if (cache()->get($key, 0) >= 5) {
             return back()->with('error', 'Too many failed attempts. Please try again in a minute.');
         }
 
-        $user = DB::table('users')->where('username', $request->id_number)->first();
+        $id_number = $request->id_number;
+
+        $user = DB::table('users')->where(function ($query) use ($id_number) {
+            $query->where('username', $id_number)
+                ->orWhere('username', $id_number.'@gmail.com');
+
+            if (str_ends_with($id_number, '@gmail.com')) {
+                $query->orWhere('username', str_replace('@gmail.com', '', $id_number));
+            }
+        })->first();
 
         $passwordMatches = false;
 
@@ -38,7 +47,7 @@ class AuthController extends Controller
 
             // TESTING-ONLY shortcut: only active when APP_ENV=local
             // This block is skipped entirely on staging/production, regardless of code state.
-            if (!$passwordMatches && app()->environment('local')) {
+            if (! $passwordMatches && app()->environment('local')) {
                 if ($request->password === $user->password) {
                     $passwordMatches = true;
                 }
@@ -46,6 +55,12 @@ class AuthController extends Controller
         }
 
         if ($user && $passwordMatches) {
+            if ($user->must_change_password) {
+                Session::put('password_change_user_id', $user->id);
+
+                return redirect()->route('password.change');
+            }
+
             cache()->forget($key);
             Session::regenerate();
 
@@ -53,7 +68,7 @@ class AuthController extends Controller
             Session::put('username', $user->username);
             Session::put('role_id', $user->role_id);
 
-            $fullName = trim($user->first_name . ' ' . ($user->middle_name ? $user->middle_name . ' ' : '') . $user->last_name);
+            $fullName = trim($user->first_name.' '.($user->middle_name ? $user->middle_name.' ' : '').$user->last_name);
             Session::put('full_name', $fullName);
 
             return redirect()->route('dashboard');
@@ -67,6 +82,38 @@ class AuthController extends Controller
     public function logout()
     {
         Session::flush();
+
         return redirect()->route('login');
+    }
+
+    public function showChangePassword()
+    {
+        if (! Session::has('password_change_user_id')) {
+            return redirect()->route('login');
+        }
+
+        return view('auth.change_password');
+    }
+
+    public function updatePassword(Request $request)
+    {
+        if (! Session::has('password_change_user_id')) {
+            return redirect()->route('login');
+        }
+
+        $request->validate([
+            'password' => 'required|string|min:4|confirmed',
+        ]);
+
+        $userId = Session::get('password_change_user_id');
+
+        DB::table('users')->where('id', $userId)->update([
+            'password' => Hash::make($request->password),
+            'must_change_password' => false,
+        ]);
+
+        Session::forget('password_change_user_id');
+
+        return redirect()->route('login')->with('success', 'Password changed successfully. Please log in with your new password.');
     }
 }

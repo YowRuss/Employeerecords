@@ -58,12 +58,12 @@
                     <hr class="text-muted opacity-25 my-4">
 
                     <div class="mb-4">
-                        <label class="form-label small fw-bold text-brand text-uppercase tracking-wide">2. System Credentials</label>
-
                         <div class="mb-3">
+                            <label class="form-label small fw-bold text-brand text-uppercase tracking-wide">2. Employee Email / Username</label>
                             <div class="input-group input-group-lg shadow-sm rounded-3">
-                                <span class="input-group-text bg-white"><i class="bi bi-person-badge"></i></span>
-                                <input type="text" name="username" id="username" class="form-control with-icon fs-6" placeholder="Auto-generated username" value="{{ old('username') }}" required>
+                                <span class="input-group-text bg-white"><i class="bi bi-envelope-at-fill"></i></span>
+                                <!-- Changed type to text, updated name and placeholder -->
+                                <input type="text" name="username" id="username" class="form-control with-icon fs-6" placeholder="employee@gmail.com or username" value="{{ old('username') }}" required>
                             </div>
                         </div>
 
@@ -94,19 +94,18 @@
 </div>
 
 <script>
-    // 1. Generate Username Script
     document.addEventListener("DOMContentLoaded", function() {
         const firstNameInput = document.getElementById('first_name');
         const lastNameInput = document.getElementById('last_name');
         const usernameInput = document.getElementById('username');
 
         function generateUsername() {
-            let first = firstNameInput.value.trim().toLowerCase();
-            let last = lastNameInput.value.trim().toLowerCase().replace(/\s+/g, '');
+            let first = firstNameInput.value.trim().toLowerCase().replace(/[^a-z0-9]/g, '');
+            let last = lastNameInput.value.trim().toLowerCase().replace(/[^a-z0-9]/g, '');
 
             if (first && last) {
-                // Takes first letter of first name + last name
-                usernameInput.value = first.charAt(0) + last;
+                // Generates format: first.last@gmail.com
+                usernameInput.value = first + "." + last + "@gmail.com";
             }
         }
 
@@ -114,26 +113,20 @@
         lastNameInput.addEventListener('input', generateUsername);
     });
 
-    // 2. Generate Random Password Script
+    // Random Password Generator remains the same...
+    //old code
+    //const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%";
     function generateRandomPassword() {
-        const length = 10;
-        const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%";
+        const length = 4;
+        const charset = "123456789";
         let password = "";
-
         for (let i = 0; i < length; i++) {
-            const randomIndex = Math.floor(Math.random() * charset.length);
-            password += charset[randomIndex];
+            password += charset[Math.floor(Math.random() * charset.length)];
         }
-
-        // Inject into the password field
         const passField = document.getElementById('password');
         passField.value = password;
-
-        // Flash effect for visual confirmation
         passField.style.backgroundColor = '#f0f4f8';
-        setTimeout(() => {
-            passField.style.backgroundColor = '#ffffff';
-        }, 300);
+        setTimeout(() => { passField.style.backgroundColor = '#ffffff'; }, 300);
     }
 </script>
 @endsection

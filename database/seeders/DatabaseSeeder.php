@@ -11,9 +11,12 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
-        // Call our custom UserSeeder
         $this->call([
             UserSeeder::class,
+            RegionSeeder::class,
+            ProvinceSeeder::class,
+            CitySeeder::class,
+            BarangaySeeder::class,
         ]);
     }
 }

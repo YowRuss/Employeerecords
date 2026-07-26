@@ -2,34 +2,76 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Announcement;
+use App\Models\Event;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Session;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Session;
 
 class DashboardController extends Controller
 {
     public function index()
     {
-        if (!Session::has('user_id')) {
+        if (! Session::has('user_id')) {
             return redirect()->route('login');
         }
 
+        $user_id = Session::get('user_id');
         $role_id = Session::get('role_id');
         $data = [];
+
+        // --- FETCH ANNOUNCEMENTS FOR ALL ROLES ---
+        $activeAnnouncements = Announcement::where(function ($query) {
+            $query->whereNull('scheduled_at')->orWhere('scheduled_at', '<=', Carbon::now());
+        })
+            ->where(function ($query) {
+                $query->whereNull('expires_at')->orWhere('expires_at', '>', Carbon::now());
+            })
+            ->orderBy('is_pinned', 'desc')
+            ->orderBy('created_at', 'desc')
+            ->get();
+
+        // Check acknowledgment status for current user
+        foreach ($activeAnnouncements as $announcement) {
+            $announcement->has_acknowledged = DB::table('announcement_acknowledgments')
+                ->where('announcement_id', $announcement->id)
+                ->where('user_id', $user_id)
+                ->exists();
+        }
+        $data['activeAnnouncements'] = $activeAnnouncements;
+        $upcomingEvents = Event::where('event_date', '>=', Carbon::today())
+            ->orderBy('event_date', 'asc')
+            ->orderBy('event_time', 'asc')
+            ->get();
+
+        foreach ($upcomingEvents as $event) {
+            // Check if user is already registered
+            $event->has_registered = DB::table('event_attendees')
+                ->where('event_id', $event->id)
+                ->where('user_id', $user_id)
+                ->exists();
+
+            // Get current attendee count to check capacity
+            $event->current_attendees = DB::table('event_attendees')
+                ->where('event_id', $event->id)
+                ->count();
+        }
+        $data['upcomingEvents'] = $upcomingEvents;
 
         // Admin (3) and HR (2) need to see the employee list
         if ($role_id == 3 || $role_id == 2) {
             $data['employees'] = DB::table('users')
                 ->leftJoin('positions', 'users.id', '=', 'positions.id')
                 ->select(
-                    'users.*', 
+                    'users.*',
                     'positions.position_name',
                     DB::raw("CONCAT(users.first_name, ' ', COALESCE(users.middle_name, ''), ' ', users.last_name) as full_name")
                 )
                 ->where('role_id', 1)
                 ->get();
-            
+
             // ADD THIS: HR and Admin both need the positions list for the new module
             $data['positions'] = DB::table('positions')->orderBy('position_name', 'asc')->get();
         }
@@ -47,14 +89,14 @@ class DashboardController extends Controller
 
         // Validate the input
         $request->validate([
-            'position_name' => 'required|string|max:100|unique:positions,position_name'
+            'position_name' => 'required|string|max:100|unique:positions,position_name',
         ]);
 
         // Insert into the database
         DB::table('positions')->insert([
             'position_name' => strtoupper($request->position_name),
             'created_at' => now(),
-            'updated_at' => now()
+            'updated_at' => now(),
         ]);
 
         return redirect()->route('dashboard')->with('success', 'Position created successfully!');
@@ -64,13 +106,13 @@ class DashboardController extends Controller
     public function createEmployee()
     {
         $role_id = Session::get('role_id');
-        
+
         // Only HR (2) and Admin (3) can access this page
         if ($role_id != 2 && $role_id != 3) {
             return redirect()->route('dashboard')->with('error', 'Unauthorized access.');
         }
 
-        return view('hr.create_employee');
+        return view('hr.employees.create');
     }
 
     // Process and save the new employee to the database
@@ -86,7 +128,7 @@ class DashboardController extends Controller
             'first_name' => 'required|string|max:100',
             'last_name' => 'required|string|max:100',
             'username' => 'required|string|max:50|unique:users,username',
-            'password' => 'required|string|min:4'
+            'password' => 'required|string|min:4',
         ]);
 
         // 2. Format names perfectly (All Caps)
@@ -96,33 +138,78 @@ class DashboardController extends Controller
 
         // 3. Insert into the users table using insertGetId
         $user_id = DB::table('users')->insertGetId([
-            'first_name'  => $firstName,
+            'first_name' => $firstName,
             'middle_name' => $mi,
-            'last_name'   => $lastName,
-            'suffix'      => strtoupper($request->suffix), // Saves to 'suffix' in users table
-            'username'    => strtolower($request->username),
-            'password'    => Hash::make($request->password), // Secure encryption
-            'role_id'     => 1, // Automatically assign Role 1 (Employee)
-            'created_at'  => now(),
-            'updated_at'  => now()
+            'last_name' => $lastName,
+            'suffix' => strtoupper($request->suffix), // Saves to 'suffix' in users table
+            'username' => strtolower($request->username),
+            'password' => Hash::make($request->password), // Secure encryption
+            'role_id' => 1, // Automatically assign Role 1 (Employee)
+            'must_change_password' => true,
+            'created_at' => now(),
+            'updated_at' => now(),
         ]);
 
         // 4. AUTO-INITIALIZE THE PDS!
         DB::table('pds_personal_info')->insert([
-            'user_id'        => $user_id,
-            'first_name'     => $firstName,
-            'middle_name'    => $mi, 
-            'last_name'      => $lastName,
+            'user_id' => $user_id,
+            'first_name' => $firstName,
+            'middle_name' => $mi,
+            'last_name' => $lastName,
             'name_extension' => strtoupper($request->suffix), // FIXED: Maps to 'name_extension' in PDS
             // Add temporary placeholder dates to bypass SQL strict mode until employee fills it out
-            'date_of_birth'  => '2000-01-01', 
+            'date_of_birth' => '2000-01-01',
             'place_of_birth' => '',
-            'sex'            => '',
-            'civil_status'   => '',
-            'status'         => 'Draft',
-            'created_at'     => now()
+            'sex' => '',
+            'civil_status' => '',
+            'status' => 'Draft',
+            'created_at' => now(),
         ]);
 
         return redirect()->route('dashboard')->with('success', 'Employee created and PDS initialized successfully!');
+    }
+
+    // --- EMPLOYEE DEDICATED PAGES ---
+
+    public function employeeAnnouncements()
+    {
+        $user_id = Session::get('user_id');
+
+        // Fetch all announcements (historical and active)
+        $announcements = Announcement::orderBy('created_at', 'desc')->get();
+
+        foreach ($announcements as $announcement) {
+            $announcement->has_acknowledged = DB::table('announcement_acknowledgments')
+                ->where('announcement_id', $announcement->id)
+                ->where('user_id', $user_id)
+                ->exists();
+        }
+
+        return view('employee.announcements', compact('announcements'));
+    }
+
+    public function employeeEvents()
+    {
+        $user_id = Session::get('user_id');
+
+        // Add ->with('adviser') to load the relationship
+        $events = Event::with('adviser')
+            ->where('event_date', '>=', Carbon::today())
+            ->orderBy('event_date', 'asc')
+            ->orderBy('event_time', 'asc')
+            ->get();
+
+        foreach ($events as $event) {
+            $event->has_registered = \DB::table('event_attendees')
+                ->where('event_id', $event->id)
+                ->where('user_id', $user_id)
+                ->exists();
+
+            $event->current_attendees = \DB::table('event_attendees')
+                ->where('event_id', $event->id)
+                ->count();
+        }
+
+        return view('employee.events', compact('events'));
     }
 }

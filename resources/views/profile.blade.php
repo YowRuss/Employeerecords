@@ -69,10 +69,18 @@
                     <div class="form-text small">Contact HR to change your official name.</div>
                 </div>
 
+                <!-- SHOW USERNAME -->
+                <div class="mb-4">
+                    <label class="form-label small fw-bold text-muted">Username</label>
+                    <input type="text" name="username" class="form-control" value="{{ $user->username ?? '' }}" placeholder="Enter username">
+                    <div class="form-text small">Contact HR to change your official username.</div>
+                </div>
+                
+                <!--
                 <div class="mb-4">
                     <label class="form-label small fw-bold text-muted">Account Email Address</label>
                     <input type="email" name="email" class="form-control" value="{{ $user->email ?? '' }}" placeholder="Enter email address">
-                </div>
+                </div>-->
 
                 <!-- EMERGENCY CONTACT SECTION -->
                 <div class="p-3 bg-light border rounded mb-4">
@@ -94,13 +102,23 @@
                     <h6 class="fw-bold mb-3 text-uppercase text-muted" style="font-size: 0.85rem;"><i class="bi bi-shield-lock-fill me-1"></i> Security</h6>
                     <div class="mb-3">
                         <label class="form-label small fw-bold text-muted mb-1">New Password</label>
-                        <input type="password" name="password" class="form-control form-control-sm" placeholder="Enter new password">
+                        <div class="input-group input-group-sm">
+                            <input type="password" id="new_password" name="password" class="form-control" placeholder="Enter new password">
+                            <button class="btn btn-outline-secondary toggle-password" type="button" data-target="new_password" style="border-color: #ced4da;">
+                                <i class="bi bi-eye"></i>
+                            </button>
+                        </div>
                         <div class="form-text" style="font-size: 0.70rem;">Leave both password fields blank if you do not want to change your current password.</div>
                     </div>
 
                     <div class="mb-2">
                         <label class="form-label small fw-bold text-muted mb-1">Confirm New Password</label>
-                        <input type="password" name="password_confirmation" class="form-control form-control-sm" placeholder="Re-enter new password">
+                        <div class="input-group input-group-sm">
+                            <input type="password" id="password_confirmation" name="password_confirmation" class="form-control" placeholder="Re-enter new password">
+                            <button class="btn btn-outline-secondary toggle-password" type="button" data-target="password_confirmation" style="border-color: #ced4da;">
+                                <i class="bi bi-eye"></i>
+                            </button>
+                        </div>
                     </div>
                 </div>
 
@@ -131,5 +149,27 @@
     </div>
 </div>
 @endif
+
+<script>
+    document.addEventListener("DOMContentLoaded", function() {
+        const toggleButtons = document.querySelectorAll('.toggle-password');
+        toggleButtons.forEach(button => {
+            button.addEventListener('click', function() {
+                const targetId = this.getAttribute('data-target');
+                const passwordInput = document.getElementById(targetId);
+                const icon = this.querySelector('i');
+                if (passwordInput.type === "password") {
+                    passwordInput.type = "text";
+                    icon.classList.remove('bi-eye');
+                    icon.classList.add('bi-eye-slash');
+                } else {
+                    passwordInput.type = "password";
+                    icon.classList.remove('bi-eye-slash');
+                    icon.classList.add('bi-eye');
+                }
+            });
+        });
+    });
+</script>
 
 @endsection
