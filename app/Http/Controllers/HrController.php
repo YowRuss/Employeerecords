@@ -2,7 +2,10 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\LearningArea;
 use App\Models\PdsPersonalInfo;
+use App\Models\Position;
+use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Session;
@@ -60,49 +63,147 @@ class HrController extends Controller
 
         $search = trim($request->query('search', ''));
 
-        $latestDesignation = DB::table('service_records')
-            ->select('designation')
-            ->whereColumn('service_records.user_id', 'users.id')
-            ->orderByDesc('date_from')
-            ->limit(1);
+        // Get gender statistics
+        $genderStats = DB::table('users')
+            ->join('pds_personal_info', 'users.id', '=', 'pds_personal_info.user_id')
+            ->where('users.role_id', 1)
+            ->select('pds_personal_info.sex', DB::raw('count(*) as total'))
+            ->groupBy('pds_personal_info.sex')
+            ->pluck('total', 'sex');
 
-        $query = DB::table('users')
-            ->select('users.*')
-            ->addSelect(['position_name' => $latestDesignation])
-            ->where('users.role_id', 1);
+        // Fetch all employees
+        $employees = User::with('learningArea')
+            ->leftJoin('pds_personal_info', 'users.id', '=', 'pds_personal_info.user_id')
+            ->select(
+                'users.*',
+                'pds_personal_info.mobile_no',
+                'pds_personal_info.email_address',
+                'pds_personal_info.status as pds_status',
+                'pds_personal_info.id as pds_id',
+                'pds_personal_info.sex'
+            )
+            ->where('users.role_id', 1)
+            ->orderBy('users.last_name', 'asc')
+            ->get();
 
+        $learningAreas = LearningArea::orderBy('name', 'asc')->get();
+
+        // Fetch all positions and service records to avoid N+1 queries
+        $positionsByName = DB::table('positions')->get()->keyBy(function ($item) {
+            return strtoupper($item->position_name);
+        });
+        $positionsById = DB::table('positions')->get()->keyBy('id');
+        $allServiceRecords = DB::table('service_records')
+            ->orderBy('date_from', 'desc')
+            ->get()
+            ->groupBy('user_id');
+
+        // Map the correct position and category to each employee based on their Service Record
+        foreach ($employees as $emp) {
+            $emp->position_name = null;
+            $emp->category = null;
+
+            if ($allServiceRecords->has($emp->id)) {
+                $latestSr = $allServiceRecords->get($emp->id)->first();
+                $lookupName = strtoupper($latestSr->designation);
+                $emp->position_name = $latestSr->designation;
+
+                if ($positionsByName->has($lookupName)) {
+                    $pos = $positionsByName->get($lookupName);
+                    $emp->category = $pos->category;
+                    $emp->position_name = $pos->position_name; // Use the nicely cased name from DB
+                }
+            } elseif ($emp->position_id && $positionsById->has($emp->position_id)) {
+                // Fallback to their user account position_id if they have no service records
+                $pos = $positionsById->get($emp->position_id);
+                $emp->position_name = $pos->position_name;
+                $emp->category = $pos->category;
+            }
+        }
+
+        // Apply search filter in memory
         if ($search !== '') {
-            $query->where(function ($q) use ($search) {
-                $q->where('users.last_name', 'like', "%{$search}%")
-                    ->orWhere('users.first_name', 'like', "%{$search}%")
-                    ->orWhere('users.username', 'like', "%{$search}%")
-                    ->orWhereExists(function ($q2) use ($search) {
-                        $q2->select(DB::raw(1))
-                            ->from('service_records')
-                            ->whereColumn('service_records.user_id', 'users.id')
-                            ->where('designation', 'like', "%{$search}%");
-                    });
+            $term = strtolower($search);
+            $employees = $employees->filter(function ($emp) use ($term) {
+                return str_contains(strtolower($emp->last_name), $term)
+                    || str_contains(strtolower($emp->first_name), $term)
+                    || str_contains(strtolower($emp->username), $term)
+                    || str_contains(strtolower($emp->position_name ?? ''), $term);
             });
         }
 
-        $employees = $query->orderBy('users.last_name', 'asc')->paginate(20)->withQueryString();
+        $allEmployees = $employees;
+        $teachingStaff = $employees->where('category', 'Teaching');
+        $nonTeachingStaff = $employees->where('category', 'Non-Teaching');
+        $incompletePds = $employees->whereNull('pds_id');
 
-        return view('hr.employees.index', compact('employees', 'search'));
+        $maleEmployees = $teachingStaff->where('sex', 'Male');
+        $femaleEmployees = $teachingStaff->where('sex', 'Female');
+        $maleCount = $maleEmployees->count();
+        $femaleCount = $femaleEmployees->count();
+
+        $nonTeachingMaleEmployees = $nonTeachingStaff->where('sex', 'Male');
+        $nonTeachingFemaleEmployees = $nonTeachingStaff->where('sex', 'Female');
+        $nonTeachingMaleCount = $nonTeachingMaleEmployees->count();
+        $nonTeachingFemaleCount = $nonTeachingFemaleEmployees->count();
+
+        // Get position category statistics
+        $positionStats = collect([
+            'Teaching' => $teachingStaff->count(),
+            'Non-Teaching' => $nonTeachingStaff->count(),
+        ]);
+
+        return view('hr.employees.index', compact('allEmployees', 'teachingStaff', 'nonTeachingStaff', 'incompletePds', 'maleEmployees', 'femaleEmployees', 'maleCount', 'femaleCount', 'nonTeachingMaleEmployees', 'nonTeachingFemaleEmployees', 'nonTeachingMaleCount', 'nonTeachingFemaleCount', 'search', 'genderStats', 'positionStats', 'learningAreas'));
     }
 
     public function viewProfile($id)
     {
-        $employee = DB::table('users')
-            ->leftJoin('positions', 'users.position_id', '=', 'positions.id')
-            ->select('users.*', 'positions.position_name')
-            ->where('users.id', $id)
-            ->first();
+        $employee = User::with(['position', 'learningArea'])->where('id', $id)->first();
 
         if (! $employee) {
             return redirect()->route('hr.staff_profiling')->with('error', 'Employee not found.');
         }
 
-        return view('hr.employees.profile', compact('employee'));
+        // FETCH THE ACTUAL SERVICE RECORD POSITION
+        $latestServiceRecord = DB::table('service_records')
+            ->where('user_id', $id)
+            ->orderBy('date_from', 'desc')
+            ->first();
+
+        $serviceRecordPosition = null;
+        if ($latestServiceRecord) {
+            $serviceRecordPosition = Position::where('position_name', $latestServiceRecord->designation)->first();
+        }
+
+        // Fallback to the user's position_id if no service record exists
+        if (! $serviceRecordPosition && $employee->position) {
+            $serviceRecordPosition = $employee->position;
+        }
+
+        $learningAreas = DB::table('learning_areas')->orderBy('name', 'asc')->get();
+
+        return view('hr.employees.profile', compact('employee', 'learningAreas', 'serviceRecordPosition'));
+    }
+
+    public function updateLearningArea(Request $request, $id)
+    {
+        if ($redirect = $this->requireHrAccess()) {
+            return $redirect;
+        }
+
+        $request->validate([
+            'learning_area_id' => 'required|exists:learning_areas,id',
+        ]);
+
+        $employee = User::find($id);
+        if (! $employee) {
+            return redirect()->back()->with('error', 'Employee not found.');
+        }
+
+        $employee->learning_area_id = $request->learning_area_id;
+        $employee->save();
+
+        return redirect()->back()->with('success', 'Area of Specialization updated successfully.');
     }
 
     public function viewSaln($id)

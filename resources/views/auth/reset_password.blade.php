@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Login - CNHS-JHS HR System</title>
+    <title>Reset Password - CNHS-JHS HR System</title>
     
     <!-- Google Fonts: Plus Jakarta Sans -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -13,7 +13,7 @@
     <!-- Bootstrap 5 CSS & Icons -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
-    <!-- Custom Login Page CSS -->
+    <!-- Custom Login Page CSS (Reusing login.css for beautiful layout) -->
     <link rel="stylesheet" href="{{ asset('build/assets/css/login.css') }}">
 </head>
 <body>
@@ -30,7 +30,7 @@
             <div class="col-lg-5 hero-side">
                 <div>
                     <div class="badge-system mb-3">
-                        <i class="bi bi-shield-check"></i> CNHS Portal v2.0
+                        <i class="bi bi-shield-lock"></i> Security Update
                     </div>
 
                     <div class="logo-glow-wrapper">
@@ -43,16 +43,12 @@
 
                 <div class="feature-list mt-3">
                     <div class="feature-item">
-                        <div class="feature-icon"><i class="bi bi-lock-fill"></i></div>
-                        <span>Encrypted & Authorized Access</span>
+                        <div class="feature-icon"><i class="bi bi-shield-check"></i></div>
+                        <span>Enhanced Security Verification</span>
                     </div>
                     <div class="feature-item">
-                        <div class="feature-icon"><i class="bi bi-person-vcard-fill"></i></div>
-                        <span>Comprehensive Employee File System</span>
-                    </div>
-                    <div class="feature-item">
-                        <div class="feature-icon"><i class="bi bi-speedometer2"></i></div>
-                        <span>Fast & Real-time Records Lookup</span>
+                        <div class="feature-icon"><i class="bi bi-key-fill"></i></div>
+                        <span>Secure Password Requirements</span>
                     </div>
                 </div>
 
@@ -64,54 +60,74 @@
             <!-- Right Form Section -->
             <div class="col-lg-7 form-side">
                 <div class="form-header">
-                    <h3>Welcome Back</h3>
-                    <p>Please enter your credentials to access your account</p>
+                    <h3>Reset Your Password</h3>
+                    <p>Please enter your new password below.</p>
                 </div>
 
+                @if($errors->any())
+                    <div class="alert alert-custom-error mb-4 align-items-start" role="alert">
+                        <i class="bi bi-exclamation-triangle-fill fs-5 mt-1"></i>
+                        <div>
+                            <ul class="mb-0 text-start ps-3" style="list-style-type: disc;">
+                                @foreach($errors->all() as $error)
+                                    <li>{{ $error }}</li>
+                                @endforeach
+                            </ul>
+                        </div>
+                    </div>
+                @endif
+                
                 @if(session('error'))
-                    <div class="alert alert-custom-error mb-4" role="alert">
-                        <i class="bi bi-exclamation-triangle-fill fs-5"></i>
+                    <div class="alert alert-custom-error mb-4 align-items-start" role="alert">
+                        <i class="bi bi-exclamation-triangle-fill fs-5 mt-1"></i>
                         <div>{{ session('error') }}</div>
                     </div>
                 @endif
 
-                <form action="{{ route('login.post') }}" method="POST" id="loginForm">
+                <form action="{{ route('password.update') }}" method="POST" id="resetPasswordForm">
                     @csrf
+                    
+                    <input type="hidden" name="token" value="{{ $token }}">
+                    <input type="hidden" name="email" value="{{ $email }}">
 
-                    <!-- ID Number / Email / Username -->
-                    <div class="mb-3.5 mb-3">
-                        <label for="id_number" class="form-label">Email or Username</label>
-                        <div class="input-group-custom">
-                            <i class="bi bi-person-fill input-icon-lead"></i>
-                            <input type="text" 
-                                   class="form-control-custom" 
-                                   id="id_number" 
-                                   name="id_number" 
-                                   placeholder="Enter your email or username" 
-                                   required 
-                                   autofocus 
-                                   autocomplete="username">
-                        </div>
-                    </div>
-
-                    <!-- Password -->
+                    <!-- New Password -->
                     <div class="mb-4">
                         <div class="d-flex justify-content-between align-items-center mb-1">
-                            <label for="password" class="form-label mb-0">Password</label>
-                            <a href="{{ route('password.request') }}" class="small fw-bold text-decoration-none" style="color: #1A3E6F; transition: opacity 0.2s;" onmouseover="this.style.opacity='0.8'" onmouseout="this.style.opacity='1'">Forgot Password?</a>
+                            <label for="password" class="form-label mb-0">New Password</label>
                         </div>
                         <div class="input-group-custom">
-                            <i class="bi bi-key-fill input-icon-lead"></i>
+                            <i class="bi bi-lock-fill input-icon-lead"></i>
                             <input type="password" 
                                    class="form-control-custom" 
                                    id="password" 
                                    name="password" 
-                                   placeholder="Enter your password" 
+                                   placeholder="Enter new password" 
                                    required 
-                                   style="padding-right: 2.8rem;" 
-                                   autocomplete="current-password">
+                                   autofocus
+                                   style="padding-right: 2.8rem;">
                             
                             <button class="btn-toggle-password toggle-password" type="button" data-target="password" title="Toggle password visibility">
+                                <i class="bi bi-eye-fill"></i>
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- Confirm Password -->
+                    <div class="mb-4">
+                        <div class="d-flex justify-content-between align-items-center mb-1">
+                            <label for="password_confirmation" class="form-label mb-0">Confirm New Password</label>
+                        </div>
+                        <div class="input-group-custom">
+                            <i class="bi bi-check-circle-fill input-icon-lead"></i>
+                            <input type="password" 
+                                   class="form-control-custom" 
+                                   id="password_confirmation" 
+                                   name="password_confirmation" 
+                                   placeholder="Confirm your new password" 
+                                   required 
+                                   style="padding-right: 2.8rem;">
+                            
+                            <button class="btn-toggle-password toggle-password" type="button" data-target="password_confirmation" title="Toggle password visibility">
                                 <i class="bi bi-eye-fill"></i>
                             </button>
                         </div>
@@ -119,16 +135,11 @@
 
                     <!-- Submit Button -->
                     <button type="submit" class="btn-login-submit" id="submitBtn">
-                        <span>Sign In</span>
-                        <i class="bi bi-arrow-right-short fs-4"></i>
+                        <span>Reset Password</span>
+                        <i class="bi bi-shield-lock-fill fs-5 ms-2"></i>
                     </button>
                 </form>
-
-                <div class="footer-note">
-                    <i class="bi bi-info-circle me-1"></i> Authorized Personnel Only. For account assistance, contact HR Admin.
-                </div>
             </div>
-
         </div>
     </div>
 
@@ -155,15 +166,15 @@
             });
 
             // Form Submit Loading State
-            const loginForm = document.getElementById('loginForm');
+            const resetPasswordForm = document.getElementById('resetPasswordForm');
             const submitBtn = document.getElementById('submitBtn');
             
-            if (loginForm && submitBtn) {
-                loginForm.addEventListener('submit', function() {
+            if (resetPasswordForm && submitBtn) {
+                resetPasswordForm.addEventListener('submit', function() {
                     submitBtn.disabled = true;
                     submitBtn.innerHTML = `
                         <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
-                        <span>Signing in...</span>
+                        <span>Resetting...</span>
                     `;
                 });
             }

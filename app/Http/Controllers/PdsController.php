@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\PdsPersonalInfo;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Session;
@@ -20,7 +21,7 @@ class PdsController extends Controller
 
         $user_id = Session::get('user_id');
 
-        $personal_info = \App\Models\PdsPersonalInfo::with('country')->where('user_id', $user_id)->first();
+        $personal_info = PdsPersonalInfo::with('country')->where('user_id', $user_id)->first();
         $children = DB::table('pds_children')->where('user_id', $user_id)->get();
         $education = DB::table('pds_education')->where('user_id', $user_id)->get();
         $eligibilities = DB::table('pds_eligibility')->where('user_id', $user_id)->get();
@@ -60,6 +61,10 @@ class PdsController extends Controller
     // =========================================================
     public function updatePersonalInfo(Request $request)
     {
+        $request->validate([
+            'sex' => 'required|in:Male,Female',
+        ]);
+
         $user_id = Session::get('user_id');
 
         // Capture location codes from frontend dropdowns
@@ -139,7 +144,7 @@ class PdsController extends Controller
         $user_id = Session::get('user_id');
 
         // Fetch data here...
-        $personal_info = \App\Models\PdsPersonalInfo::with('country')->where('user_id', $user_id)->first();
+        $personal_info = PdsPersonalInfo::with('country')->where('user_id', $user_id)->first();
         $children = DB::table('pds_children')->where('user_id', $user_id)->get();
         $education = DB::table('pds_education')->where('user_id', $user_id)->get();
         $eligibilities = DB::table('pds_eligibility')->where('user_id', $user_id)->get();
@@ -506,12 +511,12 @@ class PdsController extends Controller
         $sheet1->setCellValue('D13', $personal_info->date_of_birth ?? 'N/A');
         $sheet1->setCellValue('D15', $personal_info->place_of_birth ?? 'N/A');
 
-        // Translate Integer Sex ID (1 = Male, 0 = Female)
+        // Translate Integer Sex ID or String
         $sexText = 'N/A';
         if (isset($personal_info->sex)) {
-            if ($personal_info->sex == 1) {
+            if ($personal_info->sex == 1 || $personal_info->sex == 'Male') {
                 $sexText = 'Male';
-            } elseif ($personal_info->sex == 0) {
+            } elseif ($personal_info->sex == 0 || $personal_info->sex == 'Female') {
                 $sexText = 'Female';
             }
         }

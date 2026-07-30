@@ -100,6 +100,13 @@
                 <!-- DUAL PASSWORD SETUP -->
                 <div class="p-3 bg-light border rounded mb-4">
                     <h6 class="fw-bold mb-3 text-uppercase text-muted" style="font-size: 0.85rem;"><i class="bi bi-shield-lock-fill me-1"></i> Security</h6>
+                    
+                    <div class="mb-3">
+                        <label class="form-label small fw-bold text-muted mb-1">Recovery Email (Gmail)</label>
+                        <input type="email" name="recovery_email" class="form-control form-control-sm" value="{{ $user->recovery_email ?? '' }}" placeholder="Enter recovery email">
+                        <small class="text-muted" style="font-size: 0.70rem;">Used for account recovery if you forget your password.</small>
+                    </div>
+
                     <div class="mb-3">
                         <label class="form-label small fw-bold text-muted mb-1">New Password</label>
                         <div class="input-group input-group-sm">

@@ -74,6 +74,8 @@ class DashboardController extends Controller
 
             // ADD THIS: HR and Admin both need the positions list for the new module
             $data['positions'] = DB::table('positions')->orderBy('position_name', 'asc')->get();
+            $data['teachingPositions'] = DB::table('positions')->where('category', 'Teaching')->orderBy('position_name', 'asc')->get();
+            $data['nonTeachingPositions'] = DB::table('positions')->where('category', 'Non-Teaching')->orderBy('position_name', 'asc')->get();
         }
 
         return view('dashboard', $data);

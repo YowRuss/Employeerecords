@@ -96,13 +96,11 @@
                                         <label class="form-label fw-bold">Sex <span class="text-danger">*</span></label>
                                         <div class="d-flex align-items-center mt-2">
                                             <div class="form-check form-check-inline">
-                                                <!-- value="1" for Male -->
-                                                <input class="form-check-input" type="radio" name="sex" id="sexMale" value="1" {{ ($personal_info->sex ?? '') == '1' ? 'checked' : '' }} required>
+                                                <input class="form-check-input accent-radio" type="radio" name="sex" id="sexMale" value="Male" {{ in_array(($personal_info->sex ?? ''), ['1', 'Male']) ? 'checked' : '' }} required>
                                                 <label class="form-check-label" for="sexMale">Male</label>
                                             </div>
                                             <div class="form-check form-check-inline">
-                                                <!-- value="0" for Female -->
-                                                <input class="form-check-input" type="radio" name="sex" id="sexFemale" value="0" {{ ($personal_info->sex ?? '') == '0' ? 'checked' : '' }}>
+                                                <input class="form-check-input accent-radio" type="radio" name="sex" id="sexFemale" value="Female" {{ in_array(($personal_info->sex ?? ''), ['0', 'Female']) ? 'checked' : '' }}>
                                                 <label class="form-check-label" for="sexFemale">Female</label>
                                             </div>
                                         </div>

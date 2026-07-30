@@ -36,8 +36,17 @@
                                 <i class="bi bi-pencil-fill" style="font-size: 0.8rem;"></i>
                             </button>
                         </div>
-                        <p class="text-muted mb-3">{{ $employee->position_name ?? 'No Position Assigned' }}</p>
-                        
+                        <p class="text-muted mb-3">
+                            <span class="d-block fw-semibold">{{ $serviceRecordPosition->position_name ?? 'No Position Assigned' }}</span>
+                            @if(isset($serviceRecordPosition) && $serviceRecordPosition->category === 'Teaching')
+                            <span class="d-inline-flex align-items-center mt-1 text-dark" style="font-size: 0.9rem;">
+                                <span>Area of Specialization: <span class="fw-bold">{{ $employee->learningArea->name ?? 'Not Set' }}</span></span>
+                                <button type="button" class="btn btn-sm btn-light border shadow-sm rounded-circle text-primary ms-2" data-bs-toggle="modal" data-bs-target="#editLearningAreaModal" title="Edit Area of Specialization" style="width: 24px; height: 24px; padding: 0; display: inline-flex; align-items: center; justify-content: center;">
+                                    <i class="bi bi-pencil-square" style="font-size: 0.7rem;"></i>
+                                </button>
+                            </span>
+                            @endif
+                        </p>
                         <div class="d-grid gap-2">
                             <a href="{{ route('hr.view_pds', $employee->id) }}" class="btn btn-warning fw-bold text-dark rounded-pill shadow-sm">
                                 <i class="bi bi-person-vcard me-1"></i> View PDS
@@ -181,6 +190,38 @@
                 <div class="modal-footer bg-light border-top-0 py-3">
                     <button type="button" class="btn btn-light px-4 fw-bold rounded-pill text-muted" data-bs-dismiss="modal">Cancel</button>
                     <button type="submit" class="btn btn-warning text-dark px-4 fw-bold shadow-sm rounded-pill">Save Changes</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Edit Learning Area Modal -->
+<div class="modal fade text-start" id="editLearningAreaModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg rounded-4 overflow-hidden">
+            <div class="modal-header bg-white border-bottom py-3" style="border-bottom: 2px solid var(--accent-yellow) !important;">
+                <h5 class="modal-title fw-bold m-0" style="color: #1A3E6F;"><i class="bi bi-book-half me-2 text-warning"></i> Edit Area of Specialization</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form action="{{ route('hr.update_learning_area', $employee->id) }}" method="POST">
+                @csrf
+                <div class="modal-body p-4">
+                    <div class="mb-3">
+                        <label class="form-label small fw-bold text-uppercase tracking-wider" style="color: #1A3E6F;">Learning Area <span class="text-danger">*</span></label>
+                        <select name="learning_area_id" class="form-select p-3 bg-light border-0 focus-ring" required style="border-radius: 8px;">
+                            <option value="" disabled {{ !$employee->learning_area_id ? 'selected' : '' }}>Select a Learning Area</option>
+                            @foreach($learningAreas as $area)
+                                <option value="{{ $area->id }}" {{ $employee->learning_area_id == $area->id ? 'selected' : '' }}>
+                                    {{ $area->name }}
+                                </option>
+                            @endforeach
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer bg-light border-top-0 py-3">
+                    <button type="button" class="btn btn-light px-4 fw-bold rounded-pill text-muted border" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn text-white px-4 fw-bold shadow-sm rounded-pill" style="background-color: #1A3E6F;">Save Changes</button>
                 </div>
             </form>
         </div>

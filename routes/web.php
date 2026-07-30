@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\AnnouncementController;
+use App\Http\Controllers\Auth\ForgotPasswordController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\EmployeeController;
@@ -43,6 +44,12 @@ Route::post('/login', [AuthController::class, 'processLogin'])->name('login.post
 Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
 Route::get('/change-password', [AuthController::class, 'showChangePassword'])->name('password.change');
 Route::post('/change-password', [AuthController::class, 'updatePassword'])->name('password.change.post');
+
+// Forgot Password Routes
+Route::get('/forgot-password', [ForgotPasswordController::class, 'showLinkRequestForm'])->name('password.request');
+Route::post('/forgot-password', [ForgotPasswordController::class, 'sendResetLinkEmail'])->name('password.email');
+Route::get('/reset-password/{token}', [ForgotPasswordController::class, 'showResetForm'])->name('password.reset');
+Route::post('/reset-password', [ForgotPasswordController::class, 'reset'])->name('password.update');
 
 // Position Route for Admin
 Route::post('/positions/store', [DashboardController::class, 'storePosition'])->name('positions.store');
@@ -193,6 +200,7 @@ Route::post('/hr/employee/{id}/update-position', [HrController::class, 'updatePo
 Route::post('/hr/employee/{id}/update-name', [HrController::class, 'updateOfficialName'])->name('hr.update_official_name');
 // HR view employee profile route
 Route::get('/hr/employee/{id}/profile', [HrController::class, 'viewProfile'])->name('hr.view_profile');
+Route::post('/hr/employee/{id}/learning-area', [HrController::class, 'updateLearningArea'])->name('hr.update_learning_area');
 
 // Employee Routes (Service Record)
 Route::get('/my-service-record', [EmployeeController::class, 'myServiceRecord'])->name('employee.service_record');

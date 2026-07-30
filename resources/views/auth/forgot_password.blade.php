@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Change Password - CNHS-JHS HR System</title>
+    <title>Forgot Password - CNHS-JHS HR System</title>
     
     <!-- Google Fonts: Plus Jakarta Sans -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -30,7 +30,7 @@
             <div class="col-lg-5 hero-side">
                 <div>
                     <div class="badge-system mb-3">
-                        <i class="bi bi-shield-lock"></i> Security Update
+                        <i class="bi bi-envelope-check"></i> Account Recovery
                     </div>
 
                     <div class="logo-glow-wrapper">
@@ -44,11 +44,11 @@
                 <div class="feature-list mt-3">
                     <div class="feature-item">
                         <div class="feature-icon"><i class="bi bi-shield-check"></i></div>
-                        <span>Enhanced Security Verification</span>
+                        <span>Secure Password Reset</span>
                     </div>
                     <div class="feature-item">
-                        <div class="feature-icon"><i class="bi bi-key-fill"></i></div>
-                        <span>Secure Password Requirements</span>
+                        <div class="feature-icon"><i class="bi bi-envelope-paper-heart"></i></div>
+                        <span>Email Verification Required</span>
                     </div>
                 </div>
 
@@ -60,8 +60,8 @@
             <!-- Right Form Section -->
             <div class="col-lg-7 form-side">
                 <div class="form-header">
-                    <h3>Action Required</h3>
-                    <p>Please change your default password before continuing.</p>
+                    <h3>Forgot Password?</h3>
+                    <p>Enter your recovery email or username to receive a reset link.</p>
                 </div>
 
                 @if($errors->any())
@@ -76,59 +76,53 @@
                         </div>
                     </div>
                 @endif
+                
+                @if(session('error'))
+                    <div class="alert alert-custom-error mb-4 align-items-start" role="alert">
+                        <i class="bi bi-exclamation-triangle-fill fs-5 mt-1"></i>
+                        <div>{{ session('error') }}</div>
+                    </div>
+                @endif
 
-                <form action="{{ route('password.change.post') }}" method="POST" id="changePasswordForm">
+                @if(session('success'))
+                    <div class="alert alert-success mb-4 d-flex align-items-center" role="alert" style="border-radius: 12px; font-size: 0.875rem; font-weight: 600;">
+                        <i class="bi bi-check-circle-fill fs-5 me-2"></i>
+                        <div>{{ session('success') }}</div>
+                    </div>
+                @else
+
+                <form action="{{ route('password.email') }}" method="POST" id="forgotPasswordForm">
                     @csrf
 
-                    <!-- New Password -->
+                    <!-- Recovery Email or Username -->
                     <div class="mb-4">
                         <div class="d-flex justify-content-between align-items-center mb-1">
-                            <label for="password" class="form-label mb-0">New Password</label>
+                            <label for="id_number" class="form-label mb-0">Recovery Email or Username</label>
                         </div>
                         <div class="input-group-custom">
-                            <i class="bi bi-lock-fill input-icon-lead"></i>
-                            <input type="password" 
+                            <i class="bi bi-person-badge-fill input-icon-lead"></i>
+                            <input type="text" 
                                    class="form-control-custom" 
-                                   id="password" 
-                                   name="password" 
-                                   placeholder="Enter new password" 
+                                   id="id_number" 
+                                   name="id_number" 
+                                   placeholder="Enter recovery email or username" 
                                    required 
-                                   autofocus
-                                   style="padding-right: 2.8rem;">
-                            
-                            <button class="btn-toggle-password toggle-password" type="button" data-target="password" title="Toggle password visibility">
-                                <i class="bi bi-eye-fill"></i>
-                            </button>
+                                   autofocus>
                         </div>
                     </div>
                     
-                    <!-- Confirm Password -->
-                    <div class="mb-4">
-                        <div class="d-flex justify-content-between align-items-center mb-1">
-                            <label for="password_confirmation" class="form-label mb-0">Confirm New Password</label>
-                        </div>
-                        <div class="input-group-custom">
-                            <i class="bi bi-check-circle-fill input-icon-lead"></i>
-                            <input type="password" 
-                                   class="form-control-custom" 
-                                   id="password_confirmation" 
-                                   name="password_confirmation" 
-                                   placeholder="Confirm your new password" 
-                                   required 
-                                   style="padding-right: 2.8rem;">
-                            
-                            <button class="btn-toggle-password toggle-password" type="button" data-target="password_confirmation" title="Toggle password visibility">
-                                <i class="bi bi-eye-fill"></i>
-                            </button>
-                        </div>
-                    </div>
-
                     <!-- Submit Button -->
                     <button type="submit" class="btn-login-submit" id="submitBtn">
-                        <span>Change Password</span>
-                        <i class="bi bi-shield-lock-fill fs-5 ms-2"></i>
+                        <span>Send Reset Link</span>
+                        <i class="bi bi-envelope-fill fs-5 ms-2"></i>
                     </button>
+                    
+                    <div class="text-center mt-4">
+                        <a href="{{ route('login') }}" class="small fw-bold text-decoration-none" style="color: #1A3E6F;">Back to Login</a>
+                    </div>
                 </form>
+                
+                @endif
             </div>
         </div>
     </div>
@@ -136,35 +130,16 @@
     <!-- Interactive Scripts -->
     <script>
         document.addEventListener("DOMContentLoaded", function() {
-            // Password toggle logic
-            const toggleButtons = document.querySelectorAll('.toggle-password');
-            toggleButtons.forEach(button => {
-                button.addEventListener('click', function() {
-                    const targetId = this.getAttribute('data-target');
-                    const passwordInput = document.getElementById(targetId);
-                    const icon = this.querySelector('i');
-                    if (passwordInput.type === "password") {
-                        passwordInput.type = "text";
-                        icon.classList.remove('bi-eye-fill');
-                        icon.classList.add('bi-eye-slash-fill');
-                    } else {
-                        passwordInput.type = "password";
-                        icon.classList.remove('bi-eye-slash-fill');
-                        icon.classList.add('bi-eye-fill');
-                    }
-                });
-            });
-
             // Form Submit Loading State
-            const changePasswordForm = document.getElementById('changePasswordForm');
+            const forgotPasswordForm = document.getElementById('forgotPasswordForm');
             const submitBtn = document.getElementById('submitBtn');
             
-            if (changePasswordForm && submitBtn) {
-                changePasswordForm.addEventListener('submit', function() {
+            if (forgotPasswordForm && submitBtn) {
+                forgotPasswordForm.addEventListener('submit', function() {
                     submitBtn.disabled = true;
                     submitBtn.innerHTML = `
                         <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
-                        <span>Updating...</span>
+                        <span>Sending Link...</span>
                     `;
                 });
             }

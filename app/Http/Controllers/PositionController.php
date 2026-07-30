@@ -9,19 +9,22 @@ class PositionController extends Controller
 {
     public function index()
     {
-        $positions = DB::table('positions')->orderBy('position_name', 'asc')->get();
+        $teachingPositions = DB::table('positions')->where('category', 'Teaching')->orderBy('position_name', 'asc')->get();
+        $nonTeachingPositions = DB::table('positions')->where('category', 'Non-Teaching')->orderBy('position_name', 'asc')->get();
 
-        return view('hr.positions.index', compact('positions'));
+        return view('hr.positions.index', compact('teachingPositions', 'nonTeachingPositions'));
     }
 
     public function store(Request $request)
     {
         $request->validate([
             'position_name' => 'required|string|max:255',
+            'category' => 'required|string|in:Teaching,Non-Teaching',
         ]);
 
         DB::table('positions')->insert([
             'position_name' => strtoupper($request->position_name),
+            'category' => $request->category,
             'created_at' => now(),
             'updated_at' => now(),
         ]);

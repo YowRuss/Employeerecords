@@ -144,40 +144,122 @@
                 <form action="{{ route('hr.positions.store') }}" method="POST" class="d-flex gap-2">
                     @csrf
                     <input type="text" name="position_name" class="form-control form-control-sm text-uppercase" placeholder="New Position Name" required>
+                    <select name="category" class="form-select form-select-sm" required>
+                        <option value="" disabled selected>Select Category</option>
+                        <option value="Teaching">Teaching</option>
+                        <option value="Non-Teaching">Non-Teaching</option>
+                    </select>
                     <button type="submit" class="btn btn-accent btn-sm fw-bold">Add Position</button>
                 </form>
             </div>
 
-            <div class="table-responsive">
-                <table class="table table-hover table-bordered align-middle bg-white">
-                    <thead class="table-light">
-                        <tr>
-                            <th>ID</th>
-                            <th>Position Name</th>
-                            <th>Created At</th>
-                            <th>Action</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @forelse($positions as $pos)
-                        <tr>
-                            <td>{{ $pos->id }}</td>
-                            <td class="fw-bold text-uppercase">{{ $pos->position_name }}</td>
-                            <td>{{ \Carbon\Carbon::parse($pos->created_at)->format('M d, Y') }}</td>
-                            <td>
-                                <form action="{{ route('hr.positions.destroy', $pos->id) }}" method="POST" onsubmit="return confirm('Delete this position?');">
-                                    @csrf
-                                    <button type="submit" class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i></button>
-                                </form>
-                            </td>
-                        </tr>
-                        @empty
-                        <tr>
-                            <td colspan="4" class="text-center text-muted">No positions created yet.</td>
-                        </tr>
-                        @endforelse
-                    </tbody>
-                </table>
+            <style>
+                .position-tabs .nav-link {
+                    border: none;
+                    color: #1A3E6F;
+                    font-weight: 600;
+                    background: transparent;
+                    border-radius: 0;
+                    padding: 0.75rem 1.25rem;
+                    opacity: 0.7;
+                    border-bottom: 3px solid transparent;
+                }
+                .position-tabs .nav-link:hover {
+                    opacity: 1;
+                    border-color: rgba(253, 224, 71, 0.5);
+                }
+                .position-tabs .nav-link.active {
+                    background-color: var(--accent-yellow, #FDE047);
+                    color: #1A3E6F;
+                    opacity: 1;
+                    border-color: var(--accent-yellow, #FDE047);
+                    border-radius: 8px 8px 0 0;
+                }
+            </style>
+
+            <ul class="nav nav-tabs position-tabs border-bottom-0" id="dashboardPositionTabs" role="tablist">
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link active" id="dash-teaching-tab" data-bs-toggle="tab" data-bs-target="#dash-teaching" type="button" role="tab" aria-controls="dash-teaching" aria-selected="true">
+                        Teaching Positions <span class="badge bg-white text-dark ms-1 border">{{ count($teachingPositions) }}</span>
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="dash-non-teaching-tab" data-bs-toggle="tab" data-bs-target="#dash-non-teaching" type="button" role="tab" aria-controls="dash-non-teaching" aria-selected="false">
+                        Non-Teaching Positions <span class="badge bg-white text-dark ms-1 border">{{ count($nonTeachingPositions) }}</span>
+                    </button>
+                </li>
+            </ul>
+            
+            <div class="tab-content border-top border-light pt-3" id="dashboardPositionTabsContent">
+                <!-- Teaching Tab -->
+                <div class="tab-pane fade show active" id="dash-teaching" role="tabpanel" aria-labelledby="dash-teaching-tab">
+                    <div class="table-responsive">
+                        <table class="table table-hover table-bordered align-middle bg-white">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Position Name</th>
+                                    <th>Created At</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @forelse($teachingPositions as $pos)
+                                <tr>
+                                    <td>{{ $pos->id }}</td>
+                                    <td class="fw-bold text-uppercase">{{ $pos->position_name }}</td>
+                                    <td>{{ \Carbon\Carbon::parse($pos->created_at)->format('M d, Y') }}</td>
+                                    <td>
+                                        <form action="{{ route('hr.positions.destroy', $pos->id) }}" method="POST" onsubmit="return confirm('Delete this position?');">
+                                            @csrf
+                                            <button type="submit" class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i></button>
+                                        </form>
+                                    </td>
+                                </tr>
+                                @empty
+                                <tr>
+                                    <td colspan="4" class="text-center text-muted">No teaching positions created yet.</td>
+                                </tr>
+                                @endforelse
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Non-Teaching Tab -->
+                <div class="tab-pane fade" id="dash-non-teaching" role="tabpanel" aria-labelledby="dash-non-teaching-tab">
+                    <div class="table-responsive">
+                        <table class="table table-hover table-bordered align-middle bg-white">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Position Name</th>
+                                    <th>Created At</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @forelse($nonTeachingPositions as $pos)
+                                <tr>
+                                    <td>{{ $pos->id }}</td>
+                                    <td class="fw-bold text-uppercase">{{ $pos->position_name }}</td>
+                                    <td>{{ \Carbon\Carbon::parse($pos->created_at)->format('M d, Y') }}</td>
+                                    <td>
+                                        <form action="{{ route('hr.positions.destroy', $pos->id) }}" method="POST" onsubmit="return confirm('Delete this position?');">
+                                            @csrf
+                                            <button type="submit" class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i></button>
+                                        </form>
+                                    </td>
+                                </tr>
+                                @empty
+                                <tr>
+                                    <td colspan="4" class="text-center text-muted">No non-teaching positions created yet.</td>
+                                </tr>
+                                @endforelse
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
