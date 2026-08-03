@@ -16,7 +16,7 @@ class ProfileController extends Controller
             return redirect()->route('login');
         }
 
-        $user = DB::table('users')->where('id', Session::get('user_id'))->first();
+        $user = \App\Models\User::with(['position', 'learningArea'])->find(Session::get('user_id'));
 
         return view('profile', compact('user'));
     }

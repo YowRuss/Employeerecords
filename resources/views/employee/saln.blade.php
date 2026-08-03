@@ -100,11 +100,11 @@
                                         value="{{ $saln_info->declarant_address ?? '' }}">
                                 </div>
 
-                                <!-- Auto-fills from the latest Service Record Designation if no SALN record exists yet -->
+                                <!-- Auto-fills from the user's official position -->
                                 <div class="mb-2">
                                     <label class="small text-muted fw-bold">Position</label>
-                                    <input type="text" name="declarant_position" class="form-control text-uppercase"
-                                        value="{{ $saln_info->declarant_position ?? $auto_position }}">
+                                    <input type="text" name="declarant_position" class="form-control text-uppercase bg-light" style="color: #1A3E6F;"
+                                        value="{{ $user->position->name ?? $user->position->position_name ?? 'No Position Assigned' }}" readonly>
                                 </div>
 
                                 <div class="mb-2">

@@ -92,7 +92,15 @@
                                     </div>
                                     <div class="col-md-3">
                                         <label class="form-label fw-bold text-muted small mb-0">Citizenship</label>
-                                        <div class="fw-bold text-uppercase border-bottom pb-1">{{ $personal_info->citizenship ?: 'N/A' }}</div>
+                                        <div class="fw-bold text-uppercase border-bottom pb-1">
+                                            @if($personal_info->citizenship === 1)
+                                                Dual Citizenship {{ $personal_info->country ? ' - ' . $personal_info->country->name : '' }}
+                                            @elseif($personal_info->citizenship === 0)
+                                                Filipino
+                                            @else
+                                                N/A
+                                            @endif
+                                        </div>
                                     </div>
                                     <div class="col-md-3">
                                         <label class="form-label fw-bold text-muted small mb-0">If Dual, Country</label>

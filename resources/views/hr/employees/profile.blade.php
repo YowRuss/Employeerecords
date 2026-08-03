@@ -37,8 +37,14 @@
                             </button>
                         </div>
                         <p class="text-muted mb-3">
-                            <span class="d-block fw-semibold">{{ $serviceRecordPosition->position_name ?? 'No Position Assigned' }}</span>
-                            @if(isset($serviceRecordPosition) && $serviceRecordPosition->category === 'Teaching')
+                            <span class="d-inline-flex align-items-center fw-semibold text-dark" style="font-size: 1.1rem;">
+                                {{ $employee->position->position_name ?? 'No Position Assigned' }}
+                                <button type="button" class="btn btn-sm btn-light border shadow-sm rounded-circle text-primary ms-2" data-bs-toggle="modal" data-bs-target="#editPositionModal" title="Update Employee Position" style="width: 24px; height: 24px; padding: 0; display: inline-flex; align-items: center; justify-content: center;">
+                                    <i class="bi bi-pencil-square" style="font-size: 0.7rem;"></i>
+                                </button>
+                            </span>
+                            <br>
+                            @if(isset($employee->position) && $employee->position->category === 'Teaching')
                             <span class="d-inline-flex align-items-center mt-1 text-dark" style="font-size: 0.9rem;">
                                 <span>Area of Specialization: <span class="fw-bold">{{ $employee->learningArea->name ?? 'Not Set' }}</span></span>
                                 <button type="button" class="btn btn-sm btn-light border shadow-sm rounded-circle text-primary ms-2" data-bs-toggle="modal" data-bs-target="#editLearningAreaModal" title="Edit Area of Specialization" style="width: 24px; height: 24px; padding: 0; display: inline-flex; align-items: center; justify-content: center;">
@@ -206,10 +212,10 @@
             </div>
             <form action="{{ route('hr.update_learning_area', $employee->id) }}" method="POST">
                 @csrf
-                <div class="modal-body p-4">
-                    <div class="mb-3">
+                <div class="modal-body p-4" style="min-height: 250px;">
+                    <div class="mb-4">
                         <label class="form-label small fw-bold text-uppercase tracking-wider" style="color: #1A3E6F;">Learning Area <span class="text-danger">*</span></label>
-                        <select name="learning_area_id" class="form-select p-3 bg-light border-0 focus-ring" required style="border-radius: 8px;">
+                        <select id="selectLearningArea" name="learning_area_id" class="form-select p-3 bg-light border-0 focus-ring" required style="border-radius: 8px;">
                             <option value="" disabled {{ !$employee->learning_area_id ? 'selected' : '' }}>Select a Learning Area</option>
                             @foreach($learningAreas as $area)
                                 <option value="{{ $area->id }}" {{ $employee->learning_area_id == $area->id ? 'selected' : '' }}>
@@ -227,4 +233,134 @@
         </div>
     </div>
 </div>
+
+<!-- Edit Position Modal -->
+<style>
+    .btn-outline-theme {
+        color: #1A3E6F;
+        border-color: #1A3E6F;
+    }
+    .btn-outline-theme:hover {
+        background-color: rgba(26, 62, 111, 0.1);
+        color: #1A3E6F;
+    }
+    .btn-check:checked + .btn-outline-theme {
+        background-color: #1A3E6F;
+        color: #ffffff;
+        border-color: #1A3E6F;
+    }
+    .btn-check:focus + .btn-outline-theme {
+        box-shadow: 0 0 0 0.25rem rgba(26, 62, 111, 0.25);
+    }
+</style>
+<div class="modal fade text-start" id="editPositionModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg rounded-4 overflow-hidden">
+            <div class="modal-header bg-white border-bottom py-3" style="border-bottom: 2px solid var(--accent-yellow) !important;">
+                <h5 class="modal-title fw-bold m-0" style="color: #1A3E6F;"><i class="bi bi-briefcase me-2 text-warning"></i> Update Employee Position</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form action="{{ route('hr.update_position', $employee->id) }}" method="POST">
+                @csrf
+                <div class="modal-body p-4" style="min-height: 300px;">
+                    <div class="mb-4">
+                        <label class="form-label small fw-bold text-uppercase tracking-wider" style="color: #1A3E6F;">Category</label>
+                        <div class="btn-group w-100 mt-2 shadow-sm" role="group">
+                            <input type="radio" class="btn-check position-category-radio" name="position_category" id="catTeaching" value="Teaching" autocomplete="off" {{ ($employee->position->category ?? '') == 'Teaching' ? 'checked' : '' }}>
+                            <label class="btn btn-outline-theme fw-bold py-2" for="catTeaching"><i class="bi bi-book me-1"></i> Teaching</label>
+
+                            <input type="radio" class="btn-check position-category-radio" name="position_category" id="catNonTeaching" value="Non-Teaching" autocomplete="off" {{ ($employee->position->category ?? 'Non-Teaching') == 'Non-Teaching' ? 'checked' : '' }}>
+                            <label class="btn btn-outline-theme fw-bold py-2" for="catNonTeaching"><i class="bi bi-briefcase me-1"></i> Non-Teaching</label>
+                        </div>
+                    </div>
+
+                    <div class="mb-4 position-select-container" id="containerTeaching" style="{{ ($employee->position->category ?? '') == 'Teaching' ? '' : 'display: none;' }}">
+                        <label class="form-label small fw-bold text-uppercase tracking-wider" style="color: #1A3E6F;">Teaching Position <span class="text-danger">*</span></label>
+                        <select id="selectTeaching" class="form-select p-3 bg-light border-0 select2-position" style="border-radius: 8px;">
+                            <option value="" disabled {{ !$employee->position_id ? 'selected' : '' }}>Select Teaching Position</option>
+                            @foreach($positions->where('category', 'Teaching') as $position)
+                                <option value="{{ $position->id }}" {{ $employee->position_id == $position->id ? 'selected' : '' }}>
+                                    {{ $position->position_name }}
+                                </option>
+                            @endforeach
+                        </select>
+                    </div>
+
+                    <div class="mb-4 position-select-container" id="containerNonTeaching" style="{{ ($employee->position->category ?? 'Non-Teaching') == 'Non-Teaching' ? '' : 'display: none;' }}">
+                        <label class="form-label small fw-bold text-uppercase tracking-wider" style="color: #1A3E6F;">Non-Teaching Position <span class="text-danger">*</span></label>
+                        <select id="selectNonTeaching" class="form-select p-3 bg-light border-0 select2-position" style="border-radius: 8px;">
+                            <option value="" disabled {{ !$employee->position_id ? 'selected' : '' }}>Select Non-Teaching Position</option>
+                            @foreach($positions->where('category', 'Non-Teaching') as $position)
+                                <option value="{{ $position->id }}" {{ $employee->position_id == $position->id ? 'selected' : '' }}>
+                                    {{ $position->position_name }}
+                                </option>
+                            @endforeach
+                        </select>
+                    </div>
+                    
+                    <input type="hidden" name="position_id" id="finalPositionId" value="{{ $employee->position_id }}">
+                </div>
+                <div class="modal-footer bg-light border-top-0 py-3">
+                    <button type="button" class="btn btn-light px-4 fw-bold rounded-pill text-muted border" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn text-white px-4 fw-bold shadow-sm rounded-pill" style="background-color: #1A3E6F;">Save Changes</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const radios = document.querySelectorAll('.position-category-radio');
+    const containerT = document.getElementById('containerTeaching');
+    const containerNT = document.getElementById('containerNonTeaching');
+    const selectT = document.getElementById('selectTeaching');
+    const selectNT = document.getElementById('selectNonTeaching');
+    const finalInput = document.getElementById('finalPositionId');
+
+    function updateVisibility() {
+        const selectedCat = document.querySelector('.position-category-radio:checked');
+        if (!selectedCat) return;
+        
+        if (selectedCat.value === 'Teaching') {
+            containerT.style.display = '';
+            containerNT.style.display = 'none';
+            selectT.required = true;
+            selectNT.required = false;
+            finalInput.value = selectT.value;
+        } else {
+            containerT.style.display = 'none';
+            containerNT.style.display = '';
+            selectT.required = false;
+            selectNT.required = true;
+            finalInput.value = selectNT.value;
+        }
+    }
+
+    radios.forEach(r => r.addEventListener('change', updateVisibility));
+    
+    // Initialize select2
+    if (typeof $ !== 'undefined' && $.fn.select2) {
+        $('#selectTeaching, #selectNonTeaching').select2({
+            theme: 'bootstrap-5',
+            width: '100%',
+            dropdownParent: $('#editPositionModal')
+        }).on('change', function() {
+            finalInput.value = this.value;
+        });
+
+        $('#selectLearningArea').select2({
+            theme: 'bootstrap-5',
+            width: '100%',
+            dropdownParent: $('#editLearningAreaModal')
+        });
+    } else {
+        if (selectT) selectT.addEventListener('change', () => finalInput.value = selectT.value);
+        if (selectNT) selectNT.addEventListener('change', () => finalInput.value = selectNT.value);
+    }
+    
+    // Initial setup
+    updateVisibility();
+});
+</script>
 @endsection

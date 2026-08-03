@@ -29,28 +29,28 @@
     @endif
 
     <!-- Employee Statistics -->
-    <div class="row g-4 mb-4">
+    <div class="row g-3 mb-3">
         <!-- Gender Statistics -->
         <div class="col-12 col-lg-6">
             <div class="card shadow-sm border-0 rounded-4 h-100 overflow-hidden" style="background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);">
-                <div class="card-body p-4">
-                    <div class="d-flex align-items-center mb-3">
-                        <div class="bg-primary text-white rounded-circle d-flex align-items-center justify-content-center me-3 shadow-sm" style="width: 48px; height: 48px;">
-                            <i class="bi bi-gender-ambiguous fs-4"></i>
+                <div class="card-body p-3">
+                    <div class="d-flex align-items-center mb-2">
+                        <div class="bg-primary text-white rounded-circle d-flex align-items-center justify-content-center me-2 shadow-sm" style="width: 36px; height: 36px;">
+                            <i class="bi bi-gender-ambiguous fs-5"></i>
                         </div>
-                        <h5 class="fw-bold m-0 text-dark">Gender Distribution</h5>
+                        <h6 class="fw-bold m-0 text-dark">Gender Distribution</h6>
                     </div>
-                    <div class="row g-3 text-center mt-2">
+                    <div class="row g-2 text-center mt-1">
                         <div class="col-6">
-                            <div class="p-3 bg-white rounded-3 shadow-sm border border-light">
-                                <h3 class="fw-bold text-primary mb-1">{{ $maleCount }}</h3>
-                                <div class="text-muted small fw-medium text-uppercase"><i class="bi bi-gender-male me-1"></i> Male</div>
+                            <div class="p-2 bg-white rounded-3 shadow-sm border border-light">
+                                <h4 class="fw-bold text-primary mb-0">{{ $maleCount }}</h4>
+                                <div class="text-muted small fw-medium text-uppercase" style="font-size: 0.75rem;"><i class="bi bi-gender-male me-1"></i> Male</div>
                             </div>
                         </div>
                         <div class="col-6">
-                            <div class="p-3 bg-white rounded-3 shadow-sm border border-light">
-                                <h3 class="fw-bold text-danger mb-1">{{ $femaleCount }}</h3>
-                                <div class="text-muted small fw-medium text-uppercase"><i class="bi bi-gender-female me-1"></i> Female</div>
+                            <div class="p-2 bg-white rounded-3 shadow-sm border border-light">
+                                <h4 class="fw-bold text-danger mb-0">{{ $femaleCount }}</h4>
+                                <div class="text-muted small fw-medium text-uppercase" style="font-size: 0.75rem;"><i class="bi bi-gender-female me-1"></i> Female</div>
                             </div>
                         </div>
                     </div>
@@ -61,24 +61,24 @@
         <!-- Position Statistics -->
         <div class="col-12 col-lg-6">
             <div class="card shadow-sm border-0 rounded-4 h-100 overflow-hidden" style="background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);">
-                <div class="card-body p-4">
-                    <div class="d-flex align-items-center mb-3">
-                        <div class="bg-success text-white rounded-circle d-flex align-items-center justify-content-center me-3 shadow-sm" style="width: 48px; height: 48px;">
-                            <i class="bi bi-briefcase-fill fs-4"></i>
+                <div class="card-body p-3">
+                    <div class="d-flex align-items-center mb-2">
+                        <div class="bg-success text-white rounded-circle d-flex align-items-center justify-content-center me-2 shadow-sm" style="width: 36px; height: 36px;">
+                            <i class="bi bi-briefcase-fill fs-5"></i>
                         </div>
-                        <h5 class="fw-bold m-0 text-dark">Position Categories</h5>
+                        <h6 class="fw-bold m-0 text-dark">Position Categories</h6>
                     </div>
-                    <div class="row g-3 text-center mt-2">
+                    <div class="row g-2 text-center mt-1">
                         <div class="col-6">
-                            <div class="p-3 bg-white rounded-3 shadow-sm border border-light">
-                                <h3 class="fw-bold text-success mb-1">{{ $positionStats['Teaching'] ?? 0 }}</h3>
-                                <div class="text-muted small fw-medium text-uppercase"><i class="bi bi-book-half me-1"></i> Teaching</div>
+                            <div class="p-2 bg-white rounded-3 shadow-sm border border-light">
+                                <h4 class="fw-bold text-success mb-0">{{ $positionStats['Teaching'] ?? 0 }}</h4>
+                                <div class="text-muted small fw-medium text-uppercase" style="font-size: 0.75rem;"><i class="bi bi-book-half me-1"></i> Teaching</div>
                             </div>
                         </div>
                         <div class="col-6">
-                            <div class="p-3 bg-white rounded-3 shadow-sm border border-light">
-                                <h3 class="fw-bold text-warning mb-1">{{ $positionStats['Non-Teaching'] ?? 0 }}</h3>
-                                <div class="text-muted small fw-medium text-uppercase"><i class="bi bi-buildings me-1"></i> Non-Teaching</div>
+                            <div class="p-2 bg-white rounded-3 shadow-sm border border-light">
+                                <h4 class="fw-bold text-warning mb-0">{{ $positionStats['Non-Teaching'] ?? 0 }}</h4>
+                                <div class="text-muted small fw-medium text-uppercase" style="font-size: 0.75rem;"><i class="bi bi-buildings me-1"></i> Non-Teaching</div>
                             </div>
                         </div>
                     </div>
@@ -282,6 +282,53 @@
     </div>
 </div>
 
+<!-- Promote Employee Modal -->
+<div class="modal fade" id="promoteEmployeeModal" tabindex="-1" aria-labelledby="promoteEmployeeModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header bg-light">
+                <h5 class="modal-title fw-bold" id="promoteEmployeeModalLabel" style="color: #1A3E6F;">Promote Employee</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form action="{{ route('hr.promote_employee') }}" method="POST">
+                @csrf
+                <div class="modal-body">
+                    <input type="hidden" name="user_id" id="promote_user_id">
+                    
+                    <div class="mb-3">
+                        <label class="form-label fw-bold text-muted small text-uppercase">Employee Name</label>
+                        <input type="text" class="form-control bg-light" id="promote_employee_name" readonly>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-bold text-muted small text-uppercase">Current Position</label>
+                        <input type="text" class="form-control bg-light" id="promote_current_position" readonly>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-bold text-muted small text-uppercase">New Position <span class="text-danger">*</span></label>
+                        <select name="position_id" id="promote_new_position" class="form-select" required>
+                            <option value="" disabled selected>Select New Position...</option>
+                            @foreach($positions as $position)
+                                <option value="{{ $position->id }}">{{ $position->position_name }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-bold text-muted small text-uppercase">Effective Date (Optional)</label>
+                        <input type="date" name="effective_date" class="form-control">
+                    </div>
+                </div>
+                <div class="modal-footer bg-light">
+                    <button type="button" class="btn btn-secondary fw-bold" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn fw-bold shadow-sm" style="background-color: var(--accent-yellow, #FDE047); color: #1A3E6F;">Confirm Promotion</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     const filterSelect = document.getElementById('teaching-learning-area-filter');
@@ -309,6 +356,19 @@ document.addEventListener('DOMContentLoaded', function() {
             });
         });
     }
+
+    // Populate Promote Modal
+    const promoteButtons = document.querySelectorAll('.btn-promote');
+    promoteButtons.forEach(button => {
+        button.addEventListener('click', function() {
+            document.getElementById('promote_user_id').value = this.getAttribute('data-id');
+            document.getElementById('promote_employee_name').value = this.getAttribute('data-name');
+            document.getElementById('promote_current_position').value = this.getAttribute('data-position');
+            // Reset select and date
+            document.getElementById('promote_new_position').selectedIndex = 0;
+            document.querySelector('#promoteEmployeeModal input[type="date"]').value = '';
+        });
+    });
 });
 </script>
 @endsection

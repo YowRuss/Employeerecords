@@ -4,6 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Careers | CNHS-JHS HR System</title>
+    
+    <!-- Favicon -->
+    <link rel="icon" href="{{ asset('build/assets/images/logo.png') }}" type="image/png">
 
     <!-- Google Fonts: Plus Jakarta Sans -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -75,7 +78,7 @@
                         <a href="#open-positions" class="btn btn-brand btn-lg fw-bold px-4 py-3 rounded-pill">
                             Explore Job Openings <i class="bi bi-arrow-down-short fs-5"></i>
                         </a>
-                        <a href="#about" class="btn btn-outline-light btn-lg fw-bold px-4 py-3 rounded-pill border-opacity-25">
+                        <a href="#about" class="btn btn-outline-dark btn-lg fw-bold px-4 py-3 rounded-pill border-opacity-25">
                             Learn More
                         </a>
                     </div>
@@ -262,7 +265,7 @@
     <footer class="footer-main">
         <div class="container text-center">
             <h5 class="footer-brand mb-2">CNHS-JHS HR System</h5>
-            <p class="text-white-50 small mb-3">Cavite National High School - Junior High School Human Resource Portal</p>
+            <p class="text-muted small mb-3">Cavite National High School - Junior High School Human Resource Portal</p>
             
             <div class="d-flex justify-content-center gap-4 mb-3">
                 <a href="#open-positions" class="footer-link">Careers</a>
@@ -271,7 +274,7 @@
             </div>
 
             <div class="pt-3 border-top border-secondary border-opacity-25">
-                <p class="small mb-0 text-white-50">&copy; {{ date('Y') }} CNHS-JHS HR Department. All rights reserved.</p>
+                <p class="small mb-0 text-muted">&copy; {{ date('Y') }} CNHS-JHS HR Department. All rights reserved.</p>
             </div>
         </div>
     </footer>

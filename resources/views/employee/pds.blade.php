@@ -96,12 +96,12 @@
                                         <label class="form-label fw-bold">Sex <span class="text-danger">*</span></label>
                                         <div class="d-flex align-items-center mt-2">
                                             <div class="form-check form-check-inline">
-                                                <input class="form-check-input accent-radio" type="radio" name="sex" id="sexMale" value="Male" {{ in_array(($personal_info->sex ?? ''), ['1', 'Male']) ? 'checked' : '' }} required>
-                                                <label class="form-check-label" for="sexMale">Male</label>
+                                                <input class="form-check-input accent-radio" type="radio" name="sex" id="sexMale" value="1" {{ in_array(($personal_info->sex ?? ''), ['1', 'Male']) ? 'checked' : '' }} required>
+                                                <label class="form-check-label fw-bold text-dark" for="sexMale">Male</label>
                                             </div>
                                             <div class="form-check form-check-inline">
-                                                <input class="form-check-input accent-radio" type="radio" name="sex" id="sexFemale" value="Female" {{ in_array(($personal_info->sex ?? ''), ['0', 'Female']) ? 'checked' : '' }}>
-                                                <label class="form-check-label" for="sexFemale">Female</label>
+                                                <input class="form-check-input accent-radio" type="radio" name="sex" id="sexFemale" value="0" {{ in_array(($personal_info->sex ?? ''), ['0', 'Female']) ? 'checked' : '' }}>
+                                                <label class="form-check-label fw-bold text-dark" for="sexFemale">Female</label>
                                             </div>
                                         </div>
                                     </div>
@@ -130,14 +130,14 @@
                                     </div>
                                     <div class="col-md-3">
                                         <label class="form-label fw-bold">Citizenship <span class="text-danger">*</span></label>
-                                        <select name="citizenship" id="citizenshipType" class="form-select" onchange="$('#dualCountry').prop('disabled', this.value !== 'Dual Citizenship');" required>
-                                            <option value="Filipino" {{ ($personal_info->citizenship ?? 'Filipino') == 'Filipino' ? 'selected' : '' }}>Filipino</option>
-                                            <option value="Dual Citizenship" {{ ($personal_info->citizenship ?? '') == 'Dual Citizenship' ? 'selected' : '' }}>Dual Citizenship</option>
+                                        <select name="citizenship" id="citizenshipType" class="form-select" onchange="$('#dualCountry').prop('disabled', this.value !== '1');" required>
+                                            <option value="0" {{ ($personal_info->citizenship ?? '0') == '0' ? 'selected' : '' }}>Filipino</option>
+                                            <option value="1" {{ ($personal_info->citizenship ?? '') == '1' ? 'selected' : '' }}>Dual Citizenship</option>
                                         </select>
                                     </div>
                                     <div class="col-md-3">
                                         <label class="form-label fw-bold text-muted small">If Dual, Country</label>
-                                        <select name="citizenship_country_id" id="dualCountry" class="form-select select2-search" {{ ($personal_info->citizenship ?? '') == 'Dual Citizenship' ? '' : 'disabled' }}>
+                                        <select name="citizenship_country_id" id="dualCountry" class="form-select select2-search" {{ ($personal_info->citizenship ?? '') == '1' ? '' : 'disabled' }}>
                                             <option value="" selected disabled>Select Country...</option>
                                             @foreach($countries as $country)
                                                 <option value="{{ $country->id }}" {{ ($personal_info->citizenship_country_id ?? '') == $country->id ? 'selected' : '' }}>{{ $country->name }}</option>
@@ -185,7 +185,7 @@
                             <!-- Residential Address -->
                             <div class="col-lg-6">
                                 <div class="pds-section-card h-100 mb-0">
-                                    <div class="pds-section-header bg-light">17. Residential Address</div>
+                                    <div class="pds-section-header bg-light text-uppercase fw-bold text-accent">17. RESIDENTIAL ADDRESS</div>
                                     <div class="pds-section-body">
                                         <div class="row g-3">
                                             <div class="col-md-6">
@@ -196,7 +196,7 @@
                                                 <label class="form-label fw-bold">Street</label>
                                                 <input type="text" name="res_street" class="form-control text-uppercase" value="{{ $personal_info->res_street ?? '' }}">
                                             </div>
-                                            <div class="col-md-12">
+                                            <div class="col-md-6">
                                                 <label class="form-label fw-bold">Subdivision/Village</label>
                                                 <input type="text" name="res_subdivision" class="form-control text-uppercase" value="{{ $personal_info->res_subdivision ?? '' }}">
                                             </div>
@@ -204,6 +204,9 @@
                                                 <label class="form-label fw-bold">Region <span class="text-danger">*</span></label>
                                                 <select name="res_region" id="res_region" class="form-select select2-search" data-selected="{{ $personal_info->res_region ?? '' }}" required>
                                                     <option value="" disabled selected>Search Region...</option>
+                                                    @foreach($regions as $region)
+                                                        <option value="{{ $region->id }}" data-code="{{ $region->region_code }}">{{ $region->region_name }}</option>
+                                                    @endforeach
                                                 </select>
                                             </div>
                                             <div class="col-md-6">
@@ -236,11 +239,11 @@
                             <!-- Permanent Address -->
                             <div class="col-lg-6">
                                 <div class="pds-section-card h-100 mb-0">
-                                    <div class="pds-section-header bg-light d-flex justify-content-between align-items-center">
-                                        <span>18. Permanent Address</span>
-                                        <div class="form-check mb-0">
+                                    <div class="pds-section-header bg-light d-flex justify-content-between align-items-center text-uppercase fw-bold text-accent">
+                                        <span>18. PERMANENT ADDRESS</span>
+                                        <div class="form-check mb-0 text-capitalize" style="text-transform: none !important;">
                                             <input class="form-check-input" type="checkbox" id="sameAsResidential">
-                                            <label class="form-check-label text-dark fw-normal text-capitalize" for="sameAsResidential" style="font-size: 0.8rem;">Same as Res</label>
+                                            <label class="form-check-label text-dark fw-normal" for="sameAsResidential" style="font-size: 0.8rem;">Same as Res</label>
                                         </div>
                                     </div>
                                     <div class="pds-section-body">
@@ -253,7 +256,7 @@
                                                 <label class="form-label fw-bold">Street</label>
                                                 <input type="text" name="perm_street" id="perm_street" class="form-control text-uppercase" value="{{ $personal_info->perm_street ?? '' }}">
                                             </div>
-                                            <div class="col-md-12">
+                                            <div class="col-md-6">
                                                 <label class="form-label fw-bold">Subdivision/Village</label>
                                                 <input type="text" name="perm_subdivision" id="perm_subdivision" class="form-control text-uppercase" value="{{ $personal_info->perm_subdivision ?? '' }}">
                                             </div>
@@ -261,6 +264,9 @@
                                                 <label class="form-label fw-bold">Region <span class="text-danger">*</span></label>
                                                 <select name="perm_region" id="perm_region" class="form-select select2-search" data-selected="{{ $personal_info->perm_region ?? '' }}" required>
                                                     <option value="" disabled selected>Search Region...</option>
+                                                    @foreach($regions as $region)
+                                                        <option value="{{ $region->id }}" data-code="{{ $region->region_code }}">{{ $region->region_name }}</option>
+                                                    @endforeach
                                                 </select>
                                             </div>
                                             <div class="col-md-6">
@@ -331,35 +337,35 @@
                                         <div class="row g-3">
                                             <div class="col-md-6">
                                                 <label class="form-label fw-bold">Surname</label>
-                                                <input type="text" name="spouse_last_name" class="form-control text-uppercase" value="{{ $personal_info->spouse_last_name ?? '' }}">
+                                                <input type="text" name="spouse_surname" class="form-control text-uppercase" value="{{ $spouse->surname ?? '' }}">
                                             </div>
                                             <div class="col-md-6">
                                                 <label class="form-label fw-bold">First Name</label>
-                                                <input type="text" name="spouse_first_name" class="form-control text-uppercase" value="{{ $personal_info->spouse_first_name ?? '' }}">
+                                                <input type="text" name="spouse_first_name" class="form-control text-uppercase" value="{{ $spouse->first_name ?? '' }}">
                                             </div>
                                             <div class="col-md-6">
                                                 <label class="form-label fw-bold">Middle Name</label>
-                                                <input type="text" name="spouse_middle_name" class="form-control text-uppercase" value="{{ $personal_info->spouse_middle_name ?? '' }}" placeholder="N/A">
+                                                <input type="text" name="spouse_middle_name" class="form-control text-uppercase" value="{{ $spouse->middle_name ?? '' }}" placeholder="N/A">
                                             </div>
                                             <div class="col-md-6">
                                                 <label class="form-label fw-bold">Extension (Jr, Sr)</label>
-                                                <input type="text" name="spouse_name_extension" class="form-control text-uppercase" value="{{ $personal_info->spouse_name_extension ?? '' }}">
+                                                <input type="text" name="spouse_name_extension" class="form-control text-uppercase" value="{{ $spouse->name_extension ?? '' }}">
                                             </div>
                                             <div class="col-md-6">
                                                 <label class="form-label fw-bold">Occupation</label>
-                                                <input type="text" name="spouse_occupation" class="form-control text-uppercase" value="{{ $personal_info->spouse_occupation ?? '' }}">
+                                                <input type="text" name="spouse_occupation" class="form-control text-uppercase" value="{{ $spouse->occupation ?? '' }}">
                                             </div>
                                             <div class="col-md-6">
                                                 <label class="form-label fw-bold">Employer / Business Name</label>
-                                                <input type="text" name="spouse_employer" class="form-control text-uppercase" value="{{ $personal_info->spouse_employer ?? '' }}">
+                                                <input type="text" name="spouse_employer" class="form-control text-uppercase" value="{{ $spouse->employer_business_name ?? '' }}">
                                             </div>
                                             <div class="col-md-6">
                                                 <label class="form-label fw-bold">Business Address</label>
-                                                <input type="text" name="spouse_business_address" class="form-control text-uppercase" value="{{ $personal_info->spouse_business_address ?? '' }}">
+                                                <input type="text" name="spouse_business_address" class="form-control text-uppercase" value="{{ $spouse->business_address ?? '' }}">
                                             </div>
                                             <div class="col-md-6">
                                                 <label class="form-label fw-bold">Telephone No.</label>
-                                                <input type="text" name="spouse_telephone" class="form-control" value="{{ $personal_info->spouse_telephone ?? '' }}">
+                                                <input type="text" name="spouse_telephone" class="form-control" value="{{ $spouse->telephone_number ?? '' }}">
                                             </div>
                                         </div>
                                     </div>
@@ -370,18 +376,18 @@
                                     <div class="pds-section-header">24. Father's Information</div>
                                     <div class="pds-section-body border-bottom">
                                         <div class="row g-3">
-                                            <div class="col-md-6"><label class="form-label fw-bold">Surname</label><input type="text" name="father_last_name" class="form-control text-uppercase" value="{{ $personal_info->father_last_name ?? '' }}"></div>
-                                            <div class="col-md-6"><label class="form-label fw-bold">First Name</label><input type="text" name="father_first_name" class="form-control text-uppercase" value="{{ $personal_info->father_first_name ?? '' }}"></div>
-                                            <div class="col-md-6"><label class="form-label fw-bold">Middle Name</label><input type="text" name="father_middle_name" class="form-control text-uppercase" value="{{ $personal_info->father_middle_name ?? '' }}"></div>
-                                            <div class="col-md-6"><label class="form-label fw-bold">Extension (Jr, Sr)</label><input type="text" name="father_name_extension" class="form-control text-uppercase" value="{{ $personal_info->father_name_extension ?? '' }}"></div>
+                                            <div class="col-md-6"><label class="form-label fw-bold">Surname</label><input type="text" name="father_surname" class="form-control text-uppercase" value="{{ $father->surname ?? '' }}"></div>
+                                            <div class="col-md-6"><label class="form-label fw-bold">First Name</label><input type="text" name="father_first_name" class="form-control text-uppercase" value="{{ $father->first_name ?? '' }}"></div>
+                                            <div class="col-md-6"><label class="form-label fw-bold">Middle Name</label><input type="text" name="father_middle_name" class="form-control text-uppercase" value="{{ $father->middle_name ?? '' }}"></div>
+                                            <div class="col-md-6"><label class="form-label fw-bold">Extension (Jr, Sr)</label><input type="text" name="father_name_extension" class="form-control text-uppercase" value="{{ $father->name_extension ?? '' }}"></div>
                                         </div>
                                     </div>
                                     <div class="pds-section-header">25. Mother's Maiden Name</div>
                                     <div class="pds-section-body">
                                         <div class="row g-3">
-                                            <div class="col-md-4"><label class="form-label fw-bold">Surname</label><input type="text" name="mother_maiden_last_name" class="form-control text-uppercase" value="{{ $personal_info->mother_maiden_last_name ?? '' }}"></div>
-                                            <div class="col-md-4"><label class="form-label fw-bold">First Name</label><input type="text" name="mother_maiden_first_name" class="form-control text-uppercase" value="{{ $personal_info->mother_maiden_first_name ?? '' }}"></div>
-                                            <div class="col-md-4"><label class="form-label fw-bold">Middle Name</label><input type="text" name="mother_maiden_middle_name" class="form-control text-uppercase" value="{{ $personal_info->mother_maiden_middle_name ?? '' }}"></div>
+                                            <div class="col-md-4"><label class="form-label fw-bold">Surname</label><input type="text" name="mother_maiden_surname" class="form-control text-uppercase" value="{{ $mother->maiden_surname ?? '' }}"></div>
+                                            <div class="col-md-4"><label class="form-label fw-bold">First Name</label><input type="text" name="mother_first_name" class="form-control text-uppercase" value="{{ $mother->first_name ?? '' }}"></div>
+                                            <div class="col-md-4"><label class="form-label fw-bold">Middle Name</label><input type="text" name="mother_middle_name" class="form-control text-uppercase" value="{{ $mother->middle_name ?? '' }}"></div>
                                         </div>
                                     </div>
                                 </div>
@@ -411,11 +417,14 @@
                                                 <tr>
                                                     <td class="fw-bold text-uppercase">{{ $child->child_name }}</td>
                                                     <td class="text-nowrap">{{ \Carbon\Carbon::parse($child->date_of_birth)->format('m/d/Y') }}</td>
-                                                    <td class="text-center">
-                                                        <button type="button" class="btn btn-sm btn-outline-danger p-1" data-bs-toggle="modal" data-bs-target="#deleteConfirmModal" data-url="{{ route('pds.delete_record', ['table' => 'pds_children', 'id' => $child->id]) }}" title="Delete">
-                                                            <i class="bi bi-trash"></i>
-                                                        </button>
-                                                    </td>
+                                                    <td class="text-center text-nowrap">
+                                                <button type="button" class="btn btn-sm btn-outline-primary p-1 me-1" data-bs-toggle="modal" data-bs-target="#editChildModal" data-id="{{ $child->id }}" data-name="{{ $child->child_name }}" data-dob="{{ $child->date_of_birth }}" title="Edit">
+                                                    <i class="bi bi-pencil"></i>
+                                                </button>
+                                                <button type="button" class="btn btn-sm btn-outline-danger p-1" data-bs-toggle="modal" data-bs-target="#deleteConfirmModal" data-url="{{ route('pds.delete_record', ['table' => 'pds_children', 'id' => $child->id]) }}" title="Delete">
+                                                    <i class="bi bi-trash"></i>
+                                                </button>
+                                            </td>
                                                 </tr>
                                                 @empty
                                                 <tr>
@@ -576,7 +585,12 @@
                                             <td>{{ $elig->exam_place ?? 'N/A' }}</td>
                                             <td>{{ $elig->license_number ?? 'N/A' }}</td>
                                             <td>{{ $elig->license_validity ?? 'N/A' }}</td>
-                                            <td><button type="button" class="btn btn-sm btn-outline-danger p-1" data-bs-toggle="modal" data-bs-target="#deleteConfirmModal" data-url="{{ route('pds.delete_record', ['table' => 'pds_eligibility', 'id' => $elig->id]) }}"><i class="bi bi-trash"></i></button></td>
+                                            <td class="text-center text-nowrap">
+                                                <button type="button" class="btn btn-sm btn-outline-primary p-1 me-1" data-bs-toggle="modal" data-bs-target="#editEligibilityModal" data-id="{{ $elig->id }}" data-name="{{ $elig->eligibility_name }}" data-rating="{{ $elig->rating }}" data-examdate="{{ $elig->exam_date }}" data-examplace="{{ $elig->exam_place }}" data-license="{{ $elig->license_number }}" data-validity="{{ $elig->license_validity }}" title="Edit">
+                                                    <i class="bi bi-pencil"></i>
+                                                </button>
+                                                <button type="button" class="btn btn-sm btn-outline-danger p-1" data-bs-toggle="modal" data-bs-target="#deleteConfirmModal" data-url="{{ route('pds.delete_record', ['table' => 'pds_eligibility', 'id' => $elig->id]) }}"><i class="bi bi-trash"></i></button>
+                                            </td>
                                         </tr>
                                         @empty
                                         <tr>
@@ -657,7 +671,12 @@
                                             <td class="text-start">{{ $work->agency_company }}</td>
                                             <td>{{ $work->status_appointment ?? 'N/A' }}</td>
                                             <td>{{ $work->govt_service ?? 'N/A' }}</td>
-                                            <td><button type="button" class="btn btn-sm btn-outline-danger p-1" data-bs-toggle="modal" data-bs-target="#deleteConfirmModal" data-url="{{ route('pds.delete_record', ['table' => 'pds_work_experience', 'id' => $work->id]) }}"><i class="bi bi-trash"></i></button></td>
+                                            <td class="text-center text-nowrap">
+                                                <button type="button" class="btn btn-sm btn-outline-primary p-1 me-1" data-bs-toggle="modal" data-bs-target="#editWorkExperienceModal" data-id="{{ $work->id }}" data-from="{{ $work->date_from }}" data-to="{{ $work->date_to }}" data-position="{{ $work->position_title }}" data-agency="{{ $work->agency_company }}" data-status="{{ $work->status_appointment }}" data-govt="{{ $work->govt_service }}" title="Edit">
+                                                    <i class="bi bi-pencil"></i>
+                                                </button>
+                                                <button type="button" class="btn btn-sm btn-outline-danger p-1" data-bs-toggle="modal" data-bs-target="#deleteConfirmModal" data-url="{{ route('pds.delete_record', ['table' => 'pds_work_experience', 'id' => $work->id]) }}"><i class="bi bi-trash"></i></button>
+                                            </td>
                                         </tr>
                                         @empty
                                         <tr>
@@ -738,7 +757,12 @@
                                             <td>{{ $vol->date_to == 'PRESENT' ? 'PRESENT' : \Carbon\Carbon::parse($vol->date_to)->format('m/d/Y') }}</td>
                                             <td>{{ $vol->number_of_hours ?? 'N/A' }}</td>
                                             <td>{{ $vol->position_nature_of_work }}</td>
-                                            <td><button type="button" class="btn btn-sm btn-outline-danger p-1" data-bs-toggle="modal" data-bs-target="#deleteConfirmModal" data-url="{{ route('pds.delete_record', ['table' => 'pds_voluntary_work', 'id' => $vol->id]) }}"><i class="bi bi-trash"></i></button></td>
+                                            <td class="text-center text-nowrap">
+                                                <button type="button" class="btn btn-sm btn-outline-primary p-1 me-1" data-bs-toggle="modal" data-bs-target="#editVoluntaryWorkModal" data-id="{{ $vol->id }}" data-org="{{ $vol->organization_name }}" data-from="{{ $vol->date_from }}" data-to="{{ $vol->date_to }}" data-hours="{{ $vol->number_of_hours }}" data-position="{{ $vol->position_nature_of_work }}" title="Edit">
+                                                    <i class="bi bi-pencil"></i>
+                                                </button>
+                                                <button type="button" class="btn btn-sm btn-outline-danger p-1" data-bs-toggle="modal" data-bs-target="#deleteConfirmModal" data-url="{{ route('pds.delete_record', ['table' => 'pds_voluntary_work', 'id' => $vol->id]) }}"><i class="bi bi-trash"></i></button>
+                                            </td>
                                         </tr>
                                         @empty
                                         <tr>
@@ -826,9 +850,11 @@
                                                 <div class="mt-1 d-flex justify-content-center gap-2">
                                                     <a href="{{ route('pds.document', ['id' => $ld->id, 'column' => 'proof_of_completion']) }}" target="_blank" class="text-primary small" title="View"><i class="bi bi-eye-fill"></i></a>
                                                     <a href="{{ route('pds.document', ['id' => $ld->id, 'column' => 'proof_of_completion']) }}" download class="text-success small" title="Download"><i class="bi bi-download"></i></a>
+                                                    <a href="javascript:void(0)" class="text-warning small" title="Update Document" data-bs-toggle="modal" data-bs-target="#editLearningModal" data-id="{{ $ld->id }}" data-title="{{ $ld->training_title }}" data-from="{{ $ld->date_from }}" data-to="{{ $ld->date_to }}" data-hours="{{ $ld->number_of_hours }}" data-type="{{ $ld->ld_type }}" data-sponsored="{{ $ld->sponsored_by }}"><i class="bi bi-pencil-fill"></i></a>
                                                 </div>
                                                 @else
-                                                <span class="badge bg-danger shadow-sm p-1 w-100" data-bs-toggle="tooltip" title="Required Document Missing"><i class="bi bi-x-circle"></i> Missing</span>
+                                                <span class="badge bg-danger shadow-sm p-1 w-100 mb-1" data-bs-toggle="tooltip" title="Required Document Missing"><i class="bi bi-x-circle"></i> Missing</span>
+                                                <button type="button" class="btn btn-sm btn-link p-0 text-primary d-block w-100 text-center" data-bs-toggle="modal" data-bs-target="#editLearningModal" data-id="{{ $ld->id }}" data-title="{{ $ld->training_title }}" data-from="{{ $ld->date_from }}" data-to="{{ $ld->date_to }}" data-hours="{{ $ld->number_of_hours }}" data-type="{{ $ld->ld_type }}" data-sponsored="{{ $ld->sponsored_by }}" title="Upload Document"><i class="bi bi-cloud-arrow-up-fill"></i> Upload</button>
                                                 @endif
                                             </td>
 
@@ -839,13 +865,18 @@
                                                 <div class="mt-1 d-flex justify-content-center gap-2">
                                                     <a href="{{ route('pds.document', ['id' => $ld->id, 'column' => 'proof_of_invitation']) }}" target="_blank" class="text-primary small" title="View"><i class="bi bi-eye-fill"></i></a>
                                                     <a href="{{ route('pds.document', ['id' => $ld->id, 'column' => 'proof_of_invitation']) }}" download class="text-success small" title="Download"><i class="bi bi-download"></i></a>
+                                                    <a href="javascript:void(0)" class="text-warning small" title="Update Document" data-bs-toggle="modal" data-bs-target="#editLearningModal" data-id="{{ $ld->id }}" data-title="{{ $ld->training_title }}" data-from="{{ $ld->date_from }}" data-to="{{ $ld->date_to }}" data-hours="{{ $ld->number_of_hours }}" data-type="{{ $ld->ld_type }}" data-sponsored="{{ $ld->sponsored_by }}"><i class="bi bi-pencil-fill"></i></a>
                                                 </div>
                                                 @else
-                                                <span class="badge bg-danger shadow-sm p-1 w-100" data-bs-toggle="tooltip" title="Required Document Missing"><i class="bi bi-x-circle"></i> Missing</span>
+                                                <span class="badge bg-danger shadow-sm p-1 w-100 mb-1" data-bs-toggle="tooltip" title="Required Document Missing"><i class="bi bi-x-circle"></i> Missing</span>
+                                                <button type="button" class="btn btn-sm btn-link p-0 text-primary d-block w-100 text-center" data-bs-toggle="modal" data-bs-target="#editLearningModal" data-id="{{ $ld->id }}" data-title="{{ $ld->training_title }}" data-from="{{ $ld->date_from }}" data-to="{{ $ld->date_to }}" data-hours="{{ $ld->number_of_hours }}" data-type="{{ $ld->ld_type }}" data-sponsored="{{ $ld->sponsored_by }}" title="Upload Document"><i class="bi bi-cloud-arrow-up-fill"></i> Upload</button>
                                                 @endif
                                             </td>
 
-                                            <td>
+                                            <td class="text-center text-nowrap">
+                                                <button type="button" class="btn btn-sm btn-outline-primary p-1 me-1" data-bs-toggle="modal" data-bs-target="#editLearningModal" data-id="{{ $ld->id }}" data-title="{{ $ld->training_title }}" data-from="{{ $ld->date_from }}" data-to="{{ $ld->date_to }}" data-hours="{{ $ld->number_of_hours }}" data-type="{{ $ld->ld_type }}" data-sponsored="{{ $ld->sponsored_by }}" title="Edit">
+                                                    <i class="bi bi-pencil"></i>
+                                                </button>
                                                 <button type="button" class="btn btn-sm btn-outline-danger p-1" data-bs-toggle="modal" data-bs-target="#deleteConfirmModal" data-url="{{ route('pds.delete_record', ['table' => 'pds_learning_development', 'id' => $ld->id]) }}" data-record-name="L&D: {{ $ld->training_title }}"><i class="bi bi-trash"></i></button>
                                             </td>
                                         </tr>
@@ -962,7 +993,10 @@
                                         @forelse($skills as $item)
                                         <li class="list-group-item d-flex justify-content-between align-items-center py-2 px-3" style="font-size: 0.9rem;">
                                             {{ $item->details }}
-                                            <button type="button" class="btn btn-link text-danger p-0 m-0" data-bs-toggle="modal" data-bs-target="#deleteConfirmModal" data-url="{{ route('pds.delete_record', ['table' => 'pds_other_information', 'id' => $item->id]) }}"><i class="bi bi-x-circle"></i></button>
+                                            <div>
+                                                <button type="button" class="btn btn-link text-primary p-0 m-0 me-2" data-bs-toggle="modal" data-bs-target="#editOtherInfoModal" data-id="{{ $item->id }}" data-type="{{ $item->info_type }}" data-details="{{ $item->details }}"><i class="bi bi-pencil"></i></button>
+                                                <button type="button" class="btn btn-link text-danger p-0 m-0" data-bs-toggle="modal" data-bs-target="#deleteConfirmModal" data-url="{{ route('pds.delete_record', ['table' => 'pds_other_information', 'id' => $item->id]) }}"><i class="bi bi-x-circle"></i></button>
+                                            </div>
                                         </li>
                                         @empty
                                         <li class="list-group-item text-muted text-center py-3">No skills added.</li>
@@ -984,7 +1018,10 @@
                                         @forelse($recognitions as $item)
                                         <li class="list-group-item d-flex justify-content-between align-items-center py-2 px-3" style="font-size: 0.9rem;">
                                             {{ $item->details }}
-                                            <button type="button" class="btn btn-link text-danger p-0 m-0" data-bs-toggle="modal" data-bs-target="#deleteConfirmModal" data-url="{{ route('pds.delete_record', ['table' => 'pds_other_information', 'id' => $item->id]) }}"><i class="bi bi-x-circle"></i></button>
+                                            <div>
+                                                <button type="button" class="btn btn-link text-primary p-0 m-0 me-2" data-bs-toggle="modal" data-bs-target="#editOtherInfoModal" data-id="{{ $item->id }}" data-type="{{ $item->info_type }}" data-details="{{ $item->details }}"><i class="bi bi-pencil"></i></button>
+                                                <button type="button" class="btn btn-link text-danger p-0 m-0" data-bs-toggle="modal" data-bs-target="#deleteConfirmModal" data-url="{{ route('pds.delete_record', ['table' => 'pds_other_information', 'id' => $item->id]) }}"><i class="bi bi-x-circle"></i></button>
+                                            </div>
                                         </li>
                                         @empty
                                         <li class="list-group-item text-muted text-center py-3">No recognition added.</li>
@@ -1006,7 +1043,10 @@
                                         @forelse($memberships as $item)
                                         <li class="list-group-item d-flex justify-content-between align-items-center py-2 px-3" style="font-size: 0.9rem;">
                                             {{ $item->details }}
-                                            <button type="button" class="btn btn-link text-danger p-0 m-0" data-bs-toggle="modal" data-bs-target="#deleteConfirmModal" data-url="{{ route('pds.delete_record', ['table' => 'pds_other_information', 'id' => $item->id]) }}"><i class="bi bi-x-circle"></i></button>
+                                            <div>
+                                                <button type="button" class="btn btn-link text-primary p-0 m-0 me-2" data-bs-toggle="modal" data-bs-target="#editOtherInfoModal" data-id="{{ $item->id }}" data-type="{{ $item->info_type }}" data-details="{{ $item->details }}"><i class="bi bi-pencil"></i></button>
+                                                <button type="button" class="btn btn-link text-danger p-0 m-0" data-bs-toggle="modal" data-bs-target="#deleteConfirmModal" data-url="{{ route('pds.delete_record', ['table' => 'pds_other_information', 'id' => $item->id]) }}"><i class="bi bi-x-circle"></i></button>
+                                            </div>
                                         </li>
                                         @empty
                                         <li class="list-group-item text-muted text-center py-3">No memberships added.</li>
@@ -1179,7 +1219,10 @@
                                                     <td class="text-start fw-bold">{{ $ref->name }}</td>
                                                     <td class="text-start">{{ $ref->address }}</td>
                                                     <td>{{ $ref->contact_no }}</td>
-                                                    <td>
+                                                    <td class="text-center text-nowrap">
+                                                        <button type="button" class="btn btn-sm btn-outline-primary p-1 me-1" data-bs-toggle="modal" data-bs-target="#editReferenceModal" data-id="{{ $ref->id }}" data-name="{{ $ref->name }}" data-address="{{ $ref->address }}" data-contact="{{ $ref->contact_no }}" title="Edit">
+                                                            <i class="bi bi-pencil"></i>
+                                                        </button>
                                                         <button type="button" class="btn btn-sm btn-outline-danger p-1" data-bs-toggle="modal" data-bs-target="#deleteConfirmModal" data-url="{{ route('pds.delete_record', ['table' => 'pds_references', 'id' => $ref->id]) }}"><i class="bi bi-trash"></i></button>
                                                     </td>
                                                 </tr>
@@ -1301,10 +1344,598 @@
     </div>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
 <script src="{{ asset('build/assets/js/pds.js') }}"></script>
 
+
+
+<!-- EDIT MODALS -->
+
+<!-- Edit Child Modal -->
+<div class="modal fade" id="editChildModal" tabindex="-1">
+    <div class="modal-dialog">
+        <form id="editChildForm" method="POST">
+            @csrf
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Edit Child</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label>Child's Full Name</label>
+                        <input type="text" name="child_name" id="edit_child_name" class="form-control text-uppercase" required>
+                    </div>
+                    <div class="mb-3">
+                        <label>Date of Birth</label>
+                        <input type="date" name="child_dob" id="edit_child_dob" class="form-control" required>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save Changes</button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Edit Education Modal -->
+<div class="modal fade" id="editEducationModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <form id="editEducationForm" method="POST">
+            @csrf
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Edit Education</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label>School Name</label>
+                            <input type="text" name="school_name" id="edit_edu_school" class="form-control text-uppercase" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label>Degree Course</label>
+                            <input type="text" name="degree" id="edit_edu_degree" class="form-control text-uppercase">
+                        </div>
+                        <div class="col-md-4">
+                            <label>Period From</label>
+                            <input type="text" name="period_from" id="edit_edu_from" class="form-control text-uppercase" required>
+                        </div>
+                        <div class="col-md-4">
+                            <label>Period To</label>
+                            <input type="text" name="period_to" id="edit_edu_to" class="form-control text-uppercase" required>
+                        </div>
+                        <div class="col-md-4">
+                            <label>Highest Level/Units Earned</label>
+                            <input type="text" name="highest_level" id="edit_edu_level" class="form-control text-uppercase">
+                        </div>
+                        <div class="col-md-6">
+                            <label>Year Graduated</label>
+                            <input type="text" name="year_graduated" id="edit_edu_year" class="form-control text-uppercase">
+                        </div>
+                        <div class="col-md-6">
+                            <label>Scholarship/Honors</label>
+                            <input type="text" name="honors" id="edit_edu_honors" class="form-control text-uppercase">
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save Changes</button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Edit Eligibility Modal -->
+<div class="modal fade" id="editEligibilityModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <form id="editEligibilityForm" method="POST">
+            @csrf
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Edit Eligibility</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="row g-3">
+                        <div class="col-md-4">
+                            <label>Eligibility Name</label>
+                            <input type="text" name="eligibility_name" id="edit_elig_name" class="form-control text-uppercase" required>
+                        </div>
+                        <div class="col-md-2">
+                            <label>Rating</label>
+                            <input type="text" name="rating" id="edit_elig_rating" class="form-control">
+                        </div>
+                        <div class="col-md-3">
+                            <label>Exam Date</label>
+                            <input type="date" name="exam_date" id="edit_elig_date" class="form-control">
+                        </div>
+                        <div class="col-md-3">
+                            <label>Exam Place</label>
+                            <input type="text" name="exam_place" id="edit_elig_place" class="form-control text-uppercase">
+                        </div>
+                        <div class="col-md-6">
+                            <label>License Number</label>
+                            <input type="text" name="license_number" id="edit_elig_license" class="form-control text-uppercase">
+                        </div>
+                        <div class="col-md-6">
+                            <label>License Validity</label>
+                            <input type="date" name="license_validity" id="edit_elig_validity" class="form-control">
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save Changes</button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Edit Work Experience Modal -->
+<div class="modal fade" id="editWorkExperienceModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <form id="editWorkExperienceForm" method="POST">
+            @csrf
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Edit Work Experience</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label>Date From</label>
+                            <input type="date" name="date_from" id="edit_work_from" class="form-control" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label>Date To</label>
+                            <input type="text" name="date_to" id="edit_work_to" class="form-control text-uppercase" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label>Position Title</label>
+                            <input type="text" name="position_title" id="edit_work_position" class="form-control text-uppercase" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label>Agency / Company</label>
+                            <input type="text" name="agency_company" id="edit_work_agency" class="form-control text-uppercase" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label>Status of Appointment</label>
+                            <input type="text" name="status_appointment" id="edit_work_status" class="form-control text-uppercase">
+                        </div>
+                        <div class="col-md-6">
+                            <label>Gov't Service</label>
+                            <select name="govt_service" id="edit_work_govt" class="form-select">
+                                <option value="Y">Yes</option>
+                                <option value="N">No</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save Changes</button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Edit Voluntary Work Modal -->
+<div class="modal fade" id="editVoluntaryWorkModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <form id="editVoluntaryWorkForm" method="POST">
+            @csrf
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Edit Voluntary Work</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="row g-3">
+                        <div class="col-md-12">
+                            <label>Organization Name</label>
+                            <input type="text" name="organization_name" id="edit_vol_org" class="form-control text-uppercase" required>
+                        </div>
+                        <div class="col-md-4">
+                            <label>Date From</label>
+                            <input type="date" name="date_from" id="edit_vol_from" class="form-control" required>
+                        </div>
+                        <div class="col-md-4">
+                            <label>Date To</label>
+                            <input type="text" name="date_to" id="edit_vol_to" class="form-control text-uppercase" required>
+                        </div>
+                        <div class="col-md-4">
+                            <label>Number of Hours</label>
+                            <input type="text" name="number_of_hours" id="edit_vol_hours" class="form-control">
+                        </div>
+                        <div class="col-md-12">
+                            <label>Position / Nature of Work</label>
+                            <input type="text" name="position_nature_of_work" id="edit_vol_position" class="form-control text-uppercase" required>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save Changes</button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Edit Learning Modal -->
+<div class="modal fade" id="editLearningModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <form id="editLearningForm" method="POST" enctype="multipart/form-data">
+            @csrf
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Edit Learning & Development</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="row g-3">
+                        <div class="col-md-12">
+                            <label>Training Title</label>
+                            <input type="text" name="training_title" id="edit_ld_title" class="form-control text-uppercase" required>
+                        </div>
+                        <div class="col-md-4">
+                            <label>Date From</label>
+                            <input type="date" name="date_from" id="edit_ld_from" class="form-control" required>
+                        </div>
+                        <div class="col-md-4">
+                            <label>Date To</label>
+                            <input type="text" name="date_to" id="edit_ld_to" class="form-control text-uppercase" required>
+                        </div>
+                        <div class="col-md-4">
+                            <label>Number of Hours</label>
+                            <input type="number" name="number_of_hours" id="edit_ld_hours" class="form-control" required>
+                        </div>
+                        <div class="col-md-4">
+                            <label>Type of L&D</label>
+                            <select name="ld_type" id="edit_ld_type" class="form-select text-uppercase" required>
+                                <option value="MANAGERIAL">Managerial</option>
+                                <option value="SUPERVISORY">Supervisory</option>
+                                <option value="TECHNICAL">Technical</option>
+                                <option value="FOUNDATIONAL">Foundational</option>
+                            </select>
+                        </div>
+                        <div class="col-md-8">
+                            <label>Sponsored By</label>
+                            <input type="text" name="sponsored_by" id="edit_ld_sponsored" class="form-control text-uppercase" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label>Update Proof of Completion <small class="text-muted">(Optional)</small></label>
+                            <input type="file" name="proof_of_completion" class="form-control" accept=".pdf, image/jpeg, image/png, image/jpg">
+                        </div>
+                        <div class="col-md-6">
+                            <label>Update Proof of Invitation <small class="text-muted">(Optional)</small></label>
+                            <input type="file" name="proof_of_invitation" class="form-control" accept=".pdf, image/jpeg, image/png, image/jpg">
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save Changes</button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Edit Other Info Modal -->
+<div class="modal fade" id="editOtherInfoModal" tabindex="-1">
+    <div class="modal-dialog">
+        <form id="editOtherInfoForm" method="POST">
+            @csrf
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Edit Information</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label>Details</label>
+                        <input type="hidden" name="info_type" id="edit_other_type">
+                        <input type="text" name="details" id="edit_other_details" class="form-control text-uppercase" required>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save Changes</button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Edit Reference Modal -->
+<div class="modal fade" id="editReferenceModal" tabindex="-1">
+    <div class="modal-dialog">
+        <form id="editReferenceForm" method="POST">
+            @csrf
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Edit Reference</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label>Full Name</label>
+                        <input type="text" name="name" id="edit_ref_name" class="form-control text-uppercase" required>
+                    </div>
+                    <div class="mb-3">
+                        <label>Address</label>
+                        <input type="text" name="address" id="edit_ref_address" class="form-control text-uppercase" required>
+                    </div>
+                    <div class="mb-3">
+                        <label>Contact No.</label>
+                        <input type="text" name="contact_no" id="edit_ref_contact" class="form-control" required>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save Changes</button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    // Child Modal
+    var editChildModal = document.getElementById('editChildModal')
+    if (editChildModal) {
+        editChildModal.addEventListener('show.bs.modal', function (event) {
+            var button = event.relatedTarget;
+            var id = button.getAttribute('data-id');
+            document.getElementById('edit_child_name').value = button.getAttribute('data-name');
+            document.getElementById('edit_child_dob').value = button.getAttribute('data-dob');
+            document.getElementById('editChildForm').action = '/my-pds/child/update/' + id;
+        });
+    }
+
+    // Education Modal
+    var editEducationModal = document.getElementById('editEducationModal')
+    if (editEducationModal) {
+        editEducationModal.addEventListener('show.bs.modal', function (event) {
+            var button = event.relatedTarget;
+            var id = button.getAttribute('data-id');
+            document.getElementById('edit_edu_school').value = button.getAttribute('data-school');
+            document.getElementById('edit_edu_degree').value = button.getAttribute('data-degree');
+            document.getElementById('edit_edu_from').value = button.getAttribute('data-from');
+            document.getElementById('edit_edu_to').value = button.getAttribute('data-to');
+            document.getElementById('edit_edu_level').value = button.getAttribute('data-level');
+            document.getElementById('edit_edu_year').value = button.getAttribute('data-year');
+            document.getElementById('edit_edu_honors').value = button.getAttribute('data-honors');
+            document.getElementById('editEducationForm').action = '/my-pds/education/update/' + id;
+        });
+    }
+
+    // Eligibility Modal
+    var editEligibilityModal = document.getElementById('editEligibilityModal')
+    if (editEligibilityModal) {
+        editEligibilityModal.addEventListener('show.bs.modal', function (event) {
+            var button = event.relatedTarget;
+            var id = button.getAttribute('data-id');
+            document.getElementById('edit_elig_name').value = button.getAttribute('data-name');
+            document.getElementById('edit_elig_rating').value = button.getAttribute('data-rating');
+            document.getElementById('edit_elig_date').value = button.getAttribute('data-examdate');
+            document.getElementById('edit_elig_place').value = button.getAttribute('data-examplace');
+            document.getElementById('edit_elig_license').value = button.getAttribute('data-license');
+            document.getElementById('edit_elig_validity').value = button.getAttribute('data-validity');
+            document.getElementById('editEligibilityForm').action = '/my-pds/eligibility/update/' + id;
+        });
+    }
+
+    // Work Experience Modal
+    var editWorkExperienceModal = document.getElementById('editWorkExperienceModal')
+    if (editWorkExperienceModal) {
+        editWorkExperienceModal.addEventListener('show.bs.modal', function (event) {
+            var button = event.relatedTarget;
+            var id = button.getAttribute('data-id');
+            document.getElementById('edit_work_from').value = button.getAttribute('data-from');
+            document.getElementById('edit_work_to').value = button.getAttribute('data-to');
+            document.getElementById('edit_work_position').value = button.getAttribute('data-position');
+            document.getElementById('edit_work_agency').value = button.getAttribute('data-agency');
+            document.getElementById('edit_work_status').value = button.getAttribute('data-status');
+            document.getElementById('edit_work_govt').value = button.getAttribute('data-govt');
+            document.getElementById('editWorkExperienceForm').action = '/my-pds/work-experience/update/' + id;
+        });
+    }
+
+    // Voluntary Work Modal
+    var editVoluntaryWorkModal = document.getElementById('editVoluntaryWorkModal')
+    if (editVoluntaryWorkModal) {
+        editVoluntaryWorkModal.addEventListener('show.bs.modal', function (event) {
+            var button = event.relatedTarget;
+            var id = button.getAttribute('data-id');
+            document.getElementById('edit_vol_org').value = button.getAttribute('data-org');
+            document.getElementById('edit_vol_from').value = button.getAttribute('data-from');
+            document.getElementById('edit_vol_to').value = button.getAttribute('data-to');
+            document.getElementById('edit_vol_hours').value = button.getAttribute('data-hours');
+            document.getElementById('edit_vol_position').value = button.getAttribute('data-position');
+            document.getElementById('editVoluntaryWorkForm').action = '/my-pds/voluntary/update/' + id;
+        });
+    }
+
+    // Learning Modal
+    var editLearningModal = document.getElementById('editLearningModal')
+    if (editLearningModal) {
+        editLearningModal.addEventListener('show.bs.modal', function (event) {
+            var button = event.relatedTarget;
+            var id = button.getAttribute('data-id');
+            document.getElementById('edit_ld_title').value = button.getAttribute('data-title');
+            document.getElementById('edit_ld_from').value = button.getAttribute('data-from');
+            document.getElementById('edit_ld_to').value = button.getAttribute('data-to');
+            document.getElementById('edit_ld_hours').value = button.getAttribute('data-hours');
+            document.getElementById('edit_ld_type').value = button.getAttribute('data-type');
+            document.getElementById('edit_ld_sponsored').value = button.getAttribute('data-sponsored');
+            document.getElementById('editLearningForm').action = '/my-pds/learning/update/' + id;
+        });
+    }
+
+    // Other Info Modal
+    var editOtherInfoModal = document.getElementById('editOtherInfoModal')
+    if (editOtherInfoModal) {
+        editOtherInfoModal.addEventListener('show.bs.modal', function (event) {
+            var button = event.relatedTarget;
+            var id = button.getAttribute('data-id');
+            document.getElementById('edit_other_type').value = button.getAttribute('data-type');
+            document.getElementById('edit_other_details').value = button.getAttribute('data-details');
+            document.getElementById('editOtherInfoForm').action = '/my-pds/other-info/update/' + id;
+        });
+    }
+
+    // Reference Modal
+    var editReferenceModal = document.getElementById('editReferenceModal')
+    if (editReferenceModal) {
+        editReferenceModal.addEventListener('show.bs.modal', function (event) {
+            var button = event.relatedTarget;
+            var id = button.getAttribute('data-id');
+            document.getElementById('edit_ref_name').value = button.getAttribute('data-name');
+            document.getElementById('edit_ref_address').value = button.getAttribute('data-address');
+            document.getElementById('edit_ref_contact').value = button.getAttribute('data-contact');
+            document.getElementById('editReferenceForm').action = '/my-pds/reference/update/' + id;
+        });
+    }
+    // Initialize Select2 on location dropdowns
+    $('#res_region, #perm_region').select2({ theme: 'bootstrap-5', width: '100%', placeholder: 'Search Region...' });
+    $('#res_province, #perm_province').select2({ theme: 'bootstrap-5', width: '100%', placeholder: 'Search Province...' });
+    $('#res_city, #perm_city').select2({ theme: 'bootstrap-5', width: '100%', placeholder: 'Search City/Municipality...' });
+    $('#res_barangay, #perm_barangay').select2({ theme: 'bootstrap-5', width: '100%', placeholder: 'Search Barangay...' });
+    $('#dualCountry').select2({ theme: 'bootstrap-5', width: '100%', placeholder: 'Select Country...' });
+
+    // Location Cascading Dropdowns
+    function setupLocationCascade(prefix) {
+        let regionSel = $('#' + prefix + '_region');
+        let provinceSel = $('#' + prefix + '_province');
+        let citySel = $('#' + prefix + '_city');
+        let brgySel = $('#' + prefix + '_barangay');
+
+        function loadProvinces(region_code, selected_id, next_city_id, next_brgy_id) {
+            provinceSel.html('<option value="" disabled selected>Loading...</option>').trigger('change.select2');
+            if(!region_code) return;
+            $.get('/api/locations/provinces/' + region_code, function(data) {
+                provinceSel.html('<option value="" disabled selected>Search Province...</option>');
+                let foundCode = null;
+                data.forEach(function(item) {
+                    // Match either the proper DB ID or the old province_code
+                    let selected = (item.id == selected_id || item.province_code == selected_id) ? 'selected' : '';
+                    if(selected) foundCode = item.province_code;
+                    provinceSel.append('<option value="'+item.id+'" data-code="'+item.province_code+'" '+selected+'>'+item.province_name+'</option>');
+                });
+                provinceSel.trigger('change.select2');
+                if(foundCode && next_city_id) {
+                    loadCities(foundCode, next_city_id, next_brgy_id);
+                }
+            });
+        }
+
+        function loadCities(province_code, selected_id, next_brgy_id) {
+            citySel.html('<option value="" disabled selected>Loading...</option>').trigger('change.select2');
+            if(!province_code) return;
+            $.get('/api/locations/cities/' + province_code, function(data) {
+                citySel.html('<option value="" disabled selected>Search City/Municipality...</option>');
+                let foundCode = null;
+                data.forEach(function(item) {
+                    let selected = (item.id == selected_id || item.city_code == selected_id) ? 'selected' : '';
+                    if(selected) foundCode = item.city_code;
+                    citySel.append('<option value="'+item.id+'" data-code="'+item.city_code+'" '+selected+'>'+item.city_name+'</option>');
+                });
+                citySel.trigger('change.select2');
+                if(foundCode && next_brgy_id) {
+                    loadBarangays(foundCode, next_brgy_id);
+                }
+            });
+        }
+
+        function loadBarangays(city_code, selected_id) {
+            brgySel.html('<option value="" disabled selected>Loading...</option>').trigger('change.select2');
+            if(!city_code) return;
+            $.get('/api/locations/barangays/' + city_code, function(data) {
+                brgySel.html('<option value="" disabled selected>Search Barangay...</option>');
+                data.forEach(function(item) {
+                    let selected = (item.id == selected_id || item.brgy_code == selected_id) ? 'selected' : '';
+                    brgySel.append('<option value="'+item.id+'" data-code="'+item.brgy_code+'" '+selected+'>'+item.brgy_name+'</option>');
+                });
+                brgySel.trigger('change.select2');
+            });
+        }
+
+        regionSel.on('change', function() {
+            let code = $(this).find(':selected').data('code');
+            loadProvinces(code, null, null, null);
+            citySel.html('<option value="" disabled selected>Search City/Municipality...</option>').trigger('change.select2');
+            brgySel.html('<option value="" disabled selected>Search Barangay...</option>').trigger('change.select2');
+        });
+
+        provinceSel.on('change', function() {
+            let code = $(this).find(':selected').data('code');
+            if(code) {
+                loadCities(code, null, null);
+                brgySel.html('<option value="" disabled selected>Search Barangay...</option>').trigger('change.select2');
+            }
+        });
+
+        citySel.on('change', function() {
+            let code = $(this).find(':selected').data('code');
+            if(code) {
+                loadBarangays(code, null);
+            }
+        });
+
+        // Initialization
+        let initRegion = regionSel.attr('data-selected');
+        let initProv = provinceSel.attr('data-selected');
+        let initCity = citySel.attr('data-selected');
+        let initBrgy = brgySel.attr('data-selected');
+
+        if(initRegion) {
+            regionSel.val(initRegion);
+            if(!regionSel.val()) {
+                let opt = regionSel.find('option[data-code="'+initRegion+'"]');
+                if(opt.length) regionSel.val(opt.attr('value'));
+            }
+            regionSel.trigger('change.select2');
+            let initRegionCode = regionSel.find(':selected').data('code');
+            loadProvinces(initRegionCode, initProv, initCity, initBrgy);
+        }
+    }
+
+    setupLocationCascade('res');
+    setupLocationCascade('perm');
+
+    // Same as Residential Checkbox
+    $('#sameAsResidential').on('change', function() {
+        if($(this).is(':checked')) {
+            $('input[name="perm_house_no"]').val($('input[name="res_house_no"]').val());
+            $('input[name="perm_street"]').val($('input[name="res_street"]').val());
+            $('input[name="perm_subdivision"]').val($('input[name="res_subdivision"]').val());
+            $('input[name="perm_zip"]').val($('input[name="res_zip"]').val());
+
+            let resReg = $('#res_region').val();
+            let resProv = $('#res_province').val();
+            let resCity = $('#res_city').val();
+            let resBrgy = $('#res_barangay').val();
+
+            $('#perm_region').val(resReg).trigger('change.select2');
+            
+            // Directly clone dropdown contents to avoid waiting for AJAX
+            $('#perm_province').html($('#res_province').html()).val(resProv).trigger('change.select2');
+            $('#perm_city').html($('#res_city').html()).val(resCity).trigger('change.select2');
+            $('#perm_barangay').html($('#res_barangay').html()).val(resBrgy).trigger('change.select2');
+        }
+    });
+});
+</script>
 
 @endsection

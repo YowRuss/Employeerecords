@@ -72,7 +72,7 @@ class HrController extends Controller
             ->pluck('total', 'sex');
 
         // Fetch all employees
-        $employees = User::with('learningArea')
+        $employees = User::with(['learningArea', 'position'])
             ->leftJoin('pds_personal_info', 'users.id', '=', 'pds_personal_info.user_id')
             ->select(
                 'users.*',
@@ -88,37 +88,10 @@ class HrController extends Controller
 
         $learningAreas = LearningArea::orderBy('name', 'asc')->get();
 
-        // Fetch all positions and service records to avoid N+1 queries
-        $positionsByName = DB::table('positions')->get()->keyBy(function ($item) {
-            return strtoupper($item->position_name);
-        });
-        $positionsById = DB::table('positions')->get()->keyBy('id');
-        $allServiceRecords = DB::table('service_records')
-            ->orderBy('date_from', 'desc')
-            ->get()
-            ->groupBy('user_id');
-
-        // Map the correct position and category to each employee based on their Service Record
+        // Map the correct position and category to each employee based on their user record
         foreach ($employees as $emp) {
-            $emp->position_name = null;
-            $emp->category = null;
-
-            if ($allServiceRecords->has($emp->id)) {
-                $latestSr = $allServiceRecords->get($emp->id)->first();
-                $lookupName = strtoupper($latestSr->designation);
-                $emp->position_name = $latestSr->designation;
-
-                if ($positionsByName->has($lookupName)) {
-                    $pos = $positionsByName->get($lookupName);
-                    $emp->category = $pos->category;
-                    $emp->position_name = $pos->position_name; // Use the nicely cased name from DB
-                }
-            } elseif ($emp->position_id && $positionsById->has($emp->position_id)) {
-                // Fallback to their user account position_id if they have no service records
-                $pos = $positionsById->get($emp->position_id);
-                $emp->position_name = $pos->position_name;
-                $emp->category = $pos->category;
-            }
+            $emp->position_name = $emp->position ? $emp->position->position_name : null;
+            $emp->category = $emp->position ? $emp->position->category : null;
         }
 
         // Apply search filter in memory
@@ -153,36 +126,27 @@ class HrController extends Controller
             'Non-Teaching' => $nonTeachingStaff->count(),
         ]);
 
-        return view('hr.employees.index', compact('allEmployees', 'teachingStaff', 'nonTeachingStaff', 'incompletePds', 'maleEmployees', 'femaleEmployees', 'maleCount', 'femaleCount', 'nonTeachingMaleEmployees', 'nonTeachingFemaleEmployees', 'nonTeachingMaleCount', 'nonTeachingFemaleCount', 'search', 'genderStats', 'positionStats', 'learningAreas'));
+        $positions = Position::orderBy('position_name', 'asc')->get();
+
+        return view('hr.employees.index', compact('allEmployees', 'teachingStaff', 'nonTeachingStaff', 'incompletePds', 'maleEmployees', 'femaleEmployees', 'maleCount', 'femaleCount', 'nonTeachingMaleEmployees', 'nonTeachingFemaleEmployees', 'nonTeachingMaleCount', 'nonTeachingFemaleCount', 'search', 'genderStats', 'positionStats', 'learningAreas', 'positions'));
     }
 
     public function viewProfile($id)
     {
+        if ($redirect = $this->requireHrAccess()) {
+            return $redirect;
+        }
+
         $employee = User::with(['position', 'learningArea'])->where('id', $id)->first();
 
         if (! $employee) {
             return redirect()->route('hr.staff_profiling')->with('error', 'Employee not found.');
         }
 
-        // FETCH THE ACTUAL SERVICE RECORD POSITION
-        $latestServiceRecord = DB::table('service_records')
-            ->where('user_id', $id)
-            ->orderBy('date_from', 'desc')
-            ->first();
-
-        $serviceRecordPosition = null;
-        if ($latestServiceRecord) {
-            $serviceRecordPosition = Position::where('position_name', $latestServiceRecord->designation)->first();
-        }
-
-        // Fallback to the user's position_id if no service record exists
-        if (! $serviceRecordPosition && $employee->position) {
-            $serviceRecordPosition = $employee->position;
-        }
-
         $learningAreas = DB::table('learning_areas')->orderBy('name', 'asc')->get();
+        $positions = DB::table('positions')->orderBy('position_name', 'asc')->get();
 
-        return view('hr.employees.profile', compact('employee', 'learningAreas', 'serviceRecordPosition'));
+        return view('hr.employees.profile', compact('employee', 'learningAreas', 'positions'));
     }
 
     public function updateLearningArea(Request $request, $id)
@@ -283,5 +247,50 @@ class HrController extends Controller
         ]);
 
         return redirect()->back()->with('success', 'Employee official name has been updated successfully.');
+    }
+
+    public function updatePosition(Request $request, $id)
+    {
+        if ($redirect = $this->requireHrAccess()) {
+            return $redirect;
+        }
+
+        $request->validate([
+            'position_id' => 'required|exists:positions,id',
+        ]);
+
+        $employee = User::find($id);
+        if (! $employee) {
+            return redirect()->back()->with('error', 'Employee not found.');
+        }
+
+        $employee->position_id = $request->position_id;
+        $employee->save();
+
+        return redirect()->back()->with('success', 'Official position updated successfully.');
+    }
+
+    public function promoteEmployee(Request $request)
+    {
+        if ($redirect = $this->requireHrAccess()) {
+            return $redirect;
+        }
+
+        $request->validate([
+            'user_id' => 'required|exists:users,id',
+            'position_id' => 'required|exists:positions,id',
+        ]);
+
+        $employee = User::find($request->user_id);
+        if (! $employee) {
+            return redirect()->back()->with('error', 'Employee not found.');
+        }
+
+        $employee->position_id = $request->position_id;
+        // The effective date could be recorded if there was an employment history table.
+        // For now, updating the position directly reflects the promotion.
+        $employee->save();
+
+        return redirect()->back()->with('success', 'Employee successfully promoted!');
     }
 }

@@ -57,4 +57,19 @@ class User extends Authenticatable
     {
         return $this->belongsTo(LearningArea::class);
     }
+
+    public function pdsSpouse()
+    {
+        return $this->hasOne(PdsSpouse::class);
+    }
+
+    public function pdsFather()
+    {
+        return $this->hasOne(PdsFather::class);
+    }
+
+    public function pdsMother()
+    {
+        return $this->hasOne(PdsMother::class);
+    }
 }

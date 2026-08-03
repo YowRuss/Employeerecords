@@ -20,70 +20,13 @@
     </div>
     @endif
 
-    <!-- ADD RECORD FORM (Visible to HR, Hidden when printing) -->
-    <div class="card bg-light border-0 shadow-sm border-start border-4 border-accent d-print-none mb-4">
-        <div class="card-body p-4">
-            <h6 class="fw-bold mb-3"><i class="bi bi-plus-circle me-1"></i> Add Service Record Entry</h6>
-            <!-- Posts to the HR Store Route -->
-            <form action="{{ route('hr.service_record.store', $user->id) }}" method="POST">
-                @csrf
-                <div class="row g-2 mb-2">
-                    <div class="col-md-2">
-                        <label class="form-label small fw-bold text-muted mb-1">Date From <span class="text-danger">*</span></label>
-                        <input type="date" name="date_from" class="form-control form-control-sm" required>
-                    </div>
-                    <div class="col-md-2">
-                        <label class="form-label small fw-bold text-muted mb-1">Date To <span class="text-danger">*</span></label>
-                        <input type="text" name="date_to" class="form-control form-control-sm text-uppercase" placeholder="YYYY-MM-DD or Present" required>
-                    </div>
-                    <!-- Replace your old Designation input with this Dropdown -->
-                    <div class="col-md-3">
-                        <label class="form-label small fw-bold text-muted mb-1">Designation <span class="text-danger">*</span></label>
-                        <select name="designation" class="form-select form-select-sm text-uppercase" required>
-                            <option value="" disabled selected>Select Position...</option>
-                            @foreach($positions as $pos)
-                            <option value="{{ $pos->position_name }}">{{ $pos->position_name }}</option>
-                            @endforeach
-                        </select>
-                    </div>
-                    <div class="col-md-2">
-                        <label class="form-label small fw-bold text-muted mb-1">Status <span class="text-danger">*</span></label>
-                        <input type="text" name="status" class="form-control form-control-sm text-uppercase" placeholder="e.g. Perm" required>
-                    </div>
-                    <div class="col-md-3">
-                        <label class="form-label small fw-bold text-muted mb-1">Salary <span class="text-danger">*</span></label>
-                        <input type="text" name="salary" class="form-control form-control-sm" placeholder="e.g. 239,280.00" required>
-                    </div>
-                </div>
-
-                <div class="row g-2 align-items-end">
-                    <div class="col-md-3">
-                        <label class="form-label small fw-bold text-muted mb-1">Station/Place <span class="text-danger">*</span></label>
-                        <input type="text" name="station_place" class="form-control form-control-sm text-uppercase" placeholder="-do- or location name" required>
-                    </div>
-                    <div class="col-md-2">
-                        <label class="form-label small fw-bold text-muted mb-1">Branch</label>
-                        <input type="text" name="branch" class="form-control form-control-sm text-uppercase" placeholder="-do- or Nat'l">
-                    </div>
-                    <div class="col-md-2">
-                        <label class="form-label small fw-bold text-muted mb-1">Leave w/out pay</label>
-                        <input type="text" name="leave_without_pay" class="form-control form-control-sm text-uppercase" placeholder="None or -do-">
-                    </div>
-                    <div class="col-md-2">
-                        <label class="form-label small fw-bold text-muted mb-1">Separation Date</label>
-                        <input type="text" name="separation_date" class="form-control form-control-sm text-uppercase">
-                    </div>
-                    <div class="col-md-3">
-                        <label class="form-label small fw-bold text-muted mb-1">Separation Cause</label>
-                        <div class="input-group input-group-sm">
-                            <input type="text" name="separation_cause" class="form-control text-uppercase" placeholder="None or NBC 562">
-                            <button type="submit" class="btn btn-accent fw-bold px-3">Add Entry</button>
-                        </div>
-                    </div>
-                </div>
-            </form>
-        </div>
+    <!-- ADD RECORD BUTTON (Visible to HR, Hidden when printing) -->
+    <div class="d-print-none mb-4 d-flex justify-content-end">
+        <button type="button" class="btn btn-accent fw-bold shadow-sm" data-bs-toggle="modal" data-bs-target="#addServiceRecordModal">
+            <i class="bi bi-plus-circle me-1"></i> Add Service Record Entry
+        </button>
     </div>
+
 
     <!-- OFFICIAL DOCUMENT PREVIEW -->
     <div class="card shadow-sm border-0 border-top border-4 border-accent mb-5">
@@ -219,6 +162,74 @@
             </div>
 
         </div>
+    </div>
+</div>
+
+<!-- ADD SERVICE RECORD MODAL -->
+<div class="modal fade" id="addServiceRecordModal" tabindex="-1" aria-labelledby="addServiceRecordModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <form action="{{ route('hr.service_record.store', $user->id) }}" method="POST">
+            @csrf
+            <div class="modal-content border-0 shadow">
+                <div class="modal-header bg-light">
+                    <h5 class="modal-title fw-bold" id="addServiceRecordModalLabel" style="color: #1A3E6F;"><i class="bi bi-plus-circle me-1"></i> Add Service Record Entry</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body p-4">
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label small fw-bold text-muted mb-1">Date From <span class="text-danger">*</span></label>
+                            <input type="date" name="date_from" class="form-control" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small fw-bold text-muted mb-1">Date To <span class="text-danger">*</span></label>
+                            <input type="text" name="date_to" class="form-control text-uppercase" placeholder="YYYY-MM-DD or Present" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small fw-bold text-muted mb-1">Designation <span class="text-danger">*</span></label>
+                            <select name="designation" class="form-select text-uppercase" required>
+                                <option value="" disabled selected>Select Position...</option>
+                                @foreach($positions as $pos)
+                                <option value="{{ $pos->position_name }}">{{ $pos->position_name }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small fw-bold text-muted mb-1">Status <span class="text-danger">*</span></label>
+                            <input type="text" name="status" class="form-control text-uppercase" placeholder="e.g. Perm" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small fw-bold text-muted mb-1">Salary <span class="text-danger">*</span></label>
+                            <input type="text" name="salary" class="form-control" placeholder="e.g. 239,280.00" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small fw-bold text-muted mb-1">Station/Place <span class="text-danger">*</span></label>
+                            <input type="text" name="station_place" class="form-control text-uppercase" placeholder="-do- or location name" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small fw-bold text-muted mb-1">Branch</label>
+                            <input type="text" name="branch" class="form-control text-uppercase" placeholder="-do- or Nat'l">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small fw-bold text-muted mb-1">Leave w/out pay</label>
+                            <input type="text" name="leave_without_pay" class="form-control text-uppercase" placeholder="None or -do-">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small fw-bold text-muted mb-1">Separation Date</label>
+                            <input type="text" name="separation_date" class="form-control text-uppercase">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small fw-bold text-muted mb-1">Separation Cause</label>
+                            <input type="text" name="separation_cause" class="form-control text-uppercase" placeholder="None or NBC 562">
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer bg-light justify-content-end border-top-0">
+                    <button type="button" class="btn btn-secondary px-4 fw-bold" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-accent fw-bold px-4 shadow-sm">Save Entry</button>
+                </div>
+            </div>
+        </form>
     </div>
 </div>
 @endsection

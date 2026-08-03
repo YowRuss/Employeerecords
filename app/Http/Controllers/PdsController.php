@@ -2,7 +2,10 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\PdsFather;
+use App\Models\PdsMother;
 use App\Models\PdsPersonalInfo;
+use App\Models\PdsSpouse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Session;
@@ -22,6 +25,9 @@ class PdsController extends Controller
         $user_id = Session::get('user_id');
 
         $personal_info = PdsPersonalInfo::with('country')->where('user_id', $user_id)->first();
+        $spouse = PdsSpouse::where('user_id', $user_id)->first();
+        $father = PdsFather::where('user_id', $user_id)->first();
+        $mother = PdsMother::where('user_id', $user_id)->first();
         $children = DB::table('pds_children')->where('user_id', $user_id)->get();
         $education = DB::table('pds_education')->where('user_id', $user_id)->get();
         $eligibilities = DB::table('pds_eligibility')->where('user_id', $user_id)->get();
@@ -37,12 +43,15 @@ class PdsController extends Controller
         $page4_details = DB::table('pds_page4_details')->where('user_id', $user_id)->first();
 
         $countries = DB::table('countries')->orderBy('name', 'asc')->get();
-        $regions = DB::table('ref_regions')->orderBy('id', 'asc')->get();
+        $regions = DB::table('ref_regions')->orderBy('region_name', 'asc')->get();
 
         return view('employee.pds', compact(
             'countries',
             'regions',
             'personal_info',
+            'spouse',
+            'father',
+            'mother',
             'children',
             'education',
             'eligibilities',
@@ -62,7 +71,7 @@ class PdsController extends Controller
     public function updatePersonalInfo(Request $request)
     {
         $request->validate([
-            'sex' => 'required|in:Male,Female',
+            'sex' => 'required|in:0,1',
         ]);
 
         $user_id = Session::get('user_id');
@@ -145,6 +154,9 @@ class PdsController extends Controller
 
         // Fetch data here...
         $personal_info = PdsPersonalInfo::with('country')->where('user_id', $user_id)->first();
+        $spouse = PdsSpouse::where('user_id', $user_id)->first();
+        $father = PdsFather::where('user_id', $user_id)->first();
+        $mother = PdsMother::where('user_id', $user_id)->first();
         $children = DB::table('pds_children')->where('user_id', $user_id)->get();
         $education = DB::table('pds_education')->where('user_id', $user_id)->get();
         $eligibilities = DB::table('pds_eligibility')->where('user_id', $user_id)->get();
@@ -163,6 +175,9 @@ class PdsController extends Controller
         return view('employee.pds.pds-view', compact(
             'countries',
             'personal_info',
+            'spouse',
+            'father',
+            'mother',
             'children',
             'education',
             'eligibilities',
@@ -189,13 +204,60 @@ class PdsController extends Controller
         return back()->with('success', 'Child added successfully!')->with('active_tab', 'family');
     }
 
+    public function updateChild(Request $request, $id)
+    {
+        $user_id = Session::get('user_id');
+        DB::table('pds_children')
+            ->where('id', $id)
+            ->where('user_id', $user_id)
+            ->update([
+                'child_name' => strtoupper($request->child_name),
+                'date_of_birth' => $request->child_dob,
+                'updated_at' => now(),
+            ]);
+
+        return back()->with('success', 'Child updated successfully!')->with('active_tab', 'family');
+    }
+
     public function updateFamilyBackground(Request $request)
     {
         $user_id = Session::get('user_id');
-        $data = $request->except(['_token']);
-        $data['updated_at'] = now();
 
-        DB::table('pds_personal_info')->updateOrInsert(['user_id' => $user_id], $data);
+        // Spouse
+        PdsSpouse::updateOrCreate(
+            ['user_id' => $user_id],
+            [
+                'surname' => strtoupper($request->spouse_surname),
+                'first_name' => strtoupper($request->spouse_first_name),
+                'middle_name' => strtoupper($request->spouse_middle_name),
+                'name_extension' => strtoupper($request->spouse_name_extension),
+                'occupation' => strtoupper($request->spouse_occupation),
+                'employer_business_name' => strtoupper($request->spouse_employer),
+                'business_address' => strtoupper($request->spouse_business_address),
+                'telephone_number' => $request->spouse_telephone,
+            ]
+        );
+
+        // Father
+        PdsFather::updateOrCreate(
+            ['user_id' => $user_id],
+            [
+                'surname' => strtoupper($request->father_surname),
+                'first_name' => strtoupper($request->father_first_name),
+                'middle_name' => strtoupper($request->father_middle_name),
+                'name_extension' => strtoupper($request->father_name_extension),
+            ]
+        );
+
+        // Mother
+        PdsMother::updateOrCreate(
+            ['user_id' => $user_id],
+            [
+                'maiden_surname' => strtoupper($request->mother_maiden_surname),
+                'first_name' => strtoupper($request->mother_first_name),
+                'middle_name' => strtoupper($request->mother_middle_name),
+            ]
+        );
 
         return back()->with('success', 'Spouse and Parents information saved!')->with('active_tab', 'family');
     }
@@ -221,6 +283,26 @@ class PdsController extends Controller
         ]);
 
         return back()->with('success', 'Education record added!')->with('active_tab', 'education');
+    }
+
+    public function updateEducation(Request $request, $id)
+    {
+        $user_id = Session::get('user_id');
+        DB::table('pds_education')
+            ->where('id', $id)
+            ->where('user_id', $user_id)
+            ->update([
+                'school_name' => strtoupper($request->school_name),
+                'degree_course' => strtoupper($request->degree),
+                'period_from' => $request->period_from,
+                'period_to' => $request->period_to,
+                'year_graduated' => $request->year_graduated,
+                'highest_level_earned' => strtoupper($request->highest_level),
+                'scholarship_honors' => strtoupper($request->honors),
+                'updated_at' => now(),
+            ]);
+
+        return back()->with('success', 'Education record updated!')->with('active_tab', 'education');
     }
 
     public function saveSignature(Request $request)
@@ -267,6 +349,25 @@ class PdsController extends Controller
         return back()->with('success', 'Eligibility record added successfully!')->with('active_tab', 'eligibility');
     }
 
+    public function updateEligibility(Request $request, $id)
+    {
+        $user_id = Session::get('user_id');
+        DB::table('pds_eligibility')
+            ->where('id', $id)
+            ->where('user_id', $user_id)
+            ->update([
+                'eligibility_name' => strtoupper($request->eligibility_name),
+                'rating' => $request->rating,
+                'exam_date' => $request->exam_date,
+                'exam_place' => strtoupper($request->exam_place),
+                'license_number' => strtoupper($request->license_number),
+                'license_validity' => $request->license_validity,
+                'updated_at' => now(),
+            ]);
+
+        return back()->with('success', 'Eligibility record updated successfully!')->with('active_tab', 'eligibility');
+    }
+
     public function addWorkExperience(Request $request)
     {
         $user_id = Session::get('user_id');
@@ -283,6 +384,25 @@ class PdsController extends Controller
         ]);
 
         return back()->with('success', 'Work experience record added successfully!')->with('active_tab', 'work');
+    }
+
+    public function updateWorkExperience(Request $request, $id)
+    {
+        $user_id = Session::get('user_id');
+        DB::table('pds_work_experience')
+            ->where('id', $id)
+            ->where('user_id', $user_id)
+            ->update([
+                'date_from' => $request->date_from,
+                'date_to' => strtoupper($request->date_to),
+                'position_title' => strtoupper($request->position_title),
+                'agency_company' => strtoupper($request->agency_company),
+                'status_appointment' => strtoupper($request->status_appointment),
+                'govt_service' => $request->govt_service,
+                'updated_at' => now(),
+            ]);
+
+        return back()->with('success', 'Work experience record updated successfully!')->with('active_tab', 'work');
     }
 
     // =========================================================
@@ -303,6 +423,24 @@ class PdsController extends Controller
         ]);
 
         return back()->with('success', 'Voluntary work added!')->with('active_tab', 'voluntary');
+    }
+
+    public function updateVoluntaryWork(Request $request, $id)
+    {
+        $user_id = Session::get('user_id');
+        DB::table('pds_voluntary_work')
+            ->where('id', $id)
+            ->where('user_id', $user_id)
+            ->update([
+                'organization_name' => strtoupper($request->organization_name),
+                'date_from' => $request->date_from,
+                'date_to' => strtoupper($request->date_to),
+                'number_of_hours' => $request->number_of_hours,
+                'position_nature_of_work' => strtoupper($request->position_nature_of_work),
+                'updated_at' => now(),
+            ]);
+
+        return back()->with('success', 'Voluntary work updated!')->with('active_tab', 'voluntary');
     }
 
     public function addLearning(Request $request)
@@ -335,6 +473,34 @@ class PdsController extends Controller
         return back()->with('success', 'Learning & Development record added!')->with('active_tab', 'learning');
     }
 
+    public function updateLearning(Request $request, $id)
+    {
+        $user_id = Session::get('user_id');
+        $data = [
+            'training_title' => strtoupper($request->training_title),
+            'date_from' => $request->date_from,
+            'date_to' => strtoupper($request->date_to),
+            'number_of_hours' => $request->number_of_hours,
+            'ld_type' => strtoupper($request->ld_type),
+            'sponsored_by' => strtoupper($request->sponsored_by),
+            'updated_at' => now(),
+        ];
+
+        if ($request->hasFile('proof_of_completion')) {
+            $data['proof_of_completion'] = file_get_contents($request->file('proof_of_completion')->getRealPath());
+        }
+        if ($request->hasFile('proof_of_invitation')) {
+            $data['proof_of_invitation'] = file_get_contents($request->file('proof_of_invitation')->getRealPath());
+        }
+
+        DB::table('pds_learning_development')
+            ->where('id', $id)
+            ->where('user_id', $user_id)
+            ->update($data);
+
+        return back()->with('success', 'Learning & Development record updated!')->with('active_tab', 'learning');
+    }
+
     public function addOtherInfo(Request $request)
     {
         $user_id = Session::get('user_id');
@@ -347,6 +513,21 @@ class PdsController extends Controller
         ]);
 
         return back()->with('success', 'Information added!')->with('active_tab', 'other');
+    }
+
+    public function updateOtherInfo(Request $request, $id)
+    {
+        $user_id = Session::get('user_id');
+        DB::table('pds_other_information')
+            ->where('id', $id)
+            ->where('user_id', $user_id)
+            ->update([
+                'info_type' => $request->info_type,
+                'details' => strtoupper($request->details),
+                'updated_at' => now(),
+            ]);
+
+        return back()->with('success', 'Information updated!')->with('active_tab', 'other');
     }
 
     public function downloadDocument($id, $column)
@@ -402,6 +583,22 @@ class PdsController extends Controller
         ]);
 
         return back()->with('success', 'Reference added!')->with('active_tab', 'page4');
+    }
+
+    public function updateReference(Request $request, $id)
+    {
+        $user_id = Session::get('user_id');
+        DB::table('pds_references')
+            ->where('id', $id)
+            ->where('user_id', $user_id)
+            ->update([
+                'name' => strtoupper($request->name),
+                'address' => strtoupper($request->address),
+                'contact_no' => $request->contact_no,
+                'updated_at' => now(),
+            ]);
+
+        return back()->with('success', 'Reference updated!')->with('active_tab', 'page4');
     }
 
     public function updatePage4Details(Request $request)
@@ -562,32 +759,39 @@ class PdsController extends Controller
         $sheet1->setCellValue('I34', $personal_info->email_address ?? 'N/A');
 
         // Citizenship
-        $citizenship = $personal_info->citizenship ?? 'N/A';
-        if ($citizenship == 'Dual Citizenship') {
-            $citizenship .= ' - '.($personal_info->country->name ?? '');
+        $citizenship = '';
+        if (isset($personal_info->citizenship)) {
+            if ($personal_info->citizenship === 1 || $personal_info->citizenship == '1') {
+                $citizenship = 'Dual Citizenship - '.($personal_info->country->name ?? '');
+            } else {
+                $citizenship = 'Filipino';
+            }
         }
         $sheet1->setCellValue('J13', $citizenship);
 
         // Family Background (Spouse)
-        $sheet1->setCellValue('D36', $personal_info->spouse_last_name ?? 'N/A');
-        $sheet1->setCellValue('D37', $personal_info->spouse_first_name ?? 'N/A');
-        $sheet1->setCellValue('L37', $personal_info->spouse_name_extension ?? 'N/A');
-        $sheet1->setCellValue('D38', $personal_info->spouse_middle_name ?? 'N/A');
-        $sheet1->setCellValue('D39', $personal_info->spouse_occupation ?? 'N/A');
-        $sheet1->setCellValue('D40', $personal_info->spouse_employer ?? 'N/A');
-        $sheet1->setCellValue('D41', $personal_info->spouse_business_address ?? 'N/A');
-        $sheet1->setCellValue('D42', $personal_info->spouse_telephone ?? 'N/A');
+        $spouse = PdsSpouse::where('user_id', $user_id)->first();
+        $sheet1->setCellValue('D36', $spouse->surname ?? 'N/A');
+        $sheet1->setCellValue('D37', $spouse->first_name ?? 'N/A');
+        $sheet1->setCellValue('L37', $spouse->name_extension ?? 'N/A');
+        $sheet1->setCellValue('D38', $spouse->middle_name ?? 'N/A');
+        $sheet1->setCellValue('D39', $spouse->occupation ?? 'N/A');
+        $sheet1->setCellValue('D40', $spouse->employer_business_name ?? 'N/A');
+        $sheet1->setCellValue('D41', $spouse->business_address ?? 'N/A');
+        $sheet1->setCellValue('D42', $spouse->telephone_number ?? 'N/A');
 
         // Family Background (Father)
-        $sheet1->setCellValue('D43', $personal_info->father_last_name ?? 'N/A');
-        $sheet1->setCellValue('D44', $personal_info->father_first_name ?? 'N/A');
-        $sheet1->setCellValue('L44', $personal_info->father_name_extension ?? 'N/A');
-        $sheet1->setCellValue('D45', $personal_info->father_middle_name ?? 'N/A');
+        $father = PdsFather::where('user_id', $user_id)->first();
+        $sheet1->setCellValue('D43', $father->surname ?? 'N/A');
+        $sheet1->setCellValue('D44', $father->first_name ?? 'N/A');
+        $sheet1->setCellValue('L44', $father->name_extension ?? 'N/A');
+        $sheet1->setCellValue('D45', $father->middle_name ?? 'N/A');
 
         // Family Background (Mother)
-        $sheet1->setCellValue('D47', $personal_info->mother_maiden_last_name ?? 'N/A');
-        $sheet1->setCellValue('D48', $personal_info->mother_maiden_first_name ?? 'N/A');
-        $sheet1->setCellValue('D49', $personal_info->mother_maiden_middle_name ?? 'N/A');
+        $mother = PdsMother::where('user_id', $user_id)->first();
+        $sheet1->setCellValue('D47', $mother->maiden_surname ?? 'N/A');
+        $sheet1->setCellValue('D48', $mother->first_name ?? 'N/A');
+        $sheet1->setCellValue('D49', $mother->middle_name ?? 'N/A');
 
         // Children
         $childRow = 37;
@@ -633,5 +837,25 @@ class PdsController extends Controller
         $writer = IOFactory::createWriter($spreadsheet, 'Xlsx');
         $writer->save('php://output');
         exit;
+    }
+    // =========================================================
+    // API METHODS FOR LOCATION HIERARCHY
+    // =========================================================
+    public function getProvinces($region_code)
+    {
+        $provinces = \Illuminate\Support\Facades\DB::table('ref_provinces')->where('region_code', $region_code)->orderBy('province_name', 'asc')->get();
+        return response()->json($provinces);
+    }
+
+    public function getCities($province_code)
+    {
+        $cities = \Illuminate\Support\Facades\DB::table('ref_cities')->where('province_code', $province_code)->orderBy('city_name', 'asc')->get();
+        return response()->json($cities);
+    }
+
+    public function getBarangays($city_code)
+    {
+        $barangays = \Illuminate\Support\Facades\DB::table('ref_barangays')->where('city_code', $city_code)->orderBy('brgy_name', 'asc')->get();
+        return response()->json($barangays);
     }
 }

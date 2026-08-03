@@ -41,19 +41,22 @@ class SalnController extends Controller
             $auto_name = trim($auto_name, " ,"); // Cleans up if some fields are empty
         }
 
-        // --- 2. GET AUTO-FILL POSITION FROM LATEST SERVICE RECORD ---
+        // --- 2. GET AUTO-FILL POSITION FROM LATEST SERVICE RECORD (DEPRECATED) ---
         $latest_sr = DB::table('service_records')
             ->where('user_id', $user_id)
             ->orderBy('date_from', 'desc')
             ->first();
         $auto_position = $latest_sr ? $latest_sr->designation : '';
 
+        // --- FETCH USER WITH POSITION ---
+        $user = \App\Models\User::with('position')->find($user_id);
+
         // --- 3. RETURN TO VIEW ---
         return view('employee.saln', compact(
             'saln_info', 'total_assets', 'total_liabilities', 'net_worth', 
             'children', 'real_properties', 'personal_properties', 
             'liabilities', 'businesses', 'relatives', 
-            'auto_name', 'auto_position'
+            'auto_name', 'auto_position', 'user'
         ));
     }
 

@@ -50,7 +50,7 @@ class LeaveController extends Controller
 
         $user_id = Session::get('user_id');
 
-        $user = DB::table('users')->where('id', $user_id)->first();
+        $user = \App\Models\User::with('position')->find($user_id);
 
         if (! $user) {
             Session::forget('user_id');

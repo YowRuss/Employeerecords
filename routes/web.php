@@ -94,15 +94,23 @@ Route::get('/my-pds', [PdsController::class, 'editPds'])->name('pds.edit');
 Route::post('/my-pds/personal-info', [PdsController::class, 'updatePersonalInfo'])->name('pds.update_personal_info');
 Route::post('/my-pds/family-background', [PdsController::class, 'updateFamilyBackground'])->name('pds.update_family_background'); // <--- NEW LINE
 Route::post('/my-pds/child/add', [PdsController::class, 'addChild'])->name('pds.add_child');
+Route::post('/my-pds/child/update/{id}', [PdsController::class, 'updateChild'])->name('pds.update_child');
 Route::post('/my-pds/education/add', [PdsController::class, 'addEducation'])->name('pds.add_education');
+Route::post('/my-pds/education/update/{id}', [PdsController::class, 'updateEducation'])->name('pds.update_education');
 Route::post('/my-pds/signature', [PdsController::class, 'saveSignature'])->name('pds.signature');
 Route::post('/my-pds/add-eligibility', [PdsController::class, 'addEligibility'])->name('pds.add_eligibility');
+Route::post('/my-pds/eligibility/update/{id}', [PdsController::class, 'updateEligibility'])->name('pds.update_eligibility');
 Route::post('/my-pds/add-work-experience', [PdsController::class, 'addWorkExperience'])->name('pds.add_work_experience');
+Route::post('/my-pds/work-experience/update/{id}', [PdsController::class, 'updateWorkExperience'])->name('pds.update_work_experience');
 Route::post('/my-pds/add-voluntary', [PdsController::class, 'addVoluntaryWork'])->name('pds.add_voluntary');
+Route::post('/my-pds/voluntary/update/{id}', [PdsController::class, 'updateVoluntaryWork'])->name('pds.update_voluntary');
 Route::post('/my-pds/add-learning', [PdsController::class, 'addLearning'])->name('pds.add_learning');
+Route::post('/my-pds/learning/update/{id}', [PdsController::class, 'updateLearning'])->name('pds.update_learning');
 Route::post('/my-pds/add-other-info', [PdsController::class, 'addOtherInfo'])->name('pds.add_other_info');
+Route::post('/my-pds/other-info/update/{id}', [PdsController::class, 'updateOtherInfo'])->name('pds.update_other_info');
 Route::post('/my-pds/update-questionnaire', [PdsController::class, 'updateQuestionnaire'])->name('pds.update_questionnaire');
 Route::post('/my-pds/add-reference', [PdsController::class, 'addReference'])->name('pds.add_reference');
+Route::post('/my-pds/reference/update/{id}', [PdsController::class, 'updateReference'])->name('pds.update_reference');
 Route::post('/my-pds/update-page4-details', [PdsController::class, 'updatePage4Details'])->name('pds.update_page4_details');
 Route::post('/my-pds/delete-record/{table}/{id}', [PdsController::class, 'deleteRecord'])->name('pds.delete_record');
 Route::get('/my-pds/print', [PdsController::class, 'printPds'])->name('pds.print');
@@ -201,6 +209,7 @@ Route::post('/hr/employee/{id}/update-name', [HrController::class, 'updateOffici
 // HR view employee profile route
 Route::get('/hr/employee/{id}/profile', [HrController::class, 'viewProfile'])->name('hr.view_profile');
 Route::post('/hr/employee/{id}/learning-area', [HrController::class, 'updateLearningArea'])->name('hr.update_learning_area');
+Route::post('/hr/employees/promote', [HrController::class, 'promoteEmployee'])->name('hr.promote_employee');
 
 // Employee Routes (Service Record)
 Route::get('/my-service-record', [EmployeeController::class, 'myServiceRecord'])->name('employee.service_record');
@@ -211,3 +220,30 @@ Route::get('/my-service-record', [ServiceRecordController::class, 'index'])->nam
 
 // Dashboard Route pointing to our new controller
 Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
+
+Route::get('/dev/cleanup-family-data', function () {
+    $models = [\App\Models\PdsSpouse::class, \App\Models\PdsFather::class, \App\Models\PdsMother::class];
+
+    foreach ($models as $model) {
+        $duplicates = $model::select('user_id')
+            ->groupBy('user_id')
+            ->havingRaw('COUNT(id) > 1')
+            ->pluck('user_id');
+
+        foreach ($duplicates as $userId) {
+            $records = $model::where('user_id', $userId)->orderBy('id', 'desc')->get();
+            // Keep the first one (latest), delete the rest
+            $records->shift(); 
+            foreach ($records as $record) {
+                $record->delete();
+            }
+        }
+    }
+
+    return "Dummy family data cleaned successfully";
+});
+
+// Location API routes
+Route::get('/api/locations/provinces/{region_code}', [\App\Http\Controllers\PdsController::class, 'getProvinces'])->name('api.locations.provinces');
+Route::get('/api/locations/cities/{province_code}', [\App\Http\Controllers\PdsController::class, 'getCities'])->name('api.locations.cities');
+Route::get('/api/locations/barangays/{city_code}', [\App\Http\Controllers\PdsController::class, 'getBarangays'])->name('api.locations.barangays');

@@ -11,6 +11,14 @@
         transform: scale(1.05);
         box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15) !important;
     }
+    .profile-tabs .nav-link {
+        color: #1A3E6F;
+        background-color: transparent;
+    }
+    .profile-tabs .nav-link.active {
+        color: #1A3E6F !important;
+        background-color: yellow !important;
+    }
 </style>
 
 <div class="row justify-content-center">
@@ -39,10 +47,21 @@
         @endif
 
         <div class="card p-4 shadow-sm border-0 border-top border-4 border-accent">
+            <ul class="nav nav-tabs profile-tabs mb-4" id="profileTabs" role="tablist">
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link active" id="details-tab" data-bs-toggle="tab" data-bs-target="#details" type="button" role="tab" aria-controls="details" aria-selected="true">Profile Details</button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="security-tab" data-bs-toggle="tab" data-bs-target="#security" type="button" role="tab" aria-controls="security" aria-selected="false">Security</button>
+                </li>
+            </ul>
+
             <form action="{{ route('profile.update') }}" method="POST" enctype="multipart/form-data">
                 @csrf
                 
-                <div class="text-center mb-4">
+                <div class="tab-content" id="profileTabsContent">
+                    <div class="tab-pane fade show active" id="details" role="tabpanel" aria-labelledby="details-tab">
+                        <div class="text-center mb-4">
                     @if($user->profile_image)
                         <!-- Wrapped the image in a clickable modal trigger -->
                         <a href="#" data-bs-toggle="modal" data-bs-target="#zoomProfileModal" title="Click to zoom">
@@ -76,6 +95,20 @@
                     <div class="form-text small">Contact HR to change your official username.</div>
                 </div>
                 
+                <!-- ADD OFFICIAL POSITION -->
+                <div class="mb-4">
+                    <label class="form-label small fw-bold text-muted">Official Position</label>
+                    <input type="text" class="form-control bg-light" value="{{ $user->position->name ?? $user->position->position_name ?? 'No Position Assigned' }}" readonly>
+                </div>
+
+                <!-- CONDITIONAL LEARNING AREA -->
+                @if($user->position && $user->position->category === 'Teaching')
+                <div class="mb-4">
+                    <label class="form-label small fw-bold text-muted">Learning Area</label>
+                    <input type="text" class="form-control bg-light" value="{{ $user->learningArea->name ?? 'None Assigned' }}" readonly>
+                </div>
+                @endif
+
                 <!--
                 <div class="mb-4">
                     <label class="form-label small fw-bold text-muted">Account Email Address</label>
@@ -96,7 +129,10 @@
                         </div>
                     </div>
                 </div>
+            </div> <!-- End Profile Details Tab -->
 
+            <!-- Security Tab -->
+            <div class="tab-pane fade" id="security" role="tabpanel" aria-labelledby="security-tab">
                 <!-- DUAL PASSWORD SETUP -->
                 <div class="p-3 bg-light border rounded mb-4">
                     <h6 class="fw-bold mb-3 text-uppercase text-muted" style="font-size: 0.85rem;"><i class="bi bi-shield-lock-fill me-1"></i> Security</h6>
@@ -128,8 +164,10 @@
                         </div>
                     </div>
                 </div>
+            </div> <!-- End Security Tab -->
+        </div> <!-- End Tab Content -->
 
-                <div class="d-grid">
+                <div class="d-grid mt-4">
                     <button type="submit" class="btn btn-accent py-2 fw-bold shadow-sm">Update Account Profile</button>
                 </div>
             </form>

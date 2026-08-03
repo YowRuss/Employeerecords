@@ -138,35 +138,38 @@ class DashboardController extends Controller
         $mi = strtoupper($request->middle_initial);
         $lastName = strtoupper($request->last_name);
 
-        // 3. Insert into the users table using insertGetId
-        $user_id = DB::table('users')->insertGetId([
-            'first_name' => $firstName,
-            'middle_name' => $mi,
-            'last_name' => $lastName,
-            'suffix' => strtoupper($request->suffix), // Saves to 'suffix' in users table
-            'username' => strtolower($request->username),
-            'password' => Hash::make($request->password), // Secure encryption
-            'role_id' => 1, // Automatically assign Role 1 (Employee)
-            'must_change_password' => true,
-            'created_at' => now(),
-            'updated_at' => now(),
-        ]);
+        // Wrap in a database transaction to prevent orphaned accounts if PDS initialization fails
+        DB::transaction(function () use ($request, $firstName, $mi, $lastName) {
+            // 3. Insert into the users table using insertGetId
+            $user_id = DB::table('users')->insertGetId([
+                'first_name' => $firstName,
+                'middle_name' => $mi,
+                'last_name' => $lastName,
+                'suffix' => strtoupper($request->suffix), // Saves to 'suffix' in users table
+                'username' => strtolower($request->username),
+                'password' => Hash::make($request->password), // Secure encryption
+                'role_id' => 1, // Automatically assign Role 1 (Employee)
+                'must_change_password' => true,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
 
-        // 4. AUTO-INITIALIZE THE PDS!
-        DB::table('pds_personal_info')->insert([
-            'user_id' => $user_id,
-            'first_name' => $firstName,
-            'middle_name' => $mi,
-            'last_name' => $lastName,
-            'name_extension' => strtoupper($request->suffix), // FIXED: Maps to 'name_extension' in PDS
-            // Add temporary placeholder dates to bypass SQL strict mode until employee fills it out
-            'date_of_birth' => '2000-01-01',
-            'place_of_birth' => '',
-            'sex' => '',
-            'civil_status' => '',
-            'status' => 'Draft',
-            'created_at' => now(),
-        ]);
+            // 4. AUTO-INITIALIZE THE PDS!
+            DB::table('pds_personal_info')->insert([
+                'user_id' => $user_id,
+                'first_name' => $firstName,
+                'middle_name' => $mi,
+                'last_name' => $lastName,
+                'name_extension' => strtoupper($request->suffix), // FIXED: Maps to 'name_extension' in PDS
+                // Add temporary placeholder dates to bypass SQL strict mode until employee fills it out
+                'date_of_birth' => '2000-01-01',
+                'place_of_birth' => '',
+                'sex' => 0, // Default to 0 (Female) to satisfy tinyInteger strict mode
+                'civil_status' => '',
+                'status' => 'Draft',
+                'created_at' => now(),
+            ]);
+        });
 
         return redirect()->route('dashboard')->with('success', 'Employee created and PDS initialized successfully!');
     }
