@@ -134,130 +134,84 @@
 @endif 
 <!-- END EMPLOYEE DASHBOARD -->
 
-<!-- HR DASHBOARD -->
+<!-- HR DASHBOARD (Analytics Hub) -->
 @if(session('role_id') == 2)
-<div class="row g-4">
-    <div class="col-12">
-        <div class="card p-4 shadow-sm border-0">
-            <div class="d-flex justify-content-between align-items-center mb-4">
-                <h5 class="text-accent fw-bold mb-0">Manage Positions</h5>
-                <form action="{{ route('hr.positions.store') }}" method="POST" class="d-flex gap-2">
-                    @csrf
-                    <input type="text" name="position_name" class="form-control form-control-sm text-uppercase" placeholder="New Position Name" required>
-                    <select name="category" class="form-select form-select-sm" required>
-                        <option value="" disabled selected>Select Category</option>
-                        <option value="Teaching">Teaching</option>
-                        <option value="Non-Teaching">Non-Teaching</option>
-                    </select>
-                    <button type="submit" class="btn btn-accent btn-sm fw-bold">Add Position</button>
-                </form>
-            </div>
-
-            <style>
-                .position-tabs .nav-link {
-                    border: none;
-                    color: #1A3E6F;
-                    font-weight: 600;
-                    background: transparent;
-                    border-radius: 0;
-                    padding: 0.75rem 1.25rem;
-                    opacity: 0.7;
-                    border-bottom: 3px solid transparent;
-                }
-                .position-tabs .nav-link:hover {
-                    opacity: 1;
-                    border-color: rgba(253, 224, 71, 0.5);
-                }
-                .position-tabs .nav-link.active {
-                    background-color: var(--accent-yellow, #FDE047);
-                    color: #1A3E6F;
-                    opacity: 1;
-                    border-color: var(--accent-yellow, #FDE047);
-                    border-radius: 8px 8px 0 0;
-                }
-            </style>
-
-            <ul class="nav nav-tabs position-tabs border-bottom-0" id="dashboardPositionTabs" role="tablist">
-                <li class="nav-item" role="presentation">
-                    <button class="nav-link active" id="dash-teaching-tab" data-bs-toggle="tab" data-bs-target="#dash-teaching" type="button" role="tab" aria-controls="dash-teaching" aria-selected="true">
-                        Teaching Positions <span class="badge bg-white text-dark ms-1 border">{{ count($teachingPositions) }}</span>
-                    </button>
-                </li>
-                <li class="nav-item" role="presentation">
-                    <button class="nav-link" id="dash-non-teaching-tab" data-bs-toggle="tab" data-bs-target="#dash-non-teaching" type="button" role="tab" aria-controls="dash-non-teaching" aria-selected="false">
-                        Non-Teaching Positions <span class="badge bg-white text-dark ms-1 border">{{ count($nonTeachingPositions) }}</span>
-                    </button>
-                </li>
-            </ul>
-            
-            <div class="tab-content border-top border-light pt-3" id="dashboardPositionTabsContent">
-                <!-- Teaching Tab -->
-                <div class="tab-pane fade show active" id="dash-teaching" role="tabpanel" aria-labelledby="dash-teaching-tab">
-                    <div class="table-responsive">
-                        <table class="table table-hover table-bordered align-middle bg-white">
-                            <thead class="table-light">
-                                <tr>
-                                    <th>ID</th>
-                                    <th>Position Name</th>
-                                    <th>Created At</th>
-                                    <th>Action</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                @forelse($teachingPositions as $pos)
-                                <tr>
-                                    <td>{{ $pos->id }}</td>
-                                    <td class="fw-bold text-uppercase">{{ $pos->position_name }}</td>
-                                    <td>{{ \Carbon\Carbon::parse($pos->created_at)->format('M d, Y') }}</td>
-                                    <td>
-                                        <form action="{{ route('hr.positions.destroy', $pos->id) }}" method="POST" onsubmit="return confirm('Delete this position?');">
-                                            @csrf
-                                            <button type="submit" class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i></button>
-                                        </form>
-                                    </td>
-                                </tr>
-                                @empty
-                                <tr>
-                                    <td colspan="4" class="text-center text-muted">No teaching positions created yet.</td>
-                                </tr>
-                                @endforelse
-                            </tbody>
-                        </table>
-                    </div>
+<div class="row g-4 mb-4">
+    <!-- Card 1: Total Active Staff -->
+    <div class="col-md-6 col-lg-3">
+        <div class="card h-100 border-0 shadow-sm rounded-4" style="border-left: 5px solid #1A3E6F !important;">
+            <div class="card-body p-4 d-flex align-items-center">
+                <div class="rounded-circle d-flex align-items-center justify-content-center me-3 flex-shrink-0" style="width: 50px; height: 50px; background-color: rgba(26, 62, 111, 0.1);">
+                    <i class="bi bi-people fs-4" style="color: #1A3E6F;"></i>
                 </div>
+                <div>
+                    <h6 class="text-muted small fw-bold text-uppercase mb-1">Total Active Staff</h6>
+                    <h3 class="fw-bolder mb-0 text-dark">{{ $totalActiveStaff ?? 0 }}</h3>
+                </div>
+            </div>
+        </div>
+    </div>
 
-                <!-- Non-Teaching Tab -->
-                <div class="tab-pane fade" id="dash-non-teaching" role="tabpanel" aria-labelledby="dash-non-teaching-tab">
-                    <div class="table-responsive">
-                        <table class="table table-hover table-bordered align-middle bg-white">
-                            <thead class="table-light">
-                                <tr>
-                                    <th>ID</th>
-                                    <th>Position Name</th>
-                                    <th>Created At</th>
-                                    <th>Action</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                @forelse($nonTeachingPositions as $pos)
-                                <tr>
-                                    <td>{{ $pos->id }}</td>
-                                    <td class="fw-bold text-uppercase">{{ $pos->position_name }}</td>
-                                    <td>{{ \Carbon\Carbon::parse($pos->created_at)->format('M d, Y') }}</td>
-                                    <td>
-                                        <form action="{{ route('hr.positions.destroy', $pos->id) }}" method="POST" onsubmit="return confirm('Delete this position?');">
-                                            @csrf
-                                            <button type="submit" class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i></button>
-                                        </form>
-                                    </td>
-                                </tr>
-                                @empty
-                                <tr>
-                                    <td colspan="4" class="text-center text-muted">No non-teaching positions created yet.</td>
-                                </tr>
-                                @endforelse
-                            </tbody>
-                        </table>
+    <!-- Card 2: Teaching vs Non-Teaching -->
+    <div class="col-md-6 col-lg-3">
+        <div class="card h-100 border-0 shadow-sm rounded-4" style="border-left: 5px solid #10B981 !important;">
+            <div class="card-body p-4 d-flex align-items-center">
+                <div class="rounded-circle d-flex align-items-center justify-content-center me-3 flex-shrink-0" style="width: 50px; height: 50px; background-color: rgba(16, 185, 129, 0.1);">
+                    <i class="bi bi-person-badge fs-4" style="color: #10B981;"></i>
+                </div>
+                <div>
+                    <h6 class="text-muted small fw-bold text-uppercase mb-1">Teaching / Non</h6>
+                    <h3 class="fw-bolder mb-0 text-dark">{{ $teachingCount ?? 0 }} <span class="fs-5 text-muted fw-normal">/ {{ $nonTeachingCount ?? 0 }}</span></h3>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Card 3: Pending Leave Requests -->
+    <div class="col-md-6 col-lg-3">
+        <div class="card h-100 border-0 shadow-sm rounded-4" style="border-left: 5px solid #F59E0B !important;">
+            <div class="card-body p-4 d-flex align-items-center">
+                <div class="rounded-circle d-flex align-items-center justify-content-center me-3 flex-shrink-0" style="width: 50px; height: 50px; background-color: rgba(245, 158, 11, 0.1);">
+                    <i class="bi bi-calendar-check fs-4" style="color: #F59E0B;"></i>
+                </div>
+                <div>
+                    <h6 class="text-muted small fw-bold text-uppercase mb-1">Pending Leaves</h6>
+                    <h3 class="fw-bolder mb-0 text-dark">{{ $pendingLeaves ?? 0 }} <span class="fs-6 text-muted fw-normal">Pending</span></h3>
+                </div>
+                <a href="{{ route('hr.leave.index') }}" class="stretched-link"></a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Card 4: Open Requisitions -->
+    <div class="col-md-6 col-lg-3">
+        <div class="card h-100 border-0 shadow-sm rounded-4" style="border-left: 5px solid #EF4444 !important;">
+            <div class="card-body p-4 d-flex align-items-center">
+                <div class="rounded-circle d-flex align-items-center justify-content-center me-3 flex-shrink-0" style="width: 50px; height: 50px; background-color: rgba(239, 68, 68, 0.1);">
+                    <i class="bi bi-clipboard-data fs-4" style="color: #EF4444;"></i>
+                </div>
+                <div>
+                    <h6 class="text-muted small fw-bold text-uppercase mb-1">Open Requisitions</h6>
+                    <h3 class="fw-bolder mb-0 text-dark">{{ $openRequisitions ?? 0 }} <span class="fs-6 text-muted fw-normal">Open</span></h3>
+                </div>
+                <a href="{{ route('requisitions.index') }}" class="stretched-link"></a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-12">
+        <div class="card shadow-sm border-0 rounded-4">
+            <div class="card-header bg-white pt-4 pb-3 border-bottom-0">
+                <h5 class="text-accent fw-bold m-0"><i class="bi bi-bar-chart-line-fill me-2"></i> Staff Attendance Overview</h5>
+            </div>
+            <div class="card-body p-4">
+                <div class="rounded d-flex align-items-center justify-content-center" style="height: 300px; background: #f8f9fa; border: 2px dashed #e2e8f0;">
+                    <div class="text-center text-muted">
+                        <i class="bi bi-graph-up fs-1 d-block mb-2 text-opacity-25"></i>
+                        <p class="mb-0 fw-bold">Chart Integration Pending</p>
+                        <small>Staff attendance graph will be displayed here.</small>
                     </div>
                 </div>
             </div>

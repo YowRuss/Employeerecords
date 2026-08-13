@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -16,7 +17,7 @@ class ProfileController extends Controller
             return redirect()->route('login');
         }
 
-        $user = \App\Models\User::with(['position', 'learningArea'])->find(Session::get('user_id'));
+        $user = User::with(['position', 'learningArea'])->find(Session::get('user_id'));
 
         return view('profile', compact('user'));
     }

@@ -2,13 +2,38 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\User;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Session;
+use setasign\Fpdi\Tcpdf\Fpdi;
 
 class LeaveController extends Controller
 {
+    /** role_id that identifies a plain employee (everyone else = HR / principal). */
+    private const ROLE_EMPLOYEE = 1;
+
+    /** Statuses recognised by the app. */
+    private const STATUSES = ['PENDING', 'APPROVED', 'DISAPPROVED'];
+
+    /** Template file, relative to storage/app. */
+    private const TEMPLATE_PATH = 'templates/leave_template.pdf';
+
+    /** Font size (pt) used for the "X" marks. Bump to 11-12 if the marks look small. */
+    private const CHECK_FONT_SIZE = 10;
+
+    /**
+     * Fill section 7.B (recommendation) once a decision has been recorded.
+     * Set to false if you want the printed form to stay blank for wet signatures.
+     */
+    private const RENDER_DECISION_SECTION = true;
+
+    // =========================================================
+    // GUARDS / SHARED LOOKUPS
+    // =========================================================
+
     /**
      * Centralized auth guard so every method behaves the same way
      * instead of index() being the only one that checks the session.
@@ -20,6 +45,18 @@ class LeaveController extends Controller
         }
 
         return null;
+    }
+
+    /**
+     * FIX: the old checks were `Session::get('role_id') == 1`. When role_id was
+     * missing from the session that comparison is false, so a session with no
+     * role at all was silently treated as management. Missing role now = employee.
+     */
+    private function isManagement(): bool
+    {
+        $roleId = Session::get('role_id');
+
+        return $roleId !== null && (int) $roleId !== self::ROLE_EMPLOYEE;
     }
 
     private function leaveTypes(): array
@@ -42,6 +79,55 @@ class LeaveController extends Controller
         ];
     }
 
+    /** Which 6.B details are valid for each 6.A type. (Moved out of store() so it can be reused.) */
+    private function leaveDetailsMap(): array
+    {
+        return [
+            'Vacation Leave' => ['Within the Philippines', 'Abroad', 'Monetization of Leave Credits', 'Terminal Leave'],
+            'Mandatory/Forced Leave' => ['Monetization of Leave Credits', 'Terminal Leave'],
+            'Sick Leave' => ['In Hospital', 'Out Patient', 'Monetization of Leave Credits', 'Terminal Leave'],
+            'Paternity Leave' => ['Monetization of Leave Credits', 'Terminal Leave'],
+            'Special Privilege Leave' => ['Within the Philippines', 'Abroad', 'Monetization of Leave Credits', 'Terminal Leave'],
+            'Solo Parent Leave' => ['Monetization of Leave Credits', 'Terminal Leave'],
+            'Study Leave' => ["Completion of Master's Degree", 'BAR/Board Examination Review', 'Monetization of Leave Credits', 'Terminal Leave'],
+            '10-Day VAWC Leave' => ['Monetization of Leave Credits', 'Terminal Leave'],
+            'Rehabilitation Privilege' => ['Monetization of Leave Credits', 'Terminal Leave'],
+            'Special Leave Benefits for Women' => ['Monetization of Leave Credits', 'Terminal Leave'],
+            'Special Emergency (Calamity) Leave' => ['Monetization of Leave Credits', 'Terminal Leave'],
+            'Adoption Leave' => ['Monetization of Leave Credits', 'Terminal Leave'],
+            'Others' => ['Monetization of Leave Credits', 'Terminal Leave'],
+            'Maternity Leave' => [], // no details allowed at all
+        ];
+    }
+
+    /** 6.B details that actually have a "(Specify ...)" blank next to them on the form. */
+    private function detailsWithSpecifyLine(): array
+    {
+        return ['Within the Philippines', 'Abroad', 'In Hospital', 'Out Patient'];
+    }
+
+    private function upper(?string $value): string
+    {
+        return mb_strtoupper(trim((string) $value), 'UTF-8');
+    }
+
+    private function formatDate(?string $value, string $format = 'F d, Y'): string
+    {
+        if (empty($value)) {
+            return '';
+        }
+
+        try {
+            return Carbon::parse($value)->format($format);
+        } catch (\Throwable $e) {
+            return (string) $value; // never let a bad date break the download
+        }
+    }
+
+    // =========================================================
+    // EMPLOYEE
+    // =========================================================
+
     public function index()
     {
         if ($redirect = $this->requireAuth()) {
@@ -50,7 +136,7 @@ class LeaveController extends Controller
 
         $user_id = Session::get('user_id');
 
-        $user = \App\Models\User::with('position')->find($user_id);
+        $user = User::with('position')->find($user_id);
 
         if (! $user) {
             Session::forget('user_id');
@@ -73,7 +159,6 @@ class LeaveController extends Controller
             ->orderBy('created_at', 'desc')
             ->get();
 
-        // Pass $current_position and $current_salary to the view
         return view('employee.leaves', compact('user', 'leaves', 'current_position', 'current_salary'));
     }
 
@@ -106,25 +191,8 @@ class LeaveController extends Controller
             $validated['leave_details_specific'] = null;
         }
 
-        $leaveDetailsMap = [
-            'Vacation Leave' => ['Within the Philippines', 'Abroad', 'Monetization of Leave Credits', 'Terminal Leave'],
-            'Mandatory/Forced Leave' => ['Monetization of Leave Credits', 'Terminal Leave'],
-            'Sick Leave' => ['In Hospital', 'Out Patient', 'Monetization of Leave Credits', 'Terminal Leave'],
-            'Paternity Leave' => ['Monetization of Leave Credits', 'Terminal Leave'],
-            'Special Privilege Leave' => ['Within the Philippines', 'Abroad', 'Monetization of Leave Credits', 'Terminal Leave'],
-            'Solo Parent Leave' => ['Monetization of Leave Credits', 'Terminal Leave'],
-            'Study Leave' => ["Completion of Master's Degree", 'BAR/Board Examination Review', 'Monetization of Leave Credits', 'Terminal Leave'],
-            '10-Day VAWC Leave' => ['Monetization of Leave Credits', 'Terminal Leave'],
-            'Rehabilitation Privilege' => ['Monetization of Leave Credits', 'Terminal Leave'],
-            'Special Leave Benefits for Women' => ['Monetization of Leave Credits', 'Terminal Leave'],
-            'Special Emergency (Calamity) Leave' => ['Monetization of Leave Credits', 'Terminal Leave'],
-            'Adoption Leave' => ['Monetization of Leave Credits', 'Terminal Leave'],
-            'Others' => ['Monetization of Leave Credits', 'Terminal Leave'],
-            'Maternity Leave' => [], // no details allowed at all
-        ];
-
         if (! empty($validated['leave_details'])) {
-            $allowed = $leaveDetailsMap[$validated['leave_type']] ?? [];
+            $allowed = $this->leaveDetailsMap()[$validated['leave_type']] ?? [];
             if (! in_array($validated['leave_details'], $allowed, true)) {
                 return back()->withInput()->withErrors([
                     'leave_details' => 'The selected detail does not apply to this leave type.',
@@ -132,19 +200,30 @@ class LeaveController extends Controller
             }
         }
 
+        // FIX: leave_details_specific used to be stored even for details that have no
+        // "(Specify)" blank on the form (Monetization, Terminal Leave, Study Leave options).
+        // The stray text was then dropped silently at print time. Clear it up front instead.
+        // Special Leave Benefits for Women keeps its own "(Specify Illness)" line in 6.B.
+        $hasSpecifyLine = in_array($validated['leave_details'] ?? '', $this->detailsWithSpecifyLine(), true)
+            || $validated['leave_type'] === 'Special Leave Benefits for Women';
+
+        if (! $hasSpecifyLine) {
+            $validated['leave_details_specific'] = null;
+        }
+
         try {
             DB::table('leave_applications')->insert([
                 'user_id' => $user_id,
                 'office_department' => 'CNHS-JH', // hardcoded server-side, never trust client input for this
                 'date_of_filing' => $validated['date_of_filing'],
-                'position' => strtoupper($validated['position']),
-                'salary' => strtoupper($validated['salary']),
+                'position' => $this->upper($validated['position']),
+                'salary' => $this->upper($validated['salary']),
                 'leave_type' => $validated['leave_type'],
-                'leave_type_others' => strtoupper($validated['leave_type_others'] ?? ''),
+                'leave_type_others' => $this->upper($validated['leave_type_others'] ?? ''),
                 'leave_details' => $validated['leave_details'] ?? null,
-                'leave_details_specific' => strtoupper($validated['leave_details_specific'] ?? ''),
+                'leave_details_specific' => $this->upper($validated['leave_details_specific'] ?? ''),
                 'working_days' => $validated['working_days'],
-                'inclusive_dates' => strtoupper($validated['inclusive_dates']),
+                'inclusive_dates' => $this->upper($validated['inclusive_dates']),
                 'commutation' => $validated['commutation'],
                 'status' => 'PENDING',
                 'created_at' => now(),
@@ -181,11 +260,21 @@ class LeaveController extends Controller
         }
 
         try {
-            DB::table('leave_applications')->where('id', $id)->delete();
+            // FIX: the delete now repeats the owner + status conditions, so an application
+            // approved between the read above and this write can't be deleted anyway.
+            $deleted = DB::table('leave_applications')
+                ->where('id', $id)
+                ->where('user_id', $user_id)
+                ->where('status', 'PENDING')
+                ->delete();
         } catch (\Throwable $e) {
             Log::error('Leave application delete failed: '.$e->getMessage());
 
             return back()->with('error', 'Something went wrong while cancelling. Please try again.');
+        }
+
+        if ($deleted === 0) {
+            return back()->with('error', 'This application can no longer be cancelled.');
         }
 
         return back()->with('success', 'Pending leave application cancelled.');
@@ -197,7 +286,10 @@ class LeaveController extends Controller
 
     public function hrIndex(Request $request)
     {
-        if (! Session::has('user_id') || Session::get('role_id') == 1) { // Assuming role_id 1 is Employee
+        if ($redirect = $this->requireAuth()) {
+            return $redirect;
+        }
+        if (! $this->isManagement()) {
             return redirect()->route('dashboard')->with('error', 'Unauthorized access.');
         }
 
@@ -205,19 +297,44 @@ class LeaveController extends Controller
             ->join('users', 'leave_applications.user_id', '=', 'users.id')
             ->select('leave_applications.*', 'users.first_name', 'users.last_name');
 
-        if ($request->has('status') && $request->status != 'All') {
-            $query->where('leave_applications.status', strtoupper($request->status));
-        } else {
-            $query->orderByRaw("FIELD(leave_applications.status, 'PENDING', 'APPROVED', 'DISAPPROVED')")
-                ->orderBy('leave_applications.created_at', 'desc');
+        // FIX: `$request->has('status')` was true even for `?status=`, and the requested
+        // value went into the query unchecked. Whitelist it instead.
+        $status = strtoupper(trim((string) $request->input('status', 'All')));
+        if ($status !== '' && $status !== 'ALL' && in_array($status, self::STATUSES, true)) {
+            $query->where('leave_applications.status', $status);
         }
 
-        $leaves = $query->get();
+        // Optional name search — harmless if your view has no search box.
+        if ($request->filled('q')) {
+            $term = '%'.str_replace(['%', '_'], ['\%', '\_'], trim((string) $request->input('q'))).'%';
+            $query->where(function ($q) use ($term) {
+                $q->where('users.first_name', 'like', $term)
+                    ->orWhere('users.last_name', 'like', $term);
+            });
+        }
+
+        // FIX: ordering only ran in the "no filter" branch before, so a filtered list
+        // came back in whatever order the DB felt like. CASE is portable (FIELD is MySQL-only).
+        $leaves = $query
+            ->orderByRaw("CASE leave_applications.status
+                            WHEN 'PENDING' THEN 1
+                            WHEN 'APPROVED' THEN 2
+                            WHEN 'DISAPPROVED' THEN 3
+                            ELSE 4 END")
+            ->orderBy('leave_applications.created_at', 'desc')
+            ->get();
+
+        // FIX: stats were counted from the already-filtered collection, so filtering by
+        // "Approved" reported 0 pending / 0 denied. Count from the whole table instead.
+        $statusCounts = DB::table('leave_applications')
+            ->select('status', DB::raw('COUNT(*) as total'))
+            ->groupBy('status')
+            ->pluck('total', 'status');
 
         $stats = [
-            'pending' => $leaves->where('status', 'PENDING')->count(),
-            'approved' => $leaves->where('status', 'APPROVED')->count(),
-            'denied' => $leaves->where('status', 'DISAPPROVED')->count(),
+            'pending' => (int) ($statusCounts['PENDING'] ?? 0),
+            'approved' => (int) ($statusCounts['APPROVED'] ?? 0),
+            'denied' => (int) ($statusCounts['DISAPPROVED'] ?? 0),
         ];
 
         return view('hr.leaves.index', compact('leaves', 'stats'));
@@ -225,23 +342,359 @@ class LeaveController extends Controller
 
     public function hrUpdateStatus(Request $request, $id)
     {
-        if (! Session::has('user_id') || Session::get('role_id') == 1) {
+        if ($redirect = $this->requireAuth()) {
+            return $redirect;
+        }
+        if (! $this->isManagement()) {
             return back()->with('error', 'Unauthorized action.');
         }
 
         $request->validate([
             'status' => 'required|in:APPROVED,DISAPPROVED',
-            'hr_remarks' => 'nullable|string',
+            // max:255 keeps the write inside a VARCHAR(255) column; raise it if hr_remarks is TEXT.
+            'hr_remarks' => 'nullable|string|max:255',
         ]);
 
-        DB::table('leave_applications')->where('id', $id)->update([
-            'status' => $request->status,
-            'hr_remarks' => strtoupper($request->hr_remarks),
-            'updated_at' => now(),
-        ]);
+        // FIX: the old code updated blindly. A bad id "succeeded" and still showed
+        // "Leave application approved." Check the row exists first.
+        $leave = DB::table('leave_applications')->where('id', $id)->first();
 
-        $message = $request->status == 'APPROVED' ? 'Leave application approved.' : 'Leave application disapproved.';
+        if (! $leave) {
+            return back()->with('error', 'Leave application not found.');
+        }
+
+        try {
+            DB::table('leave_applications')->where('id', $id)->update([
+                'status' => $request->status,
+                'hr_remarks' => $this->upper($request->input('hr_remarks', '')),
+                'updated_at' => now(),
+            ]);
+        } catch (\Throwable $e) {
+            Log::error('Leave status update failed: '.$e->getMessage());
+
+            return back()->with('error', 'Something went wrong while updating this application. Please try again.');
+        }
+
+        $message = $request->status === 'APPROVED' ? 'Leave application approved.' : 'Leave application disapproved.';
 
         return back()->with('success', $message);
+    }
+
+    // =========================================================
+    // PDF EXPORT
+    // =========================================================
+
+    /**
+     * Field geometry, in millimetres, measured directly from leave_template.pdf
+     * (A4, 210 x 297 mm, origin at the top-left corner).
+     *
+     * Text fields are [x, y, width, height] boxes — text is centred vertically in the
+     * box and shrunk horizontally if it would overflow, so long names/dates can't spill
+     * into the next field.
+     *
+     * Checkboxes are [x, y] of the printed box's top-left corner; every box on this
+     * form is 2.3 x 2.3 mm (self::CHECK_BOX_SIZE).
+     */
+    private const CHECK_BOX_SIZE = 2.3;
+
+    private function pdfLayout(): array
+    {
+        return [
+            // 1-5 header
+            'text' => [
+                'office' => [19.35, 50.00, 51.10, 6.00],
+
+                // Name is split into three cells, each centred under its own printed
+                // (Last) (First) (Middle) header instead of one run-on string.
+                'name_last' => [90.70, 50.40, 29.00, 4.50],
+                'name_first' => [123.20, 50.40, 29.00, 4.50],
+                'name_middle' => [152.40, 50.40, 29.00, 4.50],
+                // x starts just after each printed label, width stops at the end of the
+                // rule, y seats the baseline on the rule instead of floating above it.
+                'date_of_filing' => [43.20, 59.20, 27.00, 4.50],
+                'position' => [98.60, 59.20, 46.00, 4.50],
+                'salary' => [166.30, 59.20, 23.50, 4.40],
+
+                // 6.A "Others:" blank
+                'others' => [16.50, 158.90, 63.50, 4.40],
+
+                // 6.C
+                'working_days' => [19.85, 171.30, 64.44, 4.50],
+                'inclusive_dates' => [19.85, 181.90, 64.44, 4.60],
+            ],
+
+            // 6.B "(Specify ...)" blanks — one per detail, keyed the same as leave_details.
+            // FIX: "Within the Philippines" used to print on the Abroad line.
+            'specify' => [
+                'Within the Philippines' => [151.00, 84.90, 43.30, 4.50],
+                'Abroad' => [145.00, 90.20, 49.30, 4.50],
+                'In Hospital' => [158.10, 100.80, 35.80, 4.40],
+                'Out Patient' => [158.90, 106.00, 35.00, 4.50],
+                // Not a checkbox — belongs to the 6.A type, printed whenever that type is chosen.
+                'Special Leave Benefits for Women' => [138.60, 122.00, 54.50, 4.50],
+            ],
+
+            // 6.A checkboxes (left column, x = 15.5)
+            'leave_types' => [
+                'Vacation Leave' => [15.50, 80.50],
+                'Mandatory/Forced Leave' => [15.20, 86.00],
+                'Sick Leave' => [15.50, 91.30],
+                'Maternity Leave' => [15.50, 96.60],
+                'Paternity Leave' => [15.50, 101.60],
+                'Special Privilege Leave' => [15.50, 106.90],
+                'Solo Parent Leave' => [15.50, 112.50],
+                'Study Leave' => [15.50, 117.70],
+                '10-Day VAWC Leave' => [15.50, 123.10],
+                'Rehabilitation Privilege' => [15.50, 128.40],
+                'Special Leave Benefits for Women' => [15.50, 133.60],
+                'Special Emergency (Calamity) Leave' => [15.50, 138.90],
+                'Adoption Leave' => [15.50, 144.20],
+                // "Others" has no checkbox on this form — only the blank line above.
+            ],
+
+            // 6.B checkboxes (right column, x = 116.4)
+            'details' => [
+                'Within the Philippines' => [116.40, 86.00],
+                'Abroad' => [116.40, 91.30],
+                'In Hospital' => [116.40, 101.60],
+                'Out Patient' => [116.40, 106.90],
+                "Completion of Master's Degree" => [116.40, 138.90],
+                'BAR/Board Examination Review' => [116.40, 144.40],
+                'Monetization of Leave Credits' => [116.40, 155.00],
+                'Terminal Leave' => [116.40, 160.10],
+            ],
+
+            // 6.D
+            'commutation' => [
+                'Not Requested' => [116.40, 172.30],
+                'Requested' => [116.40, 177.70],
+            ],
+
+            // 7.B — filled only once a decision exists (see RENDER_DECISION_SECTION)
+            'recommendation' => [
+                'APPROVED' => [116.40, 205.40],
+                'DISAPPROVED' => [116.40, 210.90],
+            ],
+            'remark_lines' => [
+                [152.50, 208.80, 40.20, 4.50],
+                [121.30, 213.60, 72.50, 4.20],
+                [121.50, 217.60, 72.50, 4.20],
+                [121.70, 221.30, 72.50, 4.20],
+            ],
+        ];
+    }
+
+    /**
+     * @param  Request  $request  injected by Laravel; the {id} route parameter still
+     *                            binds to $id, so existing routes keep working.
+     */
+    public function exportLeavePDF(Request $request, $id)
+    {
+        if ($redirect = $this->requireAuth()) {
+            return $redirect;
+        }
+
+        $leave = DB::table('leave_applications')
+            ->join('users', 'leave_applications.user_id', '=', 'users.id')
+            ->select('leave_applications.*', 'users.first_name', 'users.last_name', 'users.middle_name', 'users.id as u_id')
+            ->where('leave_applications.id', $id)
+            ->first();
+
+        if (! $leave) {
+            return back()->with('error', 'Leave application not found.');
+        }
+
+        // FIX: previously ANY logged-in user could download ANY application just by
+        // changing the id in the URL. Employees are now limited to their own records.
+        if (! $this->isManagement() && (int) $leave->user_id !== (int) Session::get('user_id')) {
+            return back()->with('error', 'You are not allowed to download this leave application.');
+        }
+
+        $templatePath = storage_path('app/'.self::TEMPLATE_PATH);
+
+        if (! is_readable($templatePath)) {
+            Log::error('Leave PDF template missing or unreadable: '.$templatePath);
+
+            return back()->with('error', 'PDF Template file not found.');
+        }
+
+        // ?debug=1 draws the field boxes in red so coordinates can be checked visually.
+        $debug = config('app.debug') && $request->boolean('debug');
+
+        try {
+            $pdf = new Fpdi('P', 'mm', 'A4', true, 'UTF-8', false);
+
+            $pdf->setPrintHeader(false);
+            $pdf->setPrintFooter(false);
+            $pdf->SetMargins(0, 0, 0);
+            $pdf->SetCellPadding(0);
+            // FIX: without this, a Write() near the bottom of the sheet can push TCPDF
+            // into adding a blank second page.
+            $pdf->SetAutoPageBreak(false, 0);
+            $pdf->SetTitle('Application for Leave');
+            $pdf->SetCreator('CNHS-JH Leave System');
+
+            // FIX: AddPage() used to run BEFORE setSourceFile()/importPage(). FPDI needs the
+            // page imported first so the sheet can be created at the template's real size.
+            $pdf->setSourceFile($templatePath);
+            $tplIdx = $pdf->importPage(1);
+            $size = $pdf->getTemplateSize($tplIdx);
+
+            $pdf->AddPage($size['orientation'], [$size['width'], $size['height']]);
+            $pdf->useTemplate($tplIdx, 0, 0, $size['width'], $size['height']);
+
+            $pdf->SetTextColor(0, 0, 0);
+
+            $layout = $this->pdfLayout();
+
+            // ---- helpers -------------------------------------------------
+            $box = function (array $b) use ($pdf, $debug) {
+                if ($debug) {
+                    $pdf->SetDrawColor(220, 0, 0);
+                    $pdf->SetLineWidth(0.1);
+                    $pdf->Rect($b[0], $b[1], $b[2], $b[3]);
+                }
+            };
+
+            // Writes text inside a box: vertically centred, shrunk to fit if too wide.
+            $writeBox = function (array $b, ?string $text, string $align = 'L', float $fontSize = 9) use ($pdf, $box) {
+                $box($b);
+                $text = trim((string) $text);
+                if ($text === '') {
+                    return;
+                }
+                $pdf->SetFont('helvetica', '', $fontSize);
+                $pdf->SetXY($b[0], $b[1]);
+                // stretch = 1 → scale horizontally only when the text would overflow
+                $pdf->Cell($b[2], $b[3], $text, 0, 0, $align, false, '', 1, true, 'T', 'M');
+            };
+
+            // Draws a centred "X" inside a 2.3 mm checkbox.
+            $drawCheck = function (array $p) use ($pdf, $box) {
+                $s = self::CHECK_BOX_SIZE;
+                $box([$p[0], $p[1], $s, $s]);
+                $pdf->SetFont('helvetica', 'B', self::CHECK_FONT_SIZE);
+                $pdf->SetXY($p[0], $p[1]);
+                $pdf->Cell($s, $s, 'X', 0, 0, 'C', false, '', 0, true, 'T', 'M');
+                $pdf->SetFont('helvetica', '', 9);
+            };
+
+            // Wraps text across a set of pre-printed blank lines.
+            $writeOnLines = function (?string $text, array $lines, float $fontSize = 8) use ($pdf, $writeBox) {
+                $text = trim((string) $text);
+                if ($text === '' || empty($lines)) {
+                    return;
+                }
+                $pdf->SetFont('helvetica', '', $fontSize);
+                $words = preg_split('/\s+/', $text) ?: [];
+                $rows = [];
+                $current = '';
+                foreach ($words as $word) {
+                    if (count($rows) >= count($lines)) {
+                        break;
+                    }
+                    $lineWidth = $lines[count($rows)][2];
+                    $candidate = $current === '' ? $word : $current.' '.$word;
+                    if ($current !== '' && $pdf->GetStringWidth($candidate) > $lineWidth) {
+                        $rows[] = $current;
+                        $current = $word;
+                    } else {
+                        $current = $candidate;
+                    }
+                }
+                if ($current !== '' && count($rows) < count($lines)) {
+                    $rows[] = $current;
+                }
+                foreach ($rows as $i => $row) {
+                    $writeBox($lines[$i], $row, 'L', $fontSize);
+                }
+            };
+            // --------------------------------------------------------------
+
+            // 1-5 header
+            $writeBox($layout['text']['office'], $this->upper($leave->office_department));
+            $writeBox($layout['text']['name_last'], $this->upper($leave->last_name), 'C');
+            $writeBox($layout['text']['name_first'], $this->upper($leave->first_name), 'C');
+            $writeBox($layout['text']['name_middle'], $this->upper($leave->middle_name ?? ''), 'C');
+            $writeBox($layout['text']['date_of_filing'], $this->upper($this->formatDate($leave->date_of_filing)));
+
+            // Get position from user profile
+            $employee = User::with('position')->find($leave->u_id);
+            $profilePosition = $employee && $employee->position ? ($employee->position->name ?? $employee->position->position_name ?? 'No Position Assigned') : 'No Position Assigned';
+
+            $writeBox($layout['text']['position'], $this->upper($profilePosition));
+            $writeBox($layout['text']['salary'], $this->upper($leave->salary), 'C');
+
+            // 6.A type of leave — exactly one mark
+            $leaveTypeKey = trim((string) $leave->leave_type);
+            if (isset($layout['leave_types'][$leaveTypeKey])) {
+                $drawCheck($layout['leave_types'][$leaveTypeKey]);
+            }
+
+            // 6.A "Others" is a blank line, not a checkbox
+            if ($leaveTypeKey === 'Others' && trim((string) $leave->leave_type_others) !== '') {
+                $writeBox($layout['text']['others'], $this->upper($leave->leave_type_others));
+            }
+
+            // 6.B details of leave
+            $leaveDetailsKey = trim((string) ($leave->leave_details ?? ''));
+            if (isset($layout['details'][$leaveDetailsKey])) {
+                $drawCheck($layout['details'][$leaveDetailsKey]);
+            }
+
+            // 6.B "(Specify ...)" text — each detail now writes on its own blank line.
+            $specific = trim((string) ($leave->leave_details_specific ?? ''));
+            if ($specific !== '') {
+                // Special Leave Benefits for Women has a specify line tied to the 6.A type,
+                // not to a 6.B checkbox — this was never printed before.
+                $specifyKey = $leaveTypeKey === 'Special Leave Benefits for Women'
+                    ? 'Special Leave Benefits for Women'
+                    : $leaveDetailsKey;
+
+                if (isset($layout['specify'][$specifyKey])) {
+                    $writeBox($layout['specify'][$specifyKey], $this->upper($specific), 'L', 8);
+                }
+            }
+
+            // 6.C
+            $writeBox($layout['text']['working_days'], $leave->working_days.' DAY'.((int) $leave->working_days === 1 ? '' : 'S'), 'C');
+            $writeBox($layout['text']['inclusive_dates'], $this->upper($leave->inclusive_dates), 'C');
+
+            // 6.D commutation
+            $commutationKey = trim((string) ($leave->commutation ?? ''));
+            if (isset($layout['commutation'][$commutationKey])) {
+                $drawCheck($layout['commutation'][$commutationKey]);
+            }
+
+            // 7.B recommendation — only once HR/principal has acted
+            $status = strtoupper(trim((string) ($leave->status ?? '')));
+            if (self::RENDER_DECISION_SECTION && isset($layout['recommendation'][$status])) {
+                $drawCheck($layout['recommendation'][$status]);
+
+                if ($status === 'DISAPPROVED') {
+                    $writeOnLines($this->upper($leave->hr_remarks ?? ''), $layout['remark_lines']);
+                }
+            }
+
+            $lastName = preg_replace('/[^A-Za-z0-9\-]/', '', (string) $leave->last_name);
+            $fileName = 'Leave_Application_'.$leave->id.($lastName !== '' ? '_'.$lastName : '').'.pdf';
+
+            // FIX: the old code called Output(..., 'D') then exit;, which bypasses Laravel's
+            // response pipeline (middleware, session writes, terminable handlers).
+            $content = $pdf->Output($fileName, 'S');
+        } catch (\Throwable $e) {
+            Log::error('Leave PDF export failed for id '.$id.': '.$e->getMessage());
+
+            return back()->with('error', 'Something went wrong while generating the PDF. Please try again.');
+        }
+
+        $disposition = $request->boolean('inline') ? 'inline' : 'attachment';
+
+        return response($content, 200, [
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => $disposition.'; filename="'.$fileName.'"',
+            'Content-Length' => strlen($content),
+            'Cache-Control' => 'private, no-store, max-age=0',
+        ]);
     }
 }

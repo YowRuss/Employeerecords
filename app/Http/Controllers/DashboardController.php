@@ -63,7 +63,7 @@ class DashboardController extends Controller
         // Admin (3) and HR (2) need to see the employee list
         if ($role_id == 3 || $role_id == 2) {
             $data['employees'] = DB::table('users')
-                ->leftJoin('positions', 'users.id', '=', 'positions.id')
+                ->leftJoin('positions', 'users.position_id', '=', 'positions.id')
                 ->select(
                     'users.*',
                     'positions.position_name',
@@ -72,10 +72,34 @@ class DashboardController extends Controller
                 ->where('role_id', 1)
                 ->get();
 
-            // ADD THIS: HR and Admin both need the positions list for the new module
-            $data['positions'] = DB::table('positions')->orderBy('position_name', 'asc')->get();
-            $data['teachingPositions'] = DB::table('positions')->where('category', 'Teaching')->orderBy('position_name', 'asc')->get();
-            $data['nonTeachingPositions'] = DB::table('positions')->where('category', 'Non-Teaching')->orderBy('position_name', 'asc')->get();
+            // HR dashboard analytics
+            $data['totalActiveStaff'] = DB::table('users')->where('role_id', 1)->where(function ($query) {
+                $query->whereNull('status')->orWhere('status', '!=', 'Inactive');
+            })->count();
+
+            // Active Teaching / Non-Teaching staff
+            $data['teachingCount'] = DB::table('users')
+                ->join('positions', 'users.position_id', '=', 'positions.id')
+                ->where('users.role_id', 1)
+                ->where(function ($query) {
+                    $query->whereNull('users.status')->orWhere('users.status', '!=', 'Inactive');
+                })
+                ->where('positions.category', 'Teaching')
+                ->count();
+
+            $data['nonTeachingCount'] = DB::table('users')
+                ->join('positions', 'users.position_id', '=', 'positions.id')
+                ->where('users.role_id', 1)
+                ->where(function ($query) {
+                    $query->whereNull('users.status')->orWhere('users.status', '!=', 'Inactive');
+                })
+                ->where('positions.category', 'Non-Teaching')
+                ->count();
+
+            $data['pendingLeaves'] = DB::table('leave_applications')->where('status', 'PENDING')->count();
+
+            // Dummy open requisitions metric for now since there's no open/closed state
+            $data['openRequisitions'] = 2;
         }
 
         return view('dashboard', $data);

@@ -71,7 +71,7 @@
                                     </div>
                                     <div class="col-md-2">
                                         <label class="form-label fw-bold text-muted small mb-0">Sex</label>
-                                        <div class="fw-bold text-uppercase border-bottom pb-1">{{ $personal_info->sex }}</div>
+                                        <div class="fw-bold text-uppercase border-bottom pb-1">{{ $personal_info->sex === 1 ? 'MALE' : ($personal_info->sex === 0 ? 'FEMALE' : 'N/A') }}</div>
                                     </div>
                                     <div class="col-md-2">
                                         <label class="form-label fw-bold text-muted small mb-0">Civil Status</label>

@@ -7,7 +7,6 @@
 <div class="container-fluid">
     <div class="d-flex flex-column flex-sm-row justify-content-between align-items-sm-center mb-4 gap-2">
         <h4 class="text-accent fw-bold m-0"><i class="bi bi-calendar-range me-2"></i> Application for Leave</h4>
-        <button class="btn btn-outline-secondary btn-sm" onclick="window.print()"><i class="bi bi-printer"></i> Print / Export</button>
     </div>
 
     @if(session('success'))
@@ -30,6 +29,25 @@
         <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
     </div>
     @endif
+
+    <ul class="nav nav-tabs mb-4" id="leaveTabs" role="tablist">
+        <li class="nav-item" role="presentation">
+            <button class="nav-link active fw-bold" id="history-tab" data-bs-toggle="tab" data-bs-target="#history" type="button" role="tab" aria-controls="history" aria-selected="true" style="color: #1A3E6F;">
+                <i class="bi bi-clock-history"></i> My Leave History
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link text-secondary" id="apply-tab" data-bs-toggle="tab" data-bs-target="#apply" type="button" role="tab" aria-controls="apply" aria-selected="false">
+                <i class="bi bi-pencil-square"></i> Apply for Leave
+            </button>
+        </li>
+    </ul>
+
+    <div class="tab-content" id="leaveTabsContent">
+        <div class="tab-pane fade show active" id="history" role="tabpanel" aria-labelledby="history-tab">
+            <div class="d-flex justify-content-end mb-3">
+                <button class="btn btn-outline-secondary btn-sm" onclick="window.print()"><i class="bi bi-printer"></i> Print / Export</button>
+            </div>
 
     <!-- RECENT LEAVE APPLICATIONS TABLE -->
     <div class="card shadow-sm border-0 border-top border-4 border-accent mb-5">
@@ -81,6 +99,10 @@
                                 @csrf
                                 <button type="submit" class="btn btn-sm btn-outline-danger p-1" title="Cancel Leave"><i class="bi bi-x-circle d-md-none"></i><span class="d-none d-md-inline"><i class="bi bi-x-circle me-1"></i>Cancel</span></button>
                             </form>
+                            @elseif($leave->status == 'APPROVED')
+                            <a href="{{ route('leave.export_pdf', $leave->id) }}" class="btn btn-sm" style="background-color: #fff; color: #1A3E6F; border: 1px solid #1A3E6F;" title="Download PDF">
+                                <i class="bi bi-file-earmark-pdf"></i><span class="d-none d-md-inline ms-1">Download PDF</span>
+                            </a>
                             @else
                             <span class="text-muted small"><i class="bi bi-lock-fill"></i> <span class="d-none d-md-inline">Locked</span></span>
                             @endif
@@ -95,6 +117,9 @@
             </table>
         </div>
     </div>
+        </div>
+
+        <div class="tab-pane fade" id="apply" role="tabpanel" aria-labelledby="apply-tab">
 
     <!-- NEW LEAVE APPLICATION FORM -->
     <div class="card shadow-sm border-0 border-start border-4 border-accent">
@@ -269,6 +294,8 @@
             </button>
         </div>
         </form>
+    </div>
+        </div>
     </div>
 </div>
 </div>

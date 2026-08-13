@@ -8,6 +8,7 @@ use App\Http\Controllers\EmployeeController;
 use App\Http\Controllers\EventController;
 use App\Http\Controllers\HrController;
 use App\Http\Controllers\HrMessageController;
+use App\Http\Controllers\HrSettingsController;
 use App\Http\Controllers\JobApplicationController;
 use App\Http\Controllers\JobPostingController;
 use App\Http\Controllers\LeaveController;
@@ -17,9 +18,12 @@ use App\Http\Controllers\PositionController;
 use App\Http\Controllers\PrincipalLeaveController;
 use App\Http\Controllers\PrincipalReportController;
 use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\RequisitionController;
 use App\Http\Controllers\SalnController;
 use App\Http\Controllers\ServiceRecordController;
-use App\Models\JobPosting;
+use App\Models\PdsFather;
+use App\Models\PdsMother;
+use App\Models\PdsSpouse;
 use Illuminate\Support\Facades\Route;
 
 // Location API Routes
@@ -28,18 +32,9 @@ Route::get('/locations/provinces/{regionId}', [LocationController::class, 'getPr
 Route::get('/locations/cities/{provinceId}', [LocationController::class, 'getCities'])->name('locations.cities');
 Route::get('/locations/barangays/{cityId}', [LocationController::class, 'getBarangays'])->name('locations.barangays');
 
-// 1. Point the root URL to the new landing page
-
-Route::get('/', function () {
-    // Fetch only active job postings, newest first
-    $jobPostings = JobPosting::with('position')->where('is_active', 1)->latest()->get();
-
-    return view('welcome', compact('jobPostings'));
-});
-
 // Authentication Routes
-// Changed from '/' to '/login' to prevent overwriting the landing page
-Route::get('/login', [AuthController::class, 'showLogin'])->name('login');
+Route::get('/', [AuthController::class, 'showLogin'])->name('login');
+Route::get('/login', [AuthController::class, 'showLogin']);
 Route::post('/login', [AuthController::class, 'processLogin'])->name('login.post');
 Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
 Route::get('/change-password', [AuthController::class, 'showChangePassword'])->name('password.change');
@@ -91,6 +86,7 @@ Route::post('/events/{id}/register', [EventController::class, 'register'])->name
 // Employee Routes (PDS - Multi-Tab System)
 // ==========================================
 Route::get('/my-pds', [PdsController::class, 'editPds'])->name('pds.edit');
+Route::post('/my-pds', [PdsController::class, 'updatePersonalInfo'])->name('pds.update');
 Route::post('/my-pds/personal-info', [PdsController::class, 'updatePersonalInfo'])->name('pds.update_personal_info');
 Route::post('/my-pds/family-background', [PdsController::class, 'updateFamilyBackground'])->name('pds.update_family_background'); // <--- NEW LINE
 Route::post('/my-pds/child/add', [PdsController::class, 'addChild'])->name('pds.add_child');
@@ -117,11 +113,9 @@ Route::get('/my-pds/print', [PdsController::class, 'printPds'])->name('pds.print
 Route::get('/pds/document/{id}/{column}', [PdsController::class, 'downloadDocument'])->name('pds.document');
 Route::post('/announcements/{id}/acknowledge', [AnnouncementController::class, 'acknowledge'])->name('announcements.acknowledge');
 
-// Employee Routes (SALN)
-Route::get('/my-saln', [SalnController::class, 'editSaln'])->name('saln.edit');
-Route::post('/my-saln', [SalnController::class, 'updateSaln'])->name('saln.update');
 // SALN Routes
 Route::get('/my-saln', [SalnController::class, 'index'])->name('saln.index');
+Route::get('/my-saln/export', [SalnController::class, 'exportDocx'])->name('saln.export');
 Route::post('/my-saln/update-info', [SalnController::class, 'updateInfo'])->name('saln.update_info');
 Route::post('/my-saln/add-child', [SalnController::class, 'addChild'])->name('saln.add_child');
 Route::post('/my-saln/add-real-property', [SalnController::class, 'addRealProperty'])->name('saln.add_real_property');
@@ -163,7 +157,8 @@ Route::prefix('hr/messages')->group(function () {
 });
 
 // Public Hiring Portal (No login required)
-Route::get('/careers', [JobApplicationController::class, 'publicIndex'])->name('careers.index');
+Route::get('/careers', [JobApplicationController::class, 'index'])->name('careers.index');
+Route::get('/careers/apply', [JobApplicationController::class, 'showForm'])->name('careers.form');
 Route::post('/careers/apply', [JobApplicationController::class, 'apply'])->name('careers.apply');
 
 // HR Application Management (Must be logged in as HR)
@@ -177,6 +172,7 @@ Route::prefix('hr/applications')->group(function () {
 Route::get('/leave-requests', [LeaveController::class, 'index'])->name('leave.index');
 Route::post('/leave-requests', [LeaveController::class, 'store'])->name('leave.store');
 Route::post('/my-leave/delete/{id}', [LeaveController::class, 'destroy'])->name('leave.destroy');
+Route::get('/my-leave/{id}/pdf', [LeaveController::class, 'exportLeavePDF'])->name('leave.export_pdf');
 
 // User Profile Routes
 Route::get('/my-profile', [ProfileController::class, 'editProfile'])->name('profile.edit');
@@ -193,6 +189,7 @@ Route::post('/manage-leaves/{id}', [LeaveController::class, 'updateLeaveStatus']
 // Change this line in your routes/web.php:
 Route::get('/hr/leave-monitoring', [LeaveController::class, 'hrIndex'])->name('hr.leave.index');
 Route::post('/hr/leave/{id}/status', [LeaveController::class, 'hrUpdateStatus'])->name('hr.leave.update_status');
+Route::get('/hr/leave/{id}/print', [LeaveController::class, 'exportLeavePDF'])->name('hr.leave.print');
 
 // HR Routes (Service Records)
 Route::get('/hr/service-record/{user_id}', [ServiceRecordController::class, 'hrIndex'])->name('hr.service_record.index');
@@ -210,7 +207,16 @@ Route::post('/hr/employee/{id}/update-name', [HrController::class, 'updateOffici
 Route::get('/hr/employee/{id}/profile', [HrController::class, 'viewProfile'])->name('hr.view_profile');
 Route::post('/hr/employee/{id}/learning-area', [HrController::class, 'updateLearningArea'])->name('hr.update_learning_area');
 Route::post('/hr/employees/promote', [HrController::class, 'promoteEmployee'])->name('hr.promote_employee');
+Route::post('/hr/employees/offboard', [HrController::class, 'offboardEmployee'])->name('hr.offboard_employee');
+Route::post('/hr/employees/{id}/reassign', [HrController::class, 'reassignEmployee'])->name('hr.reassign_employee');
 
+// HR Requisitions Module
+Route::get('/requisitions', [RequisitionController::class, 'index'])->name('requisitions.index');
+
+// HR Settings Module
+Route::get('/hr/settings/positions-areas', [HrSettingsController::class, 'positionsAndAreas'])->name('hr.settings.positions_areas');
+Route::post('/hr/settings/learning-areas/store', [HrSettingsController::class, 'storeLearningArea'])->name('hr.learning_areas.store');
+Route::post('/hr/settings/learning-areas/delete/{id}', [HrSettingsController::class, 'destroyLearningArea'])->name('hr.learning_areas.destroy');
 // Employee Routes (Service Record)
 Route::get('/my-service-record', [EmployeeController::class, 'myServiceRecord'])->name('employee.service_record');
 // Service Record Routes
@@ -222,7 +228,7 @@ Route::get('/my-service-record', [ServiceRecordController::class, 'index'])->nam
 Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
 
 Route::get('/dev/cleanup-family-data', function () {
-    $models = [\App\Models\PdsSpouse::class, \App\Models\PdsFather::class, \App\Models\PdsMother::class];
+    $models = [PdsSpouse::class, PdsFather::class, PdsMother::class];
 
     foreach ($models as $model) {
         $duplicates = $model::select('user_id')
@@ -233,17 +239,17 @@ Route::get('/dev/cleanup-family-data', function () {
         foreach ($duplicates as $userId) {
             $records = $model::where('user_id', $userId)->orderBy('id', 'desc')->get();
             // Keep the first one (latest), delete the rest
-            $records->shift(); 
+            $records->shift();
             foreach ($records as $record) {
                 $record->delete();
             }
         }
     }
 
-    return "Dummy family data cleaned successfully";
+    return 'Dummy family data cleaned successfully';
 });
 
 // Location API routes
-Route::get('/api/locations/provinces/{region_code}', [\App\Http\Controllers\PdsController::class, 'getProvinces'])->name('api.locations.provinces');
-Route::get('/api/locations/cities/{province_code}', [\App\Http\Controllers\PdsController::class, 'getCities'])->name('api.locations.cities');
-Route::get('/api/locations/barangays/{city_code}', [\App\Http\Controllers\PdsController::class, 'getBarangays'])->name('api.locations.barangays');
+Route::get('/api/locations/provinces/{region_code}', [PdsController::class, 'getProvinces'])->name('api.locations.provinces');
+Route::get('/api/locations/cities/{province_code}', [PdsController::class, 'getCities'])->name('api.locations.cities');
+Route::get('/api/locations/barangays/{city_code}', [PdsController::class, 'getBarangays'])->name('api.locations.barangays');

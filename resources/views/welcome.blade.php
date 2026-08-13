@@ -25,7 +25,7 @@
     <!-- Sticky Glass Navbar -->
     <nav class="navbar navbar-expand-lg navbar-light navbar-glass sticky-top py-3">
         <div class="container">
-            <a class="navbar-brand d-flex align-items-center gap-2" href="/">
+            <a class="navbar-brand d-flex align-items-center gap-2" href="{{ route('careers.index') }}">
                 <img src="{{ asset('build/assets/images/logo.png') }}" alt="CNHS Logo" class="brand-logo-img">
                 <span>CNHS-JHS HR System</span>
             </a>
@@ -37,7 +37,7 @@
             <div class="collapse navbar-collapse" id="navbarNav">
                 <ul class="navbar-nav ms-auto align-items-center gap-1 mt-3 mt-lg-0">
                     <li class="nav-item">
-                        <a class="nav-link active" href="/">Careers</a>
+                        <a class="nav-link active" href="{{ route('careers.index') }}">Careers</a>
                     </li>
                     <li class="nav-item">
                         <a class="nav-link" href="#about">Why Join Us</a>
@@ -174,7 +174,7 @@
                                     <span class="d-block text-muted style-tiny" style="font-size: 0.75rem;">SALARY / GRADE</span>
                                     <span class="fw-bold text-dark">{{ $job->salary_info }}</span>
                                 </div>
-                                <a href="{{ route('careers.index', ['position_id' => $job->position_id]) }}" class="btn btn-brand job-apply-btn">
+                                <a href="{{ route('careers.form', ['position_id' => $job->position_id]) }}" class="btn btn-brand job-apply-btn">
                                     <span>Apply Now</span>
                                     <i class="bi bi-arrow-right"></i>
                                 </a>

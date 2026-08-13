@@ -6,30 +6,246 @@ use App\Models\PdsFather;
 use App\Models\PdsMother;
 use App\Models\PdsPersonalInfo;
 use App\Models\PdsSpouse;
+use App\Models\School;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Session;
+use PhpOffice\PhpSpreadsheet\Cell\DataType;
 use PhpOffice\PhpSpreadsheet\IOFactory;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class PdsController extends Controller
 {
+    private const ROLE_EMPLOYEE = 1;
+
+    /** Tables the universal delete endpoint may touch, mapped to the tab to return to. */
+    private const DELETABLE = [
+        'pds_children' => 'family',
+        'pds_education' => 'education',
+        'pds_eligibility' => 'eligibility',
+        'pds_work_experience' => 'work',
+        'pds_voluntary_work' => 'voluntary',
+        'pds_learning_development' => 'learning',
+        'pds_other_information' => 'other',
+        'pds_references' => 'page4',
+    ];
+
+    /** Template filenames to try, in order, under storage/app/templates. */
+    private const TEMPLATE_CANDIDATES = [
+        'PDS_CS-Form-212-Revised-2025_BLANK.xlsx',
+        'ANNEX-H-1-CS-Form-No.-212-Revised-2025-Personal-Data-Sheet.xlsx',
+        'Personal-Data-Sheet-CS-Form-No_-212-Revised-2025.xlsx',
+    ];
+
+    /**
+     * Sheet C1 prints the five education levels in fixed rows 54-58, with the level
+     * name already in column B. Records are matched to a row by keyword.
+     */
+    private const EDUCATION_LEVEL_ROWS = [
+        'ELEM' => 54,
+        'SECOND' => 55,
+        'HIGH' => 55,
+        'VOCATIONAL' => 56,
+        'TRADE' => 56,
+        'COLLEGE' => 57,
+        'BACHELOR' => 57,
+        'TERTIARY' => 57,
+        'GRADUATE' => 58,
+        'MASTER' => 58,
+        'DOCTOR' => 58,
+    ];
+
+    /**
+     * Sheet C4, items 34-40: [answer cell, "If YES, give details" cell].
+     * The YES/NO tick boxes are Excel form controls, which PhpSpreadsheet cannot
+     * read or write and drops on save — so the answer is written as text into the
+     * cell the pair was anchored to.
+     */
+    private const QUESTIONNAIRE_CELLS = [
+        'q34_a' => ['G5', null],
+        'q34_b' => ['G7', 'G10'],
+        'q35_a' => ['G13', 'G14'],
+        'q35_b' => ['G17', 'G19'],
+        'q36' => ['G23', 'G24'],
+        'q37' => ['G27', 'G28'],
+        'q38_a' => ['G31', 'G32'],
+        'q38_b' => ['G33', 'G35'],
+        'q39' => ['G37', 'G38'],
+        'q40_a' => ['G43', 'G44'],
+        'q40_b' => ['G45', 'G46'],
+        'q40_c' => ['G47', 'G48'],
+    ];
+
+    /** 23. NAME of CHILDREN occupies rows 37-48 on sheet C1. */
+    private const CHILD_ROW_START = 37;
+
+    private const CHILD_ROW_END = 48;
+
+    // =========================================================
+    // GUARDS & HELPERS
+    // =========================================================
+
+    /**
+     * FIX: only editPds() checked the session. Every write method, the document
+     * download and the Excel export read Session::get('user_id') straight into a
+     * query — an expired session inserted rows with user_id = NULL, or updated
+     * nothing at all while still reporting "saved!".
+     */
+    private function requireAuth()
+    {
+        if (! Session::has('user_id')) {
+            return redirect()->route('login')->with('error', 'Your session has expired. Please log in again.');
+        }
+
+        return null;
+    }
+
+    private function userId()
+    {
+        return Session::get('user_id');
+    }
+
+    /** mb_ variant: strtoupper() leaves ñ untouched, so PEÑA became PEñA. */
+    private function upper($value): string
+    {
+        return is_string($value) || is_numeric($value)
+            ? mb_strtoupper(trim((string) $value), 'UTF-8')
+            : '';
+    }
+
+    private function na($value): string
+    {
+        $value = trim((string) ($value ?? ''));
+
+        return $value === '' ? 'N/A' : $value;
+    }
+
+    /**
+     * CS Form 212 (Revised 2025) labels every date field "(dd/mm/yyyy)", so the raw
+     * yyyy-mm-dd out of the column has to be reordered. Non-dates such as the literal
+     * "PRESENT" in a work-experience end date pass through untouched.
+     */
+    private function dmy($value): string
+    {
+        if (empty($value)) {
+            return 'N/A';
+        }
+
+        if (! preg_match('/\d{4}|\d{1,2}[\/-]\d{1,2}/', (string) $value)) {
+            return (string) $value;
+        }
+
+        try {
+            return Carbon::parse($value)->format('d/m/Y');
+        } catch (\Throwable $e) {
+            return (string) $value;
+        }
+    }
+
+    /** Like dmy() but returns '' rather than 'N/A' for an empty value. */
+    private function dmyOrBlank($value): string
+    {
+        return empty($value) ? '' : $this->dmy($value);
+    }
+
+    /**
+     * Resolve a location foreign key to its readable name.
+     *
+     * FIX: the export wrote res_barangay / res_city / res_province straight into the
+     * sheet, but those columns hold reference IDs — the printed PDS showed numbers
+     * where the place names belong. Falls back to the raw value if nothing matches,
+     * so nothing is ever lost.
+     */
+    private function refName(string $table, string $nameColumn, string $ownCodeColumn, $value): string
+    {
+        if (empty($value)) {
+            return '';
+        }
+
+        try {
+            $name = DB::table($table)->where('id', $value)->value($nameColumn);
+            if ($name) {
+                return $name;
+            }
+
+            // Some frontends post the PSGC code instead of the row id.
+            if (Schema::hasColumn($table, $ownCodeColumn)) {
+                $name = DB::table($table)->where($ownCodeColumn, $value)->value($nameColumn);
+                if ($name) {
+                    return $name;
+                }
+            }
+        } catch (\Throwable $e) {
+            Log::warning("PDS: could not resolve {$table}.{$nameColumn} for '{$value}' — ".$e->getMessage());
+        }
+
+        return (string) $value;
+    }
+
+    private function barangayName($v): string
+    {
+        return $this->refName('ref_barangays', 'brgy_name', 'brgy_code', $v);
+    }
+
+    private function cityName($v): string
+    {
+        return $this->refName('ref_cities', 'city_name', 'city_code', $v);
+    }
+
+    private function provinceName($v): string
+    {
+        return $this->refName('ref_provinces', 'province_name', 'province_code', $v);
+    }
+
+    /**
+     * Keep only real columns of $table from the request body.
+     *
+     * FIX: updatePersonalInfo/updateQuestionnaire/updatePage4Details each wrote
+     * $request->except(['_token']) directly to the table. Any posted field became a
+     * column write — including user_id, which let a crafted request retarget another
+     * employee's row — and any input name that wasn't a column threw a 500.
+     */
+    private function columnsOnly(Request $request, string $table, array $extraExcept = []): array
+    {
+        $columns = Schema::getColumnListing($table);
+        $blocked = array_merge(['id', 'user_id', 'created_at', 'updated_at'], $extraExcept);
+        $data = [];
+
+        foreach ($request->except(array_merge(['_token', '_method'], $extraExcept)) as $key => $value) {
+            if (! in_array($key, $columns, true) || in_array($key, $blocked, true)) {
+                continue;
+            }
+            // strtoupper()/string casts on an array input (name="foo[]") is a TypeError in PHP 8.
+            $data[$key] = is_array($value) ? json_encode($value) : $value;
+        }
+
+        return $data;
+    }
+
     // =========================================================
     // 1. VIEW PDS (Loads all tabs)
     // =========================================================
     public function editPds()
     {
-        if (! Session::has('user_id') || Session::get('role_id') != 1) {
+        if (! Session::has('user_id') || Session::get('role_id') != self::ROLE_EMPLOYEE) {
             return redirect()->route('dashboard')->with('error', 'Unauthorized access.');
         }
 
-        $user_id = Session::get('user_id');
+        $user_id = $this->userId();
 
         $personal_info = PdsPersonalInfo::with('country')->where('user_id', $user_id)->first();
         $spouse = PdsSpouse::where('user_id', $user_id)->first();
         $father = PdsFather::where('user_id', $user_id)->first();
         $mother = PdsMother::where('user_id', $user_id)->first();
         $children = DB::table('pds_children')->where('user_id', $user_id)->get();
-        $education = DB::table('pds_education')->where('user_id', $user_id)->get();
+        $education = DB::table('pds_education')
+            ->leftJoin('schools', 'pds_education.school_id', '=', 'schools.school_id')
+            ->select('pds_education.*', 'schools.school_name')
+            ->where('pds_education.user_id', $user_id)
+            ->get();
         $eligibilities = DB::table('pds_eligibility')->where('user_id', $user_id)->get();
         $work_experiences = DB::table('pds_work_experience')->where('user_id', $user_id)->orderBy('date_from', 'desc')->get();
 
@@ -44,10 +260,62 @@ class PdsController extends Controller
 
         $countries = DB::table('countries')->orderBy('name', 'asc')->get();
         $regions = DB::table('ref_regions')->orderBy('region_name', 'asc')->get();
+        $schools = School::orderBy('school_name')->get();
 
         return view('employee.pds', compact(
             'countries',
             'regions',
+            'schools',
+            'personal_info',
+            'spouse',
+            'father',
+            'mother',
+            'children',
+            'education',
+            'eligibilities',
+            'work_experiences',
+            'voluntary_works',
+            'learnings',
+            'other_info',
+            'questionnaire',
+            'references',
+            'page4_details'
+        ));
+    }
+
+    /**
+     * NOTE: this is a near-duplicate of editPds() pointing at a different view.
+     * FIX: it read `pds_page_4_details` (extra underscore) — a table that doesn't
+     * exist anywhere else in this controller, so it threw on every call. If nothing
+     * routes here any more, delete the method rather than maintaining two copies.
+     */
+    public function edit()
+    {
+        if ($redirect = $this->requireAuth()) {
+            return $redirect;
+        }
+
+        $user_id = $this->userId();
+
+        $personal_info = PdsPersonalInfo::with('country')->where('user_id', $user_id)->first();
+        $spouse = PdsSpouse::where('user_id', $user_id)->first();
+        $father = PdsFather::where('user_id', $user_id)->first();
+        $mother = PdsMother::where('user_id', $user_id)->first();
+        $children = DB::table('pds_children')->where('user_id', $user_id)->get();
+        $education = DB::table('pds_education')->where('user_id', $user_id)->get();
+        $eligibilities = DB::table('pds_eligibility')->where('user_id', $user_id)->get();
+        $work_experiences = DB::table('pds_work_experience')->where('user_id', $user_id)->orderBy('date_from', 'desc')->get();
+        $voluntary_works = DB::table('pds_voluntary_work')->where('user_id', $user_id)->orderBy('date_from', 'desc')->get();
+        $learnings = DB::table('pds_learning_development')->where('user_id', $user_id)->orderBy('date_from', 'desc')->get();
+        $other_info = DB::table('pds_other_information')->where('user_id', $user_id)->get();
+        $questionnaire = DB::table('pds_questionnaire')->where('user_id', $user_id)->first();
+        $references = DB::table('pds_references')->where('user_id', $user_id)->get();
+        $page4_details = DB::table('pds_page4_details')->where('user_id', $user_id)->first();
+
+        $countries = DB::table('countries')->orderBy('name', 'asc')->get();
+
+        return view('employee.pds.pds-view', compact(
+            'countries',
             'personal_info',
             'spouse',
             'father',
@@ -70,11 +338,17 @@ class PdsController extends Controller
     // =========================================================
     public function updatePersonalInfo(Request $request)
     {
+        if ($redirect = $this->requireAuth()) {
+            return $redirect;
+        }
+
         $request->validate([
             'sex' => 'required|in:0,1',
+            'date_of_birth' => 'nullable|date|before_or_equal:today',
+            'email_address' => 'nullable|email|max:255',
         ]);
 
-        $user_id = Session::get('user_id');
+        $user_id = $this->userId();
 
         // Capture location codes from frontend dropdowns
         $resRegion = $request->input('res_region_code') ?? $request->input('res_region');
@@ -89,116 +363,75 @@ class PdsController extends Controller
 
         $resZip = $request->input('res_zipcode') ?? $request->input('res_zip');
 
-        // Exclude the raw dropdown '_code' fields so MySQL column matching stays clean
-        $data = $request->except([
-            '_token',
-            'res_region_code',
-            'res_province_code',
-            'res_city_code',
-            'res_barangay_code',
-            'perm_region_code',
-            'perm_province_code',
-            'perm_city_code',
-            'perm_barangay_code',
+        // Whitelisted against the real column list; the raw '_code' dropdown fields and
+        // the signature blob are never accepted from this form.
+        $data = $this->columnsOnly($request, 'pds_personal_info', [
+            'res_region_code', 'res_province_code', 'res_city_code', 'res_barangay_code',
+            'perm_region_code', 'perm_province_code', 'perm_city_code', 'perm_barangay_code',
+            'e_signature',
         ]);
 
-        // Explicitly map location codes and zipcode into data array
-        if ($resRegion !== null) {
-            $data['res_region'] = $resRegion;
-        }
-        if ($resProvince !== null) {
-            $data['res_province'] = $resProvince;
-        }
-        if ($resCity !== null) {
-            $data['res_city'] = $resCity;
-        }
-        if ($resBarangay !== null) {
-            $data['res_barangay'] = $resBarangay;
-        }
-        if ($resZip !== null) {
-            $data['res_zip'] = $resZip;
-            $data['res_zipcode'] = $resZip;
+        // Explicitly map location codes and zipcode into data array.
+        // Each write is guarded by hasColumn so a schema that only has one of
+        // res_zip / res_zipcode can't blow up the request.
+        $mapped = [
+            'res_region' => $resRegion, 'res_province' => $resProvince,
+            'res_city' => $resCity, 'res_barangay' => $resBarangay,
+            'perm_region' => $permRegion, 'perm_province' => $permProvince,
+            'perm_city' => $permCity, 'perm_barangay' => $permBarangay,
+            'res_zip' => $resZip, 'res_zipcode' => $resZip,
+        ];
+
+        foreach ($mapped as $column => $value) {
+            if ($value !== null && Schema::hasColumn('pds_personal_info', $column)) {
+                $data[$column] = $value;
+            }
         }
 
-        if ($permRegion !== null) {
-            $data['perm_region'] = $permRegion;
-        }
-        if ($permProvince !== null) {
-            $data['perm_province'] = $permProvince;
-        }
-        if ($permCity !== null) {
-            $data['perm_city'] = $permCity;
-        }
-        if ($permBarangay !== null) {
-            $data['perm_barangay'] = $permBarangay;
+        if (empty($data)) {
+            return back()->with('error', 'Nothing to save.')->with('active_tab', 'personal');
         }
 
         $data['updated_at'] = now();
 
-        $existing = DB::table('pds_personal_info')->where('user_id', $user_id)->first();
+        try {
+            $existing = DB::table('pds_personal_info')->where('user_id', $user_id)->exists();
 
-        if ($existing) {
-            DB::table('pds_personal_info')->where('user_id', $user_id)->update($data);
-        } else {
-            $data['user_id'] = $user_id;
-            $data['created_at'] = now();
-            DB::table('pds_personal_info')->insert($data);
+            if ($existing) {
+                DB::table('pds_personal_info')->where('user_id', $user_id)->update($data);
+            } else {
+                $data['user_id'] = $user_id;
+                $data['created_at'] = now();
+                DB::table('pds_personal_info')->insert($data);
+            }
+        } catch (\Throwable $e) {
+            Log::error('PDS personal info save failed: '.$e->getMessage());
+
+            return back()->withInput()->with('error', 'Could not save your information. Please try again.')->with('active_tab', 'personal');
         }
 
         return back()->with('success', 'Personal Information saved!')->with('active_tab', 'family');
     }
 
-    public function edit()
-    {
-        $user_id = Session::get('user_id');
-
-        // Fetch data here...
-        $personal_info = PdsPersonalInfo::with('country')->where('user_id', $user_id)->first();
-        $spouse = PdsSpouse::where('user_id', $user_id)->first();
-        $father = PdsFather::where('user_id', $user_id)->first();
-        $mother = PdsMother::where('user_id', $user_id)->first();
-        $children = DB::table('pds_children')->where('user_id', $user_id)->get();
-        $education = DB::table('pds_education')->where('user_id', $user_id)->get();
-        $eligibilities = DB::table('pds_eligibility')->where('user_id', $user_id)->get();
-        $work_experiences = DB::table('pds_work_experience')->where('user_id', $user_id)->orderBy('date_from', 'desc')->get();
-        $voluntary_works = DB::table('pds_voluntary_work')->where('user_id', $user_id)->orderBy('date_from', 'desc')->get();
-        $learnings = DB::table('pds_learning_development')->where('user_id', $user_id)->orderBy('date_from', 'desc')->get();
-        $other_info = DB::table('pds_other_information')->where('user_id', $user_id)->get();
-        $questionnaire = DB::table('pds_questionnaire')->where('user_id', $user_id)->first();
-        $references = DB::table('pds_references')->where('user_id', $user_id)->get();
-        $page4_details = DB::table('pds_page_4_details')->where('user_id', $user_id)->first();
-
-        // Fetch all countries alphabetically directly from the table
-        $countries = DB::table('countries')->orderBy('name', 'asc')->get();
-
-        // Pass it to your PDS view
-        return view('employee.pds.pds-view', compact(
-            'countries',
-            'personal_info',
-            'spouse',
-            'father',
-            'mother',
-            'children',
-            'education',
-            'eligibilities',
-            'work_experiences',
-            'voluntary_works',
-            'learnings',
-            'other_info',
-            'questionnaire',
-            'references',
-            'page4_details'
-        ));
-    }
-
     public function addChild(Request $request)
     {
-        $user_id = Session::get('user_id');
+        if ($redirect = $this->requireAuth()) {
+            return $redirect;
+        }
+
+        // FIX: an empty child_dob was inserted as '' — rejected outright by MySQL in
+        // strict mode, stored as 0000-00-00 otherwise.
+        $validated = $request->validate([
+            'child_name' => ['required', 'string', 'max:255'],
+            'child_dob' => ['nullable', 'date', 'before_or_equal:today'],
+        ]);
+
         DB::table('pds_children')->insert([
-            'user_id' => $user_id,
-            'child_name' => strtoupper($request->child_name),
-            'date_of_birth' => $request->child_dob,
+            'user_id' => $this->userId(),
+            'child_name' => $this->upper($validated['child_name']),
+            'date_of_birth' => $validated['child_dob'] ?? null,
             'created_at' => now(),
+            'updated_at' => now(),
         ]);
 
         return back()->with('success', 'Child added successfully!')->with('active_tab', 'family');
@@ -206,13 +439,21 @@ class PdsController extends Controller
 
     public function updateChild(Request $request, $id)
     {
-        $user_id = Session::get('user_id');
+        if ($redirect = $this->requireAuth()) {
+            return $redirect;
+        }
+
+        $validated = $request->validate([
+            'child_name' => ['required', 'string', 'max:255'],
+            'child_dob' => ['nullable', 'date', 'before_or_equal:today'],
+        ]);
+
         DB::table('pds_children')
             ->where('id', $id)
-            ->where('user_id', $user_id)
+            ->where('user_id', $this->userId())
             ->update([
-                'child_name' => strtoupper($request->child_name),
-                'date_of_birth' => $request->child_dob,
+                'child_name' => $this->upper($validated['child_name']),
+                'date_of_birth' => $validated['child_dob'] ?? null,
                 'updated_at' => now(),
             ]);
 
@@ -221,19 +462,23 @@ class PdsController extends Controller
 
     public function updateFamilyBackground(Request $request)
     {
-        $user_id = Session::get('user_id');
+        if ($redirect = $this->requireAuth()) {
+            return $redirect;
+        }
+
+        $user_id = $this->userId();
 
         // Spouse
         PdsSpouse::updateOrCreate(
             ['user_id' => $user_id],
             [
-                'surname' => strtoupper($request->spouse_surname),
-                'first_name' => strtoupper($request->spouse_first_name),
-                'middle_name' => strtoupper($request->spouse_middle_name),
-                'name_extension' => strtoupper($request->spouse_name_extension),
-                'occupation' => strtoupper($request->spouse_occupation),
-                'employer_business_name' => strtoupper($request->spouse_employer),
-                'business_address' => strtoupper($request->spouse_business_address),
+                'surname' => $this->upper($request->spouse_surname),
+                'first_name' => $this->upper($request->spouse_first_name),
+                'middle_name' => $this->upper($request->spouse_middle_name),
+                'name_extension' => $this->upper($request->spouse_name_extension),
+                'occupation' => $this->upper($request->spouse_occupation),
+                'employer_business_name' => $this->upper($request->spouse_employer),
+                'business_address' => $this->upper($request->spouse_business_address),
                 'telephone_number' => $request->spouse_telephone,
             ]
         );
@@ -242,10 +487,10 @@ class PdsController extends Controller
         PdsFather::updateOrCreate(
             ['user_id' => $user_id],
             [
-                'surname' => strtoupper($request->father_surname),
-                'first_name' => strtoupper($request->father_first_name),
-                'middle_name' => strtoupper($request->father_middle_name),
-                'name_extension' => strtoupper($request->father_name_extension),
+                'surname' => $this->upper($request->father_surname),
+                'first_name' => $this->upper($request->father_first_name),
+                'middle_name' => $this->upper($request->father_middle_name),
+                'name_extension' => $this->upper($request->father_name_extension),
             ]
         );
 
@@ -253,9 +498,9 @@ class PdsController extends Controller
         PdsMother::updateOrCreate(
             ['user_id' => $user_id],
             [
-                'maiden_surname' => strtoupper($request->mother_maiden_surname),
-                'first_name' => strtoupper($request->mother_first_name),
-                'middle_name' => strtoupper($request->mother_middle_name),
+                'maiden_surname' => $this->upper($request->mother_maiden_surname),
+                'first_name' => $this->upper($request->mother_first_name),
+                'middle_name' => $this->upper($request->mother_middle_name),
             ]
         );
 
@@ -267,17 +512,27 @@ class PdsController extends Controller
     // =========================================================
     public function addEducation(Request $request)
     {
-        $user_id = Session::get('user_id');
+        if ($redirect = $this->requireAuth()) {
+            return $redirect;
+        }
+
+        $request->validate([
+            'level' => ['required', 'string', 'max:100'],
+            'school_id' => ['required', 'integer', 'exists:schools,school_id'],
+            'degree' => ['nullable', 'string', 'max:255'],
+            'year_graduated' => ['nullable', 'string', 'max:20'],
+        ]);
+
         DB::table('pds_education')->insert([
-            'user_id' => $user_id,
+            'user_id' => $this->userId(),
             'level' => $request->level,
-            'school_name' => strtoupper($request->school_name),
-            'degree_course' => strtoupper($request->degree),
+            'school_id' => $request->school_id,
+            'degree_course' => $this->upper($request->degree),
             'period_from' => $request->period_from,
             'period_to' => $request->period_to,
             'year_graduated' => $request->year_graduated,
-            'highest_level_earned' => strtoupper($request->highest_level),
-            'scholarship_honors' => strtoupper($request->honors),
+            'highest_level_earned' => $this->upper($request->highest_level),
+            'scholarship_honors' => $this->upper($request->honors),
             'created_at' => now(),
             'updated_at' => now(),
         ]);
@@ -287,18 +542,27 @@ class PdsController extends Controller
 
     public function updateEducation(Request $request, $id)
     {
-        $user_id = Session::get('user_id');
+        if ($redirect = $this->requireAuth()) {
+            return $redirect;
+        }
+
+        $request->validate([
+            'school_id' => ['required', 'integer', 'exists:schools,school_id'],
+            'degree' => ['nullable', 'string', 'max:255'],
+            'year_graduated' => ['nullable', 'string', 'max:20'],
+        ]);
+
         DB::table('pds_education')
             ->where('id', $id)
-            ->where('user_id', $user_id)
+            ->where('user_id', $this->userId())
             ->update([
-                'school_name' => strtoupper($request->school_name),
-                'degree_course' => strtoupper($request->degree),
+                'school_id' => $request->school_id,
+                'degree_course' => $this->upper($request->degree),
                 'period_from' => $request->period_from,
                 'period_to' => $request->period_to,
                 'year_graduated' => $request->year_graduated,
-                'highest_level_earned' => strtoupper($request->highest_level),
-                'scholarship_honors' => strtoupper($request->honors),
+                'highest_level_earned' => $this->upper($request->highest_level),
+                'scholarship_honors' => $this->upper($request->honors),
                 'updated_at' => now(),
             ]);
 
@@ -307,21 +571,34 @@ class PdsController extends Controller
 
     public function saveSignature(Request $request)
     {
-        $user_id = Session::get('user_id');
+        if ($redirect = $this->requireAuth()) {
+            return $redirect;
+        }
+
+        // FIX: e_signature was 'required', so an employee could never correct just the
+        // date without re-uploading the image.
         $request->validate([
-            'e_signature' => 'required|image|mimes:jpeg,png,jpg|max:2048',
+            'e_signature' => 'nullable|image|mimes:jpeg,png,jpg|max:2048',
             'signature_date' => 'required|date',
             'active_tab' => 'nullable|string',
         ]);
 
+        $user_id = $this->userId();
         $data = ['signature_date' => $request->signature_date, 'updated_at' => now()];
 
         if ($request->hasFile('e_signature')) {
-            $file = $request->file('e_signature');
-            $data['e_signature'] = file_get_contents($file->getRealPath());
+            $data['e_signature'] = file_get_contents($request->file('e_signature')->getRealPath());
         }
 
-        DB::table('pds_personal_info')->where('user_id', $user_id)->update($data);
+        /**
+         * FIX: this was a bare update(). If the employee saved a signature before ever
+         * saving the personal info tab, no row existed, the update matched nothing, and
+         * the page still said "saved successfully".
+         */
+        DB::table('pds_personal_info')->updateOrInsert(
+            ['user_id' => $user_id],
+            $data + ['created_at' => now()]
+        );
 
         $tab = $request->active_tab ?? 'education';
 
@@ -333,14 +610,24 @@ class PdsController extends Controller
     // =========================================================
     public function addEligibility(Request $request)
     {
-        $user_id = Session::get('user_id');
+        if ($redirect = $this->requireAuth()) {
+            return $redirect;
+        }
+
+        $request->validate([
+            'eligibility_name' => ['required', 'string', 'max:255'],
+            // varchar(100) columns, and the form allows free text such as "N/A"
+            'exam_date' => ['nullable', 'string', 'max:100'],
+            'license_validity' => ['nullable', 'string', 'max:100'],
+        ]);
+
         DB::table('pds_eligibility')->insert([
-            'user_id' => $user_id,
-            'eligibility_name' => strtoupper($request->eligibility_name),
+            'user_id' => $this->userId(),
+            'eligibility_name' => $this->upper($request->eligibility_name),
             'rating' => $request->rating,
             'exam_date' => $request->exam_date,
-            'exam_place' => strtoupper($request->exam_place),
-            'license_number' => strtoupper($request->license_number),
+            'exam_place' => $this->upper($request->exam_place),
+            'license_number' => $this->upper($request->license_number),
             'license_validity' => $request->license_validity,
             'created_at' => now(),
             'updated_at' => now(),
@@ -351,16 +638,26 @@ class PdsController extends Controller
 
     public function updateEligibility(Request $request, $id)
     {
-        $user_id = Session::get('user_id');
+        if ($redirect = $this->requireAuth()) {
+            return $redirect;
+        }
+
+        $request->validate([
+            'eligibility_name' => ['required', 'string', 'max:255'],
+            // varchar(100) columns, and the form allows free text such as "N/A"
+            'exam_date' => ['nullable', 'string', 'max:100'],
+            'license_validity' => ['nullable', 'string', 'max:100'],
+        ]);
+
         DB::table('pds_eligibility')
             ->where('id', $id)
-            ->where('user_id', $user_id)
+            ->where('user_id', $this->userId())
             ->update([
-                'eligibility_name' => strtoupper($request->eligibility_name),
+                'eligibility_name' => $this->upper($request->eligibility_name),
                 'rating' => $request->rating,
                 'exam_date' => $request->exam_date,
-                'exam_place' => strtoupper($request->exam_place),
-                'license_number' => strtoupper($request->license_number),
+                'exam_place' => $this->upper($request->exam_place),
+                'license_number' => $this->upper($request->license_number),
                 'license_validity' => $request->license_validity,
                 'updated_at' => now(),
             ]);
@@ -370,14 +667,23 @@ class PdsController extends Controller
 
     public function addWorkExperience(Request $request)
     {
-        $user_id = Session::get('user_id');
+        if ($redirect = $this->requireAuth()) {
+            return $redirect;
+        }
+
+        $request->validate([
+            'date_from' => ['required', 'date'],
+            'position_title' => ['required', 'string', 'max:255'],
+            'agency_company' => ['required', 'string', 'max:255'],
+        ]);
+
         DB::table('pds_work_experience')->insert([
-            'user_id' => $user_id,
+            'user_id' => $this->userId(),
             'date_from' => $request->date_from,
-            'date_to' => strtoupper($request->date_to),
-            'position_title' => strtoupper($request->position_title),
-            'agency_company' => strtoupper($request->agency_company),
-            'status_appointment' => strtoupper($request->status_appointment),
+            'date_to' => $this->upper($request->date_to), // "PRESENT" is a valid value here
+            'position_title' => $this->upper($request->position_title),
+            'agency_company' => $this->upper($request->agency_company),
+            'status_appointment' => $this->upper($request->status_appointment),
             'govt_service' => $request->govt_service,
             'created_at' => now(),
             'updated_at' => now(),
@@ -388,16 +694,25 @@ class PdsController extends Controller
 
     public function updateWorkExperience(Request $request, $id)
     {
-        $user_id = Session::get('user_id');
+        if ($redirect = $this->requireAuth()) {
+            return $redirect;
+        }
+
+        $request->validate([
+            'date_from' => ['required', 'date'],
+            'position_title' => ['required', 'string', 'max:255'],
+            'agency_company' => ['required', 'string', 'max:255'],
+        ]);
+
         DB::table('pds_work_experience')
             ->where('id', $id)
-            ->where('user_id', $user_id)
+            ->where('user_id', $this->userId())
             ->update([
                 'date_from' => $request->date_from,
-                'date_to' => strtoupper($request->date_to),
-                'position_title' => strtoupper($request->position_title),
-                'agency_company' => strtoupper($request->agency_company),
-                'status_appointment' => strtoupper($request->status_appointment),
+                'date_to' => $this->upper($request->date_to),
+                'position_title' => $this->upper($request->position_title),
+                'agency_company' => $this->upper($request->agency_company),
+                'status_appointment' => $this->upper($request->status_appointment),
                 'govt_service' => $request->govt_service,
                 'updated_at' => now(),
             ]);
@@ -410,14 +725,23 @@ class PdsController extends Controller
     // =========================================================
     public function addVoluntaryWork(Request $request)
     {
-        $user_id = Session::get('user_id');
+        if ($redirect = $this->requireAuth()) {
+            return $redirect;
+        }
+
+        $request->validate([
+            'organization_name' => ['required', 'string', 'max:255'],
+            'date_from' => ['nullable', 'date'],
+            'number_of_hours' => ['nullable', 'string', 'max:50'], // varchar(50) column
+        ]);
+
         DB::table('pds_voluntary_work')->insert([
-            'user_id' => $user_id,
-            'organization_name' => strtoupper($request->organization_name),
+            'user_id' => $this->userId(),
+            'organization_name' => $this->upper($request->organization_name),
             'date_from' => $request->date_from,
-            'date_to' => strtoupper($request->date_to),
+            'date_to' => $this->upper($request->date_to),
             'number_of_hours' => $request->number_of_hours,
-            'position_nature_of_work' => strtoupper($request->position_nature_of_work),
+            'position_nature_of_work' => $this->upper($request->position_nature_of_work),
             'created_at' => now(),
             'updated_at' => now(),
         ]);
@@ -427,16 +751,25 @@ class PdsController extends Controller
 
     public function updateVoluntaryWork(Request $request, $id)
     {
-        $user_id = Session::get('user_id');
+        if ($redirect = $this->requireAuth()) {
+            return $redirect;
+        }
+
+        $request->validate([
+            'organization_name' => ['required', 'string', 'max:255'],
+            'date_from' => ['nullable', 'date'],
+            'number_of_hours' => ['nullable', 'string', 'max:50'], // varchar(50) column
+        ]);
+
         DB::table('pds_voluntary_work')
             ->where('id', $id)
-            ->where('user_id', $user_id)
+            ->where('user_id', $this->userId())
             ->update([
-                'organization_name' => strtoupper($request->organization_name),
+                'organization_name' => $this->upper($request->organization_name),
                 'date_from' => $request->date_from,
-                'date_to' => strtoupper($request->date_to),
+                'date_to' => $this->upper($request->date_to),
                 'number_of_hours' => $request->number_of_hours,
-                'position_nature_of_work' => strtoupper($request->position_nature_of_work),
+                'position_nature_of_work' => $this->upper($request->position_nature_of_work),
                 'updated_at' => now(),
             ]);
 
@@ -445,9 +778,20 @@ class PdsController extends Controller
 
     public function addLearning(Request $request)
     {
-        $user_id = Session::get('user_id');
+        if ($redirect = $this->requireAuth()) {
+            return $redirect;
+        }
 
-        // Extract the raw binary data if the files were uploaded
+        // FIX: proofs were accepted with no type or size check — any file of any size
+        // went straight into a LONGBLOB.
+        $request->validate([
+            'training_title' => ['required', 'string', 'max:255'],
+            'date_from' => ['nullable', 'date'],
+            'number_of_hours' => ['nullable', 'string', 'max:50'], // varchar(50) column
+            'proof_of_completion' => ['nullable', 'file', 'mimes:pdf,jpeg,jpg,png', 'max:5120'],
+            'proof_of_invitation' => ['nullable', 'file', 'mimes:pdf,jpeg,jpg,png', 'max:5120'],
+        ]);
+
         $proofCompletion = $request->hasFile('proof_of_completion')
             ? file_get_contents($request->file('proof_of_completion')->getRealPath())
             : null;
@@ -457,13 +801,13 @@ class PdsController extends Controller
             : null;
 
         DB::table('pds_learning_development')->insert([
-            'user_id' => $user_id,
-            'training_title' => strtoupper($request->training_title),
+            'user_id' => $this->userId(),
+            'training_title' => $this->upper($request->training_title),
             'date_from' => $request->date_from,
-            'date_to' => strtoupper($request->date_to),
+            'date_to' => $this->upper($request->date_to),
             'number_of_hours' => $request->number_of_hours,
-            'ld_type' => strtoupper($request->ld_type),
-            'sponsored_by' => strtoupper($request->sponsored_by),
+            'ld_type' => $this->upper($request->ld_type),
+            'sponsored_by' => $this->upper($request->sponsored_by),
             'proof_of_completion' => $proofCompletion, // LONGBLOB
             'proof_of_invitation' => $proofInvitation, // LONGBLOB
             'created_at' => now(),
@@ -475,14 +819,25 @@ class PdsController extends Controller
 
     public function updateLearning(Request $request, $id)
     {
-        $user_id = Session::get('user_id');
+        if ($redirect = $this->requireAuth()) {
+            return $redirect;
+        }
+
+        $request->validate([
+            'training_title' => ['required', 'string', 'max:255'],
+            'date_from' => ['nullable', 'date'],
+            'number_of_hours' => ['nullable', 'string', 'max:50'], // varchar(50) column
+            'proof_of_completion' => ['nullable', 'file', 'mimes:pdf,jpeg,jpg,png', 'max:5120'],
+            'proof_of_invitation' => ['nullable', 'file', 'mimes:pdf,jpeg,jpg,png', 'max:5120'],
+        ]);
+
         $data = [
-            'training_title' => strtoupper($request->training_title),
+            'training_title' => $this->upper($request->training_title),
             'date_from' => $request->date_from,
-            'date_to' => strtoupper($request->date_to),
+            'date_to' => $this->upper($request->date_to),
             'number_of_hours' => $request->number_of_hours,
-            'ld_type' => strtoupper($request->ld_type),
-            'sponsored_by' => strtoupper($request->sponsored_by),
+            'ld_type' => $this->upper($request->ld_type),
+            'sponsored_by' => $this->upper($request->sponsored_by),
             'updated_at' => now(),
         ];
 
@@ -495,7 +850,7 @@ class PdsController extends Controller
 
         DB::table('pds_learning_development')
             ->where('id', $id)
-            ->where('user_id', $user_id)
+            ->where('user_id', $this->userId())
             ->update($data);
 
         return back()->with('success', 'Learning & Development record updated!')->with('active_tab', 'learning');
@@ -503,11 +858,19 @@ class PdsController extends Controller
 
     public function addOtherInfo(Request $request)
     {
-        $user_id = Session::get('user_id');
+        if ($redirect = $this->requireAuth()) {
+            return $redirect;
+        }
+
+        $validated = $request->validate([
+            'info_type' => ['required', 'in:skill,recognition,membership'],
+            'details' => ['required', 'string', 'max:255'],
+        ]);
+
         DB::table('pds_other_information')->insert([
-            'user_id' => $user_id,
-            'info_type' => $request->info_type, // 'skill', 'recognition', or 'membership'
-            'details' => strtoupper($request->details),
+            'user_id' => $this->userId(),
+            'info_type' => $validated['info_type'], // 'skill', 'recognition', or 'membership'
+            'details' => $this->upper($validated['details']),
             'created_at' => now(),
             'updated_at' => now(),
         ]);
@@ -517,13 +880,21 @@ class PdsController extends Controller
 
     public function updateOtherInfo(Request $request, $id)
     {
-        $user_id = Session::get('user_id');
+        if ($redirect = $this->requireAuth()) {
+            return $redirect;
+        }
+
+        $validated = $request->validate([
+            'info_type' => ['required', 'in:skill,recognition,membership'],
+            'details' => ['required', 'string', 'max:255'],
+        ]);
+
         DB::table('pds_other_information')
             ->where('id', $id)
-            ->where('user_id', $user_id)
+            ->where('user_id', $this->userId())
             ->update([
-                'info_type' => $request->info_type,
-                'details' => strtoupper($request->details),
+                'info_type' => $validated['info_type'],
+                'details' => $this->upper($validated['details']),
                 'updated_at' => now(),
             ]);
 
@@ -532,28 +903,49 @@ class PdsController extends Controller
 
     public function downloadDocument($id, $column)
     {
-        $record = DB::table('pds_learning_development')->where('id', $id)->first();
+        if ($redirect = $this->requireAuth()) {
+            return $redirect;
+        }
 
-        // Safety check to ensure they are only requesting allowed columns
-        if (! $record || ! in_array($column, ['proof_of_completion', 'proof_of_invitation']) || empty($record->$column)) {
+        if (! in_array($column, ['proof_of_completion', 'proof_of_invitation'], true)) {
+            abort(404);
+        }
+
+        /**
+         * FIX (serious): this looked the record up by id ALONE. Any logged-in employee
+         * could walk the ids and pull down every other employee's uploaded training
+         * certificates and invitations. Scoped to the owner now.
+         */
+        $record = DB::table('pds_learning_development')
+            ->where('id', $id)
+            ->where('user_id', $this->userId())
+            ->first();
+
+        if (! $record || empty($record->$column)) {
             abort(404);
         }
 
         // Determine mime type based on magic bytes (PDF vs Image)
         $blob = $record->$column;
-        $mimeType = 'application/pdf'; // Default fallback
-        if (strpos($blob, '%PDF') === 0) {
+        $mimeType = 'application/octet-stream';
+        $extension = 'bin';
+
+        if (str_starts_with($blob, '%PDF')) {
             $mimeType = 'application/pdf';
-        } elseif (strpos($blob, "\xFF\xD8\xFF") === 0) {
+            $extension = 'pdf';
+        } elseif (str_starts_with($blob, "\xFF\xD8\xFF")) {
             $mimeType = 'image/jpeg';
-        } elseif (strpos($blob, "\x89PNG\x0D\x0A\x1A\x0A") === 0) {
+            $extension = 'jpg';
+        } elseif (str_starts_with($blob, "\x89PNG\x0D\x0A\x1A\x0A")) {
             $mimeType = 'image/png';
+            $extension = 'png';
         }
 
-        // Return the file stream
         return response($blob)
             ->header('Content-Type', $mimeType)
-            ->header('Content-Disposition', 'inline; filename="'.$column.'_'.$id.'"');
+            ->header('Content-Length', strlen($blob))
+            // FIX: the filename had no extension, so browsers saved unusable files.
+            ->header('Content-Disposition', 'inline; filename="'.$column.'_'.$id.'.'.$extension.'"');
     }
 
     // =========================================================
@@ -561,22 +953,39 @@ class PdsController extends Controller
     // =========================================================
     public function updateQuestionnaire(Request $request)
     {
-        $user_id = Session::get('user_id');
-        $data = $request->except(['_token']);
+        if ($redirect = $this->requireAuth()) {
+            return $redirect;
+        }
+
+        $data = $this->columnsOnly($request, 'pds_questionnaire');
+
+        if (empty($data)) {
+            return back()->with('error', 'Nothing to save.')->with('active_tab', 'page4');
+        }
+
         $data['updated_at'] = now();
 
-        DB::table('pds_questionnaire')->updateOrInsert(['user_id' => $user_id], $data);
+        DB::table('pds_questionnaire')->updateOrInsert(['user_id' => $this->userId()], $data);
 
         return back()->with('success', 'Questionnaire saved!')->with('active_tab', 'page4');
     }
 
     public function addReference(Request $request)
     {
-        $user_id = Session::get('user_id');
+        if ($redirect = $this->requireAuth()) {
+            return $redirect;
+        }
+
+        $request->validate([
+            'name' => ['required', 'string', 'max:255'],
+            'address' => ['nullable', 'string', 'max:255'],
+            'contact_no' => ['nullable', 'string', 'max:50'],
+        ]);
+
         DB::table('pds_references')->insert([
-            'user_id' => $user_id,
-            'name' => strtoupper($request->name),
-            'address' => strtoupper($request->address),
+            'user_id' => $this->userId(),
+            'name' => $this->upper($request->name),
+            'address' => $this->upper($request->address),
             'contact_no' => $request->contact_no,
             'created_at' => now(),
             'updated_at' => now(),
@@ -587,13 +996,22 @@ class PdsController extends Controller
 
     public function updateReference(Request $request, $id)
     {
-        $user_id = Session::get('user_id');
+        if ($redirect = $this->requireAuth()) {
+            return $redirect;
+        }
+
+        $request->validate([
+            'name' => ['required', 'string', 'max:255'],
+            'address' => ['nullable', 'string', 'max:255'],
+            'contact_no' => ['nullable', 'string', 'max:50'],
+        ]);
+
         DB::table('pds_references')
             ->where('id', $id)
-            ->where('user_id', $user_id)
+            ->where('user_id', $this->userId())
             ->update([
-                'name' => strtoupper($request->name),
-                'address' => strtoupper($request->address),
+                'name' => $this->upper($request->name),
+                'address' => $this->upper($request->address),
                 'contact_no' => $request->contact_no,
                 'updated_at' => now(),
             ]);
@@ -603,9 +1021,16 @@ class PdsController extends Controller
 
     public function updatePage4Details(Request $request)
     {
-        $user_id = Session::get('user_id');
-        $data = $request->except(['_token', 'passport_photo', 'right_thumbmark']);
-        $data['updated_at'] = now();
+        if ($redirect = $this->requireAuth()) {
+            return $redirect;
+        }
+
+        $request->validate([
+            'passport_photo' => ['nullable', 'image', 'mimes:jpeg,jpg,png', 'max:5120'],
+            'right_thumbmark' => ['nullable', 'image', 'mimes:jpeg,jpg,png', 'max:5120'],
+        ]);
+
+        $data = $this->columnsOnly($request, 'pds_page4_details', ['passport_photo', 'right_thumbmark']);
 
         // Process Passport Photo (LONGBLOB)
         if ($request->hasFile('passport_photo')) {
@@ -617,7 +1042,13 @@ class PdsController extends Controller
             $data['right_thumbmark'] = file_get_contents($request->file('right_thumbmark')->getRealPath());
         }
 
-        DB::table('pds_page4_details')->updateOrInsert(['user_id' => $user_id], $data);
+        if (empty($data)) {
+            return back()->with('error', 'Nothing to save.')->with('active_tab', 'page4');
+        }
+
+        $data['updated_at'] = now();
+
+        DB::table('pds_page4_details')->updateOrInsert(['user_id' => $this->userId()], $data);
 
         return back()->with('success', 'Gov ID and Images saved!')->with('active_tab', 'page4');
     }
@@ -627,41 +1058,18 @@ class PdsController extends Controller
     // =========================================================
     public function deleteRecord($table, $id)
     {
-        $user_id = Session::get('user_id');
-
-        // Security check: Only allow deletion from these specific PDS tables
-        $allowedTables = [
-            'pds_children',
-            'pds_education',
-            'pds_eligibility',
-            'pds_work_experience',
-            'pds_voluntary_work',
-            'pds_learning_development',
-            'pds_other_information',
-            'pds_references',
-        ];
-
-        if (in_array($table, $allowedTables)) {
-            DB::table($table)->where('id', $id)->where('user_id', $user_id)->delete();
-
-            // Map table to the correct active tab so the user stays on the same page
-            $tabMapping = [
-                'pds_children' => 'family',
-                'pds_education' => 'education',
-                'pds_eligibility' => 'eligibility',
-                'pds_work_experience' => 'work',
-                'pds_voluntary_work' => 'voluntary',
-                'pds_learning_development' => 'learning',
-                'pds_other_information' => 'other',
-                'pds_references' => 'page4',
-            ];
-
-            $activeTab = $tabMapping[$table] ?? 'personal';
-
-            return back()->with('success', 'Record deleted successfully!')->with('active_tab', $activeTab);
+        if ($redirect = $this->requireAuth()) {
+            return $redirect;
         }
 
-        return back()->with('error', 'Invalid table reference.');
+        if (! array_key_exists($table, self::DELETABLE)) {
+            return back()->with('error', 'Invalid table reference.');
+        }
+
+        DB::table($table)->where('id', $id)->where('user_id', $this->userId())->delete();
+
+        return back()->with('success', 'Record deleted successfully!')
+            ->with('active_tab', self::DELETABLE[$table]);
     }
 
     // =========================================================
@@ -669,193 +1077,448 @@ class PdsController extends Controller
     // =========================================================
     public function printPds()
     {
-        $user_id = Session::get('user_id');
+        if ($redirect = $this->requireAuth()) {
+            return $redirect;
+        }
 
-        // 1. Load User Data
-        $personal_info = DB::table('pds_personal_info')->where('user_id', $user_id)->first();
+        $user_id = $this->userId();
+
+        // FIX: loaded via the model so ->country resolves. The old code used
+        // DB::table(), which returns a plain stdClass — $personal_info->country was
+        // always null, so "Dual Citizenship - " printed with no country after it.
+        $personal_info = PdsPersonalInfo::with('country')->where('user_id', $user_id)->first();
+
+        if (! $personal_info || empty($personal_info->last_name)) {
+            return back()->with('error', 'Please complete your profile information before printing.');
+        }
+
         $children = DB::table('pds_children')->where('user_id', $user_id)->get();
-        $education = DB::table('pds_education')->where('user_id', $user_id)->get();
+        $education = DB::table('pds_education')
+            ->leftJoin('schools', 'pds_education.school_id', '=', 'schools.school_id')
+            ->select('pds_education.*', 'schools.school_name')
+            ->where('pds_education.user_id', $user_id)
+            ->get();
         $eligibilities = DB::table('pds_eligibility')->where('user_id', $user_id)->get();
         $work_experiences = DB::table('pds_work_experience')->where('user_id', $user_id)->orderBy('date_from', 'desc')->get();
         $voluntary_works = DB::table('pds_voluntary_work')->where('user_id', $user_id)->orderBy('date_from', 'desc')->get();
         $learnings = DB::table('pds_learning_development')->where('user_id', $user_id)->orderBy('date_from', 'desc')->get();
         $other_info = DB::table('pds_other_information')->where('user_id', $user_id)->get();
+        $references = DB::table('pds_references')->where('user_id', $user_id)->get();
+        $questionnaire = DB::table('pds_questionnaire')->where('user_id', $user_id)->first();
+        $page4_details = DB::table('pds_page4_details')->where('user_id', $user_id)->first();
 
-        // 2. Validate Data (Trigger Condition)
-        if (! $personal_info || empty($personal_info->last_name)) {
-            return back()->with('error', 'Please complete your profile information before printing.');
+        $templatePath = $this->pdsTemplatePath();
+
+        if (! $templatePath) {
+            return back()->with('error', 'PDS template not found in storage/app/templates.');
         }
 
-        // 3. Load the Official Excel Template
-        $templatePath = storage_path('app/templates/ANNEX-H-1-CS-Form-No.-212-Revised-2025-Personal-Data-Sheet.xlsx');
+        try {
+            $spreadsheet = IOFactory::load($templatePath);
 
-        if (! file_exists($templatePath)) {
-            return back()->with('error', 'Template file not found on the server.');
-        }
+            $c1 = $this->sheet($spreadsheet, 'C1', 0);
+            $c2 = $this->sheet($spreadsheet, 'C2', 1);
+            $c3 = $this->sheet($spreadsheet, 'C3', 2);
+            $c4 = $this->sheet($spreadsheet, 'C4', 3);
 
-        $spreadsheet = IOFactory::load($templatePath);
+            $text = function ($sheet, string $cell, $value) {
+                if ($sheet) {
+                    $sheet->setCellValueExplicit($cell, $this->na($value), DataType::TYPE_STRING);
+                }
+            };
 
-        // ==========================================================
-        // PAGE 1: PERSONAL INFO
-        // ==========================================================
-        $sheet1 = $spreadsheet->getSheet(0); // Assuming Page 1 is the first sheet
+            /** Writes only when there is something to write — no "N/A" filler. */
+            $write = function ($sheet, string $cell, $value) {
+                $value = trim((string) $value);
+                if ($sheet && $value !== '') {
+                    $sheet->setCellValueExplicit($cell, $value, DataType::TYPE_STRING);
+                }
+            };
 
-        // Map Personal Information (Replace coordinates with your exact Excel cells)
-        $sheet1->setCellValue('D10', $personal_info->last_name ?? 'N/A');
-        $sheet1->setCellValue('D11', $personal_info->first_name ?? 'N/A');
-        $sheet1->setCellValue('L11', $personal_info->name_extension ?? 'N/A');
-        $sheet1->setCellValue('D12', $personal_info->middle_name ?? 'N/A');
-        $sheet1->setCellValue('D13', $personal_info->date_of_birth ?? 'N/A');
-        $sheet1->setCellValue('D15', $personal_info->place_of_birth ?? 'N/A');
+            /**
+             * The form stores some labels and their answers in one cell, e.g.
+             * "NAME EXTENSION (JR., SR)        N/A" or "If YES, give details: ______".
+             * Writing the bare value would wipe the label, so cut the label at its last
+             * ")" or ":" (or trim the trailing rule) and append after it.
+             */
+            $append = function ($sheet, string $cell, $value) {
+                $value = trim((string) $value);
+                if (! $sheet || $value === '') {
+                    return;
+                }
+                $label = (string) $sheet->getCell($cell)->getValue();
+                $label = preg_match('/^(.*[):])/', $label, $m)
+                    ? $m[1]
+                    : preg_replace('/[_\s]+$/', '', $label);
 
-        // Translate Integer Sex ID or String
-        $sexText = 'N/A';
-        if (isset($personal_info->sex)) {
-            if ($personal_info->sex == 1 || $personal_info->sex == 'Male') {
-                $sexText = 'Male';
-            } elseif ($personal_info->sex == 0 || $personal_info->sex == 'Female') {
-                $sexText = 'Female';
+                $sheet->setCellValue($cell, trim($label) === '' ? $value : $label.'   '.$value);
+            };
+
+            // ==========================================================
+            // C1 — I. PERSONAL INFORMATION
+            // ==========================================================
+            $text($c1, 'D10', $personal_info->last_name);
+            $text($c1, 'D11', $personal_info->first_name);
+            $append($c1, 'L11', $personal_info->name_extension);
+            $text($c1, 'D12', $personal_info->middle_name);
+            $text($c1, 'D13', $this->dmy($personal_info->date_of_birth));
+            $text($c1, 'D15', $personal_info->place_of_birth);
+
+            $sexText = 'N/A';
+            if (isset($personal_info->sex)) {
+                if ($personal_info->sex == 1 || $personal_info->sex === 'Male') {
+                    $sexText = 'Male';
+                } elseif ($personal_info->sex == 0 || $personal_info->sex === 'Female') {
+                    $sexText = 'Female';
+                }
             }
-        }
-        $sheet1->setCellValue('D16', $sexText);
+            $text($c1, 'D16', $sexText);
+            $text($c1, 'D17', $personal_info->civil_status);
 
-        $sheet1->setCellValue('D17', $personal_info->civil_status ?? 'N/A');
-        $sheet1->setCellValue('D19', $personal_info->height ?? 'N/A');
-        $sheet1->setCellValue('D20', $personal_info->weight ?? 'N/A');
-        $sheet1->setCellValue('D21', $personal_info->blood_type ?? 'N/A');
+            // FIX: rows 19/20/21 in the old mapping were blank spacer rows. Height,
+            // weight and blood type actually sit at D22/D24/D25 on the 2025 form.
+            $text($c1, 'D22', $personal_info->height);
+            $text($c1, 'D24', $personal_info->weight);
+            $text($c1, 'D25', $personal_info->blood_type);
 
-        // IDs
-        $sheet1->setCellValue('D22', $personal_info->gsis_no ?? 'N/A');
-        $sheet1->setCellValue('D24', $personal_info->pagibig_no ?? 'N/A');
-        $sheet1->setCellValue('D25', $personal_info->philhealth_no ?? 'N/A');
+            // FIX: every ID was one to six rows too high. NOTE: field 10 on the 2025
+            // form is UMID ID NO., not GSIS — the gsis_no column feeds it for now.
+            $text($c1, 'D27', $personal_info->gsis_no);          // 10. UMID ID NO.
+            $text($c1, 'D29', $personal_info->pagibig_no);       // 11. PAG-IBIG ID NO.
+            $text($c1, 'D31', $personal_info->philhealth_no);    // 12. PHILHEALTH NO.
+            $text($c1, 'D32', $personal_info->psn_no);           // 13. PhilSys Number
+            $text($c1, 'D33', $personal_info->tin_no);           // 14. TIN NO.
+            $text($c1, 'D34', $personal_info->agency_employee_no); // 15. AGENCY EMPLOYEE NO.
 
-        // Map the new PhilSys Number (psn_no)
-        $sheet1->setCellValue('D26', $personal_info->psn_no ?? 'N/A');
-
-        $sheet1->setCellValue('D27', $personal_info->tin_no ?? 'N/A');
-        $sheet1->setCellValue('D28', $personal_info->agency_employee_no ?? 'N/A');
-
-        // Residential Address
-        $sheet1->setCellValue('I17', $personal_info->res_house_no ?? 'N/A');
-        $sheet1->setCellValue('L17', $personal_info->res_street ?? 'N/A');
-        $sheet1->setCellValue('I19', $personal_info->res_subdivision ?? 'N/A');
-        $sheet1->setCellValue('L19', $personal_info->res_barangay ?? 'N/A');
-        $sheet1->setCellValue('I22', $personal_info->res_city ?? 'N/A');
-        $sheet1->setCellValue('L22', $personal_info->res_province ?? 'N/A');
-        $sheet1->setCellValue('I24', $personal_info->res_zip ?? 'N/A');
-
-        // Permanent Address
-        $sheet1->setCellValue('I25', $personal_info->perm_house_no ?? 'N/A');
-        $sheet1->setCellValue('L25', $personal_info->perm_street ?? 'N/A');
-        $sheet1->setCellValue('I27', $personal_info->perm_subdivision ?? 'N/A');
-        $sheet1->setCellValue('L27', $personal_info->perm_barangay ?? 'N/A');
-        $sheet1->setCellValue('I29', $personal_info->perm_city ?? 'N/A');
-        $sheet1->setCellValue('L29', $personal_info->perm_province ?? 'N/A');
-        $sheet1->setCellValue('I31', $personal_info->perm_zip ?? 'N/A');
-
-        // Contact Info
-        $sheet1->setCellValue('I32', $personal_info->telephone_no ?? 'N/A');
-        $sheet1->setCellValue('I33', $personal_info->mobile_no ?? 'N/A');
-        $sheet1->setCellValue('I34', $personal_info->email_address ?? 'N/A');
-
-        // Citizenship
-        $citizenship = '';
-        if (isset($personal_info->citizenship)) {
-            if ($personal_info->citizenship === 1 || $personal_info->citizenship == '1') {
-                $citizenship = 'Dual Citizenship - '.($personal_info->country->name ?? '');
-            } else {
-                $citizenship = 'Filipino';
+            // 16. CITIZENSHIP
+            $citizenship = 'Filipino';
+            if (isset($personal_info->citizenship) && (int) $personal_info->citizenship === 1) {
+                $citizenship = trim('Dual Citizenship - '.($personal_info->country->name ?? ''));
             }
+            $text($c1, 'J13', $citizenship);
+
+            // 17. RESIDENTIAL ADDRESS — reference IDs resolved to names
+            $text($c1, 'I17', $personal_info->res_house_no);
+            $text($c1, 'L17', $personal_info->res_street);
+            $text($c1, 'I19', $personal_info->res_subdivision);
+            $text($c1, 'L19', $this->barangayName($personal_info->res_barangay));
+            $text($c1, 'I22', $this->cityName($personal_info->res_city));
+            $text($c1, 'L22', $this->provinceName($personal_info->res_province));
+            $text($c1, 'I24', $personal_info->res_zip);
+
+            // 18. PERMANENT ADDRESS
+            $text($c1, 'I25', $personal_info->perm_house_no);
+            $text($c1, 'L25', $personal_info->perm_street);
+            $text($c1, 'I27', $personal_info->perm_subdivision);
+            $text($c1, 'L27', $this->barangayName($personal_info->perm_barangay));
+            $text($c1, 'I29', $this->cityName($personal_info->perm_city));
+            $text($c1, 'L29', $this->provinceName($personal_info->perm_province));
+            $text($c1, 'I31', $personal_info->perm_zip);
+
+            // 19-21. CONTACT
+            $text($c1, 'I32', $personal_info->telephone_no);
+            $text($c1, 'I33', $personal_info->mobile_no);
+            $text($c1, 'I34', $personal_info->email_address);
+
+            // ==========================================================
+            // C1 — II. FAMILY BACKGROUND
+            // ==========================================================
+            $spouse = PdsSpouse::where('user_id', $user_id)->first();
+            $text($c1, 'D36', $spouse->surname ?? null);
+            $text($c1, 'D37', $spouse->first_name ?? null);
+            $append($c1, 'G37', $spouse->name_extension ?? null); // FIX: was L37
+            $text($c1, 'D38', $spouse->middle_name ?? null);
+            $text($c1, 'D39', $spouse->occupation ?? null);
+            $text($c1, 'D40', $spouse->employer_business_name ?? null);
+            $text($c1, 'D41', $spouse->business_address ?? null);
+            $text($c1, 'D42', $spouse->telephone_number ?? null);
+
+            $father = PdsFather::where('user_id', $user_id)->first();
+            $text($c1, 'D43', $father->surname ?? null);
+            $text($c1, 'D44', $father->first_name ?? null);
+            $append($c1, 'G44', $father->name_extension ?? null); // FIX: was L44
+            $text($c1, 'D45', $father->middle_name ?? null);
+
+            $mother = PdsMother::where('user_id', $user_id)->first();
+            $text($c1, 'D47', $mother->maiden_surname ?? null);
+            $text($c1, 'D48', $mother->first_name ?? null);
+            $text($c1, 'D49', $mother->middle_name ?? null);
+
+            // 23. CHILDREN (rows 37-48, 12 slots)
+            $this->fillRows($c1, $children, self::CHILD_ROW_START, self::CHILD_ROW_END, function ($child) {
+                return [
+                    'I' => $child->child_name,
+                    'M' => $this->dmy($child->date_of_birth),
+                ];
+            }, 'children', $user_id);
+
+            // ==========================================================
+            // C1 — III. EDUCATIONAL BACKGROUND (rows 54-58)
+            // ==========================================================
+            // FIX: the old loop wrote the level into column A and appended rows with no
+            // upper bound. The form has five FIXED rows whose level names are already
+            // printed in column B — each record belongs on the row matching its level.
+            $levelRows = self::EDUCATION_LEVEL_ROWS;
+            $usedRows = [];
+
+            foreach ($education as $edu) {
+                $row = null;
+                $needle = mb_strtoupper((string) $edu->level, 'UTF-8');
+
+                foreach ($levelRows as $keyword => $candidate) {
+                    if (str_contains($needle, $keyword) && ! in_array($candidate, $usedRows, true)) {
+                        $row = $candidate;
+                        break;
+                    }
+                }
+
+                // Unrecognised level: drop it into the first still-empty row.
+                if ($row === null) {
+                    $free = array_diff(array_values(array_unique($levelRows)), $usedRows);
+                    $row = reset($free) ?: null;
+                }
+
+                if ($row === null) {
+                    Log::info("PDS export: no free education row for level '{$edu->level}' (user {$user_id}).");
+
+                    continue;
+                }
+
+                $usedRows[] = $row;
+                $text($c1, 'D'.$row, $edu->school_name);
+                $text($c1, 'G'.$row, $edu->degree_course);
+                $text($c1, 'J'.$row, $edu->period_from);
+                $text($c1, 'K'.$row, $edu->period_to);
+                $text($c1, 'L'.$row, $edu->highest_level_earned);
+                $text($c1, 'M'.$row, $edu->year_graduated);
+                $text($c1, 'N'.$row, $edu->scholarship_honors);
+            }
+
+            // ==========================================================
+            // C2 — IV. CIVIL SERVICE ELIGIBILITY (rows 5-11)
+            // ==========================================================
+            $this->fillRows($c2, $eligibilities, 5, 11, function ($e) {
+                return [
+                    'A' => $e->eligibility_name,
+                    'F' => $e->rating,
+                    'G' => $this->dmy($e->exam_date),
+                    'I' => $e->exam_place,
+                    'J' => $e->license_number,
+                    'K' => $this->dmy($e->license_validity),
+                ];
+            }, 'eligibility', $user_id);
+
+            // ==========================================================
+            // C2 — V. WORK EXPERIENCE (rows 18-40)
+            // ==========================================================
+            $this->fillRows($c2, $work_experiences, 18, 40, function ($w) {
+                return [
+                    'A' => $this->dmy($w->date_from),
+                    'C' => $this->dmy($w->date_to),   // "PRESENT" passes through unchanged
+                    'D' => $w->position_title,
+                    'G' => $w->agency_company,
+                    'J' => $w->status_appointment,
+                    'K' => $w->govt_service,
+                ];
+            }, 'work experience', $user_id);
+
+            // ==========================================================
+            // C3 — VI. VOLUNTARY WORK (rows 6-12)
+            // ==========================================================
+            $this->fillRows($c3, $voluntary_works, 6, 12, function ($v) {
+                return [
+                    'A' => $v->organization_name,
+                    'E' => $this->dmy($v->date_from),
+                    'F' => $this->dmy($v->date_to),
+                    'G' => $v->number_of_hours,
+                    'H' => $v->position_nature_of_work,
+                ];
+            }, 'voluntary work', $user_id);
+
+            // ==========================================================
+            // C3 — VII. LEARNING AND DEVELOPMENT (rows 18-38)
+            // ==========================================================
+            $this->fillRows($c3, $learnings, 18, 38, function ($l) {
+                return [
+                    'A' => $l->training_title,
+                    'E' => $this->dmy($l->date_from),
+                    'F' => $this->dmy($l->date_to),
+                    'G' => $l->number_of_hours,
+                    'H' => $l->ld_type,
+                    'I' => $l->sponsored_by,
+                ];
+            }, 'learning and development', $user_id);
+
+            // ==========================================================
+            // C3 — VIII. OTHER INFORMATION (rows 42-48, three parallel lists)
+            // ==========================================================
+            $buckets = [
+                'skill' => 'A',        // 31. SPECIAL SKILLS and HOBBIES
+                'recognition' => 'C',  // 32. NON-ACADEMIC DISTINCTIONS / RECOGNITION
+                'membership' => 'I',   // 33. MEMBERSHIP IN ASSOCIATION/ORGANIZATION
+            ];
+
+            foreach ($buckets as $type => $column) {
+                $row = 42;
+                foreach ($other_info->where('info_type', $type) as $item) {
+                    if ($row > 48) {
+                        Log::info("PDS export: '{$type}' entries truncated for user {$user_id}.");
+                        break;
+                    }
+                    $text($c3, $column.$row, $item->details);
+                    $row++;
+                }
+            }
+
+            // ==========================================================
+            // C4 — 41. REFERENCES (rows 52-54, three slots)
+            // ==========================================================
+            $this->fillRows($c4, $references, 52, 54, function ($r) {
+                return [
+                    'A' => $r->name,
+                    'F' => $r->address,
+                    'G' => $r->contact_no,
+                ];
+            }, 'references', $user_id);
+
+            // ==========================================================
+            // C4 — 34-40 QUESTIONNAIRE
+            // ==========================================================
+            if ($questionnaire) {
+                foreach (self::QUESTIONNAIRE_CELLS as $field => [$answerCell, $detailCell]) {
+                    $write($c4, $answerCell, mb_strtoupper(trim((string) ($questionnaire->$field ?? '')), 'UTF-8'));
+
+                    if ($detailCell !== null) {
+                        $detailField = $field.'_details';
+                        $append($c4, $detailCell, $questionnaire->$detailField ?? '');
+                    }
+                }
+
+                // 35.b carries two extra fields of its own
+                $append($c4, 'H20', $this->dmyOrBlank($questionnaire->q35_b_date ?? ''));
+                $append($c4, 'G21', $questionnaire->q35_b_status ?? '');
+            }
+
+            // ==========================================================
+            // C4 — GOVERNMENT ISSUED ID
+            // ==========================================================
+            if ($page4_details) {
+                $write($c4, 'D61', $page4_details->gov_id_type ?? '');
+                $write($c4, 'D62', $page4_details->gov_id_no ?? '');
+                $write($c4, 'D64', $page4_details->gov_id_issuance ?? '');
+            }
+
+            // ==========================================================
+            // NOT MAPPED: the passport photo and right thumbmark boxes. Both are
+            // LONGBLOBs and PhpSpreadsheet can place them, but the boxes need
+            // measuring first — say the word and I'll wire them up.
+            //
+            // SIGNATURES are deliberately left blank for manual signing.
+            // ==========================================================
+
+            $spreadsheet->setActiveSheetIndex(0);
+
+            $safeLast = preg_replace('/[^A-Za-z0-9]+/', '_', (string) $personal_info->last_name) ?: 'EMPLOYEE';
+            $fileName = 'PDS_'.$this->upper(trim($safeLast, '_')).'_'.date('Ymd').'.xlsx';
+
+            /**
+             * FIX: the old version wrote raw header() calls, saved to php://output and
+             * called exit — that skips Laravel's response pipeline entirely (session
+             * writes, middleware, terminable handlers) and any stray output before it
+             * corrupts the file. Stream it as a proper response instead.
+             */
+            $writer = IOFactory::createWriter($spreadsheet, 'Xlsx');
+
+            return new StreamedResponse(function () use ($writer) {
+                $writer->save('php://output');
+            }, 200, [
+                'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                'Content-Disposition' => 'attachment; filename="'.$fileName.'"',
+                'Cache-Control' => 'private, no-store, max-age=0',
+            ]);
+        } catch (\Throwable $e) {
+            Log::error('PDS export failed for user '.$user_id.': '.$e->getMessage());
+
+            return back()->with('error', 'Could not generate the PDS. Please try again.');
         }
-        $sheet1->setCellValue('J13', $citizenship);
-
-        // Family Background (Spouse)
-        $spouse = PdsSpouse::where('user_id', $user_id)->first();
-        $sheet1->setCellValue('D36', $spouse->surname ?? 'N/A');
-        $sheet1->setCellValue('D37', $spouse->first_name ?? 'N/A');
-        $sheet1->setCellValue('L37', $spouse->name_extension ?? 'N/A');
-        $sheet1->setCellValue('D38', $spouse->middle_name ?? 'N/A');
-        $sheet1->setCellValue('D39', $spouse->occupation ?? 'N/A');
-        $sheet1->setCellValue('D40', $spouse->employer_business_name ?? 'N/A');
-        $sheet1->setCellValue('D41', $spouse->business_address ?? 'N/A');
-        $sheet1->setCellValue('D42', $spouse->telephone_number ?? 'N/A');
-
-        // Family Background (Father)
-        $father = PdsFather::where('user_id', $user_id)->first();
-        $sheet1->setCellValue('D43', $father->surname ?? 'N/A');
-        $sheet1->setCellValue('D44', $father->first_name ?? 'N/A');
-        $sheet1->setCellValue('L44', $father->name_extension ?? 'N/A');
-        $sheet1->setCellValue('D45', $father->middle_name ?? 'N/A');
-
-        // Family Background (Mother)
-        $mother = PdsMother::where('user_id', $user_id)->first();
-        $sheet1->setCellValue('D47', $mother->maiden_surname ?? 'N/A');
-        $sheet1->setCellValue('D48', $mother->first_name ?? 'N/A');
-        $sheet1->setCellValue('D49', $mother->middle_name ?? 'N/A');
-
-        // Children
-        $childRow = 37;
-        foreach ($children as $child) {
-            if ($childRow > 48) {
-                break;
-            } // Maximum rows for children on this page
-            $sheet1->setCellValue('I'.$childRow, $child->child_name);
-            $sheet1->setCellValue('M'.$childRow, $child->date_of_birth);
-            $childRow++;
-        }
-
-        // ==========================================================
-        // DYNAMIC DATA ARRAYS (Education, Work, etc.)
-        // ==========================================================
-        // Example: Mapping Education records starting at row 54
-        $eduRow = 54;
-        foreach ($education as $edu) {
-            $sheet1->setCellValue('A'.$eduRow, $edu->level);
-            $sheet1->setCellValue('D'.$eduRow, $edu->school_name);
-            $sheet1->setCellValue('G'.$eduRow, $edu->degree_course);
-            $sheet1->setCellValue('J'.$eduRow, $edu->period_from);
-            $sheet1->setCellValue('K'.$eduRow, $edu->period_to);
-            $sheet1->setCellValue('L'.$eduRow, $edu->highest_level_earned);
-            $sheet1->setCellValue('M'.$eduRow, $edu->year_graduated);
-            $sheet1->setCellValue('N'.$eduRow, $edu->scholarship_honors);
-            $eduRow++;
-        }
-
-        // ==========================================================
-        // SIGNATURES (Left blank per requirement #6)
-        // ==========================================================
-        // We do not map the LONGBLOB signature to ensure the document
-        // remains blank for manual signing after printing.
-
-        // 4. Force Download as Excel File
-        $fileName = 'PDS_'.strtoupper($personal_info->last_name).'_'.date('Ymd').'.xlsx';
-
-        header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-        header('Content-Disposition: attachment;filename="'.$fileName.'"');
-        header('Cache-Control: max-age=0');
-
-        $writer = IOFactory::createWriter($spreadsheet, 'Xlsx');
-        $writer->save('php://output');
-        exit;
     }
+
+    /** Locate the PDS template, tolerating the different names it ships under. */
+    private function pdsTemplatePath(): ?string
+    {
+        foreach (self::TEMPLATE_CANDIDATES as $name) {
+            $path = storage_path('app/templates/'.$name);
+            if (is_readable($path)) {
+                return $path;
+            }
+        }
+
+        return null;
+    }
+
+    /** Fetch a worksheet by name, falling back to its index if the tab was renamed. */
+    private function sheet($spreadsheet, string $name, int $index)
+    {
+        $sheet = $spreadsheet->getSheetByName($name);
+
+        if (! $sheet && $spreadsheet->getSheetCount() > $index) {
+            $sheet = $spreadsheet->getSheet($index);
+        }
+
+        if (! $sheet) {
+            Log::warning("PDS export: worksheet '{$name}' not found in the template.");
+        }
+
+        return $sheet;
+    }
+
+    /**
+     * Write a collection into a fixed block of rows, stopping at the block's last row
+     * instead of overwriting the section printed below it.
+     */
+    private function fillRows($sheet, $records, int $firstRow, int $lastRow, callable $mapper, string $label, $userId): void
+    {
+        if (! $sheet) {
+            return;
+        }
+
+        $row = $firstRow;
+
+        foreach ($records as $record) {
+            if ($row > $lastRow) {
+                Log::info("PDS export: {$label} truncated at ".($lastRow - $firstRow + 1)." rows for user {$userId}.");
+                break;
+            }
+
+            foreach ($mapper($record) as $column => $value) {
+                $sheet->setCellValueExplicit($column.$row, $this->na($value), DataType::TYPE_STRING);
+            }
+
+            $row++;
+        }
+    }
+
     // =========================================================
     // API METHODS FOR LOCATION HIERARCHY
     // =========================================================
     public function getProvinces($region_code)
     {
-        $provinces = \Illuminate\Support\Facades\DB::table('ref_provinces')->where('region_code', $region_code)->orderBy('province_name', 'asc')->get();
+        $provinces = DB::table('ref_provinces')->where('region_code', $region_code)->orderBy('province_name', 'asc')->get();
+
         return response()->json($provinces);
     }
 
     public function getCities($province_code)
     {
-        $cities = \Illuminate\Support\Facades\DB::table('ref_cities')->where('province_code', $province_code)->orderBy('city_name', 'asc')->get();
+        $cities = DB::table('ref_cities')->where('province_code', $province_code)->orderBy('city_name', 'asc')->get();
+
         return response()->json($cities);
     }
 
     public function getBarangays($city_code)
     {
-        $barangays = \Illuminate\Support\Facades\DB::table('ref_barangays')->where('city_code', $city_code)->orderBy('brgy_name', 'asc')->get();
+        $barangays = DB::table('ref_barangays')->where('city_code', $city_code)->orderBy('brgy_name', 'asc')->get();
+
         return response()->json($barangays);
     }
 }

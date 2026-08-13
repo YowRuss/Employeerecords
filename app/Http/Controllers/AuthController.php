@@ -2,7 +2,9 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\User;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Session;
@@ -11,6 +13,10 @@ class AuthController extends Controller
 {
     public function showLogin()
     {
+        if (Session::has('user_id')) {
+            return redirect()->route('dashboard');
+        }
+
         return view('auth.login');
     }
 
@@ -39,6 +45,10 @@ class AuthController extends Controller
 
         $passwordMatches = false;
 
+        if ($user && $user->status === 'Inactive') {
+            return back()->with('error', 'Your account has been deactivated. Please contact HR.');
+        }
+
         if ($user) {
             // Normal, secure login path
             if (Hash::check($request->password, $user->password)) {
@@ -59,6 +69,12 @@ class AuthController extends Controller
                 Session::put('password_change_user_id', $user->id);
 
                 return redirect()->route('password.change');
+            }
+
+            // Sync with standard Laravel Auth guard
+            $eloquentUser = User::find($user->id);
+            if ($eloquentUser) {
+                Auth::login($eloquentUser);
             }
 
             cache()->forget($key);
@@ -83,7 +99,7 @@ class AuthController extends Controller
     {
         Session::flush();
 
-        return redirect()->route('login');
+        return redirect('/');
     }
 
     public function showChangePassword()

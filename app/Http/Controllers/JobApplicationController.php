@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\JobApplication;
+use App\Models\JobPosting;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Session;
@@ -12,13 +13,20 @@ class JobApplicationController extends Controller
     // ==========================================
     // PUBLIC ROUTES (For Future Employees)
     // ==========================================
-    public function publicIndex(Request $request)
+    public function index()
+    {
+        $jobPostings = JobPosting::with('position')->where('is_active', 1)->latest()->get();
+
+        return view('welcome', compact('jobPostings'));
+    }
+
+    public function showForm(Request $request)
     {
         $selectedPositionId = $request->query('position_id');
 
         // If they access the page without clicking a specific job, send them back to the welcome page
         if (! $selectedPositionId) {
-            return redirect('/')->with('error', 'Please select a job opening to apply for.');
+            return redirect('/careers')->with('error', 'Please select a job opening to apply for.');
         }
 
         $selectedPosition = DB::table('positions')->where('id', $selectedPositionId)->first();

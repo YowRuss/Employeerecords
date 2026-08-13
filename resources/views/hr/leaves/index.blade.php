@@ -135,11 +135,16 @@
                                     </div>
                                 @endif
                             </td>
-                            <td class="text-end pe-4">
+                            <td class="text-end pe-4 text-nowrap">
                                 <!-- Action Button triggers a Modal so HR can add a comment before deciding -->
                                 <button type="button" class="btn btn-sm btn-light border text-primary fw-bold" data-bs-toggle="modal" data-bs-target="#reviewModal{{ $leave->id }}">
                                     Review
                                 </button>
+                                @if($leave->status == 'APPROVED')
+                                    <a href="{{ route('hr.leave.print', $leave->id) }}" class="btn btn-sm ms-1" style="background-color: #ffffff; color: #1A3E6F; border: 1px solid #1A3E6F; font-weight: bold;">
+                                        <i class="bi bi-file-earmark-pdf"></i> Download PDF
+                                    </a>
+                                @endif
                             </td>
                         </tr>
 
@@ -183,9 +188,18 @@
                                                 <textarea name="hr_remarks" class="form-control" rows="2" placeholder="Explain your decision...">{{ $leave->hr_remarks }}</textarea>
                                             </div>
                                         </div>
-                                        <div class="modal-footer bg-light border-top-0">
-                                            <button type="button" class="btn btn-secondary fw-bold" data-bs-dismiss="modal">Cancel</button>
-                                            <button type="submit" class="btn btn-primary fw-bold px-4">Save Decision</button>
+                                        <div class="modal-footer bg-light border-top-0 d-flex justify-content-between">
+                                            <div>
+                                                @if($leave->status == 'APPROVED')
+                                                    <a href="{{ route('hr.leave.print', $leave->id) }}" class="btn btn-sm" style="background-color: #ffffff; color: #1A3E6F; border: 1px solid #1A3E6F; font-weight: bold;">
+                                                        <i class="bi bi-file-earmark-pdf"></i> Download PDF
+                                                    </a>
+                                                @endif
+                                            </div>
+                                            <div>
+                                                <button type="button" class="btn btn-secondary fw-bold" data-bs-dismiss="modal">Cancel</button>
+                                                <button type="submit" class="btn btn-primary fw-bold px-4">Save Decision</button>
+                                            </div>
                                         </div>
                                     </form>
                                 </div>

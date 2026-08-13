@@ -85,7 +85,7 @@
             <a class="nav-link {{ request()->routeIs('pds.edit', 'pds.update') ? 'active' : '' }}" href="{{ route('pds.edit') }}">
                 <i class="bi bi-person-vcard-fill"></i> <span class="hide-on-mini">My PDS</span>
             </a>
-            <a class="nav-link {{ request()->routeIs('saln.edit', 'saln.update') ? 'active' : '' }}" href="{{ route('saln.index') }}">
+            <a class="nav-link {{ request()->routeIs('saln.index') ? 'active' : '' }}" href="{{ route('saln.index') }}">
                 <i class="bi bi-wallet-fill"></i> <span class="hide-on-mini">My SALN</span>
             </a>
             <a class="nav-link {{ request()->routeIs('leave.index', 'leave.store') ? 'active' : '' }}" href="{{ route('leave.index') }}">
@@ -133,12 +133,20 @@
             <a class="nav-link {{ request()->routeIs('hr.service_record.directory', 'hr.service_record.index') ? 'active' : '' }}" href="{{ route('hr.service_record.directory') }}">
                 <i class="bi bi-folder-fill"></i> <span class="hide-on-mini">Service Records</span>
             </a>
+            <a class="nav-link {{ request()->routeIs('requisitions.*') ? 'active' : '' }}" href="{{ route('requisitions.index') }}">
+                <i class="bi bi-clipboard-data-fill"></i> <span class="hide-on-mini">Requisitions</span>
+            </a>
             <a class="nav-link {{ request()->routeIs('hr.applications.*') ? 'active' : '' }}" href="{{ route('hr.applications.index') }}">
                 <i class="bi bi-person-lines-fill"></i> <span class="hide-on-mini">Job Applicants</span>
             </a>
             <a class="nav-link {{ request()->routeIs('hr.job_postings.*') ? 'active' : '' }}" href="{{ route('hr.job_postings.index') }}">
                 <i class="bi bi-briefcase-fill"></i> <span class="hide-on-mini">Job Postings</span>
             </a>
+            
+            <a class="nav-link {{ request()->routeIs('hr.settings.positions_areas') ? 'active' : '' }}" href="{{ route('hr.settings.positions_areas') }}">
+                <i class="bi bi-gear-fill"></i> <span class="hide-on-mini">Positions & Areas</span>
+            </a>
+
             @if(session('role_id') == 2)
                 @php
                     // Count all unread messages sent by employees (not sent by the logged-in HR)

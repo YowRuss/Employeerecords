@@ -15,9 +15,6 @@
             <h4 class="text-accent fw-bold m-0"><i class="bi bi-people-fill me-2"></i> Staff Profiling</h4>
             <p class="text-muted small mt-1 mb-0">Manage and oversee all employee profiles and records.</p>
         </div>
-        <a href="{{ route('employees.create') }}" class="btn btn-accent shadow-sm fw-bold rounded-pill px-4">
-            <i class="bi bi-person-plus-fill me-1"></i> Add New Employee
-        </a>
     </div>
 
     @if(session('error'))
@@ -30,7 +27,7 @@
 
     <!-- Employee Statistics -->
     <div class="row g-3 mb-3">
-        <!-- Gender Statistics -->
+        <!-- Gender Statistics 
         <div class="col-12 col-lg-6">
             <div class="card shadow-sm border-0 rounded-4 h-100 overflow-hidden" style="background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);">
                 <div class="card-body p-3">
@@ -57,8 +54,9 @@
                 </div>
             </div>
         </div>
+        -->
 
-        <!-- Position Statistics -->
+        <!-- Position Statistics 
         <div class="col-12 col-lg-6">
             <div class="card shadow-sm border-0 rounded-4 h-100 overflow-hidden" style="background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);">
                 <div class="card-body p-3">
@@ -86,6 +84,7 @@
             </div>
         </div>
     </div>
+    -->
 
     <style>
         .staff-tabs .nav-link {
@@ -162,6 +161,11 @@
                 <li class="nav-item" role="presentation">
                     <button class="nav-link text-danger" id="incomplete-tab" data-bs-toggle="tab" data-bs-target="#incomplete" type="button" role="tab" aria-controls="incomplete" aria-selected="false">
                         Incomplete PDS <span class="badge bg-danger ms-1">{{ count($incompletePds) }}</span>
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link text-muted" id="inactive-tab" data-bs-toggle="tab" data-bs-target="#inactive" type="button" role="tab" aria-controls="inactive" aria-selected="false">
+                        Inactive / Separated <span class="badge bg-secondary ms-1">{{ count($inactiveEmployees) }}</span>
                     </button>
                 </li>
             </ul>
@@ -273,58 +277,16 @@
                 <div class="tab-pane fade" id="incomplete" role="tabpanel" aria-labelledby="incomplete-tab">
                     @include('hr.employees.partials.staff_table', ['employees' => $incompletePds, 'showContact' => false, 'showReminder' => true])
                 </div>
+                
+                <!-- Inactive / Separated Tab -->
+                <div class="tab-pane fade" id="inactive" role="tabpanel" aria-labelledby="inactive-tab">
+                    @include('hr.employees.partials.staff_table', ['employees' => $inactiveEmployees, 'showContact' => true, 'showReminder' => false])
+                </div>
             </div>
         </div>
 
         <div class="card-footer bg-white py-3 border-top border-light text-muted small d-flex justify-content-center">
             <span>Showing all employee profiles.</span>
-        </div>
-    </div>
-</div>
-
-<!-- Promote Employee Modal -->
-<div class="modal fade" id="promoteEmployeeModal" tabindex="-1" aria-labelledby="promoteEmployeeModalLabel" aria-hidden="true">
-    <div class="modal-dialog">
-        <div class="modal-content border-0 shadow">
-            <div class="modal-header bg-light">
-                <h5 class="modal-title fw-bold" id="promoteEmployeeModalLabel" style="color: #1A3E6F;">Promote Employee</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <form action="{{ route('hr.promote_employee') }}" method="POST">
-                @csrf
-                <div class="modal-body">
-                    <input type="hidden" name="user_id" id="promote_user_id">
-                    
-                    <div class="mb-3">
-                        <label class="form-label fw-bold text-muted small text-uppercase">Employee Name</label>
-                        <input type="text" class="form-control bg-light" id="promote_employee_name" readonly>
-                    </div>
-
-                    <div class="mb-3">
-                        <label class="form-label fw-bold text-muted small text-uppercase">Current Position</label>
-                        <input type="text" class="form-control bg-light" id="promote_current_position" readonly>
-                    </div>
-
-                    <div class="mb-3">
-                        <label class="form-label fw-bold text-muted small text-uppercase">New Position <span class="text-danger">*</span></label>
-                        <select name="position_id" id="promote_new_position" class="form-select" required>
-                            <option value="" disabled selected>Select New Position...</option>
-                            @foreach($positions as $position)
-                                <option value="{{ $position->id }}">{{ $position->position_name }}</option>
-                            @endforeach
-                        </select>
-                    </div>
-
-                    <div class="mb-3">
-                        <label class="form-label fw-bold text-muted small text-uppercase">Effective Date (Optional)</label>
-                        <input type="date" name="effective_date" class="form-control">
-                    </div>
-                </div>
-                <div class="modal-footer bg-light">
-                    <button type="button" class="btn btn-secondary fw-bold" data-bs-dismiss="modal">Cancel</button>
-                    <button type="submit" class="btn fw-bold shadow-sm" style="background-color: var(--accent-yellow, #FDE047); color: #1A3E6F;">Confirm Promotion</button>
-                </div>
-            </form>
         </div>
     </div>
 </div>
@@ -356,19 +318,6 @@ document.addEventListener('DOMContentLoaded', function() {
             });
         });
     }
-
-    // Populate Promote Modal
-    const promoteButtons = document.querySelectorAll('.btn-promote');
-    promoteButtons.forEach(button => {
-        button.addEventListener('click', function() {
-            document.getElementById('promote_user_id').value = this.getAttribute('data-id');
-            document.getElementById('promote_employee_name').value = this.getAttribute('data-name');
-            document.getElementById('promote_current_position').value = this.getAttribute('data-position');
-            // Reset select and date
-            document.getElementById('promote_new_position').selectedIndex = 0;
-            document.querySelector('#promoteEmployeeModal input[type="date"]').value = '';
-        });
-    });
 });
 </script>
 @endsection

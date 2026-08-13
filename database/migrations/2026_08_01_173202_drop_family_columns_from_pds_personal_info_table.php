@@ -20,7 +20,7 @@ return new class extends Migration
                 'father_first_name',
                 'father_last_name',
                 'mother_maiden_first_name',
-                'mother_maiden_last_name'
+                'mother_maiden_last_name',
             ];
 
             foreach ($columnsToDrop as $column) {

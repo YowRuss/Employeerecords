@@ -92,12 +92,9 @@
                             <a href="{{ route('hr.view_pds', $emp->id) }}" class="btn btn-sm btn-light border-end" data-bs-toggle="tooltip" title="View PDS" style="padding: 0.4rem 0.8rem;">
                                 <i class="bi bi-file-earmark-person-fill text-primary"></i>
                             </a>
-                            <a href="{{ route('hr.view_saln', $emp->id) }}" class="btn btn-sm btn-light border-end" data-bs-toggle="tooltip" title="View SALN" style="padding: 0.4rem 0.8rem;">
+                            <a href="{{ route('hr.view_saln', $emp->id) }}" class="btn btn-sm btn-light" data-bs-toggle="tooltip" title="View SALN" style="padding: 0.4rem 0.8rem; border-top-right-radius: 50rem; border-bottom-right-radius: 50rem;">
                                 <i class="bi bi-file-earmark-bar-graph-fill text-success"></i>
                             </a>
-                            <button class="btn btn-sm btn-light btn-promote" data-bs-toggle="modal" data-bs-target="#promoteEmployeeModal" data-id="{{ $emp->id }}" data-name="{{ $emp->first_name }} {{ $emp->last_name }}" data-position="{{ $emp->position->position_name ?? 'NOT ASSIGNED' }}" data-bs-toggle="tooltip" title="Promote Employee" style="padding: 0.4rem 0.8rem;">
-                                <i class="bi bi-arrow-up-circle" style="color: #1A3E6F;"></i>
-                            </button>
                         </div>
                     @endif
                 </td>

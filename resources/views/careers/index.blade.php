@@ -15,7 +15,7 @@
     <!-- Navigation -->
     <nav class="navbar navbar-expand-lg navbar-light bg-white sticky-top py-3">
         <div class="container">
-            <a class="navbar-brand d-flex align-items-center" href="/">
+            <a class="navbar-brand d-flex align-items-center" href="{{ route('careers.index') }}">
                 <img src="{{ asset('build/assets/images/logo.png') }}" alt="CNHS Logo" class="me-2" style="width: 40px; height: 40px;">
                 CNHS-JHS HR System
             </a>
@@ -26,7 +26,7 @@
             <div class="collapse navbar-collapse" id="navbarNav">
                 <ul class="navbar-nav ms-auto align-items-center">
                     <li class="nav-item">
-                        <a class="nav-link fw-semibold" href="/">Back to Home</a>
+                        <a class="nav-link fw-semibold" href="{{ route('careers.index') }}">Back to Careers</a>
                     </li>
                     <li class="nav-item ms-lg-3 mt-3 mt-lg-0">
                         <a href="{{ route('login') }}" class="btn btn-outline-brand fw-bold px-4 rounded-pill">

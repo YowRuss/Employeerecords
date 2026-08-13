@@ -6,6 +6,7 @@ use App\Models\LearningArea;
 use App\Models\PdsPersonalInfo;
 use App\Models\Position;
 use App\Models\User;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Session;
@@ -38,7 +39,11 @@ class HrController extends Controller
 
         $personal_info = PdsPersonalInfo::with(['region', 'province', 'city', 'barangay', 'permRegion', 'permProvince', 'permCity', 'permBarangay', 'country'])->where('user_id', $id)->first();
         $children = DB::table('pds_children')->where('user_id', $id)->get();
-        $education = DB::table('pds_education')->where('user_id', $id)->get();
+        $education = DB::table('pds_education')
+            ->leftJoin('schools', 'pds_education.school_id', '=', 'schools.school_id')
+            ->select('pds_education.*', 'schools.school_name')
+            ->where('pds_education.user_id', $id)
+            ->get();
         $eligibilities = DB::table('pds_eligibility')->where('user_id', $id)->get();
         $work_experiences = DB::table('pds_work_experience')->where('user_id', $id)->orderBy('date_from', 'desc')->get();
         $voluntary_works = DB::table('pds_voluntary_work')->where('user_id', $id)->orderBy('date_from', 'desc')->get();
@@ -63,10 +68,13 @@ class HrController extends Controller
 
         $search = trim($request->query('search', ''));
 
-        // Get gender statistics
+        // Get gender statistics (Active only)
         $genderStats = DB::table('users')
             ->join('pds_personal_info', 'users.id', '=', 'pds_personal_info.user_id')
             ->where('users.role_id', 1)
+            ->where(function ($q) {
+                $q->whereNull('users.status')->orWhere('users.status', '!=', 'Inactive');
+            })
             ->select('pds_personal_info.sex', DB::raw('count(*) as total'))
             ->groupBy('pds_personal_info.sex')
             ->pluck('total', 'sex');
@@ -105,18 +113,25 @@ class HrController extends Controller
             });
         }
 
-        $allEmployees = $employees;
-        $teachingStaff = $employees->where('category', 'Teaching');
-        $nonTeachingStaff = $employees->where('category', 'Non-Teaching');
-        $incompletePds = $employees->whereNull('pds_id');
+        $allEmployees = $employees->filter(function ($emp) {
+            return $emp->status !== 'Inactive';
+        })->values();
 
-        $maleEmployees = $teachingStaff->where('sex', 'Male');
-        $femaleEmployees = $teachingStaff->where('sex', 'Female');
+        $inactiveEmployees = $employees->filter(function ($emp) {
+            return $emp->status === 'Inactive';
+        })->values();
+
+        $teachingStaff = $allEmployees->where('category', 'Teaching');
+        $nonTeachingStaff = $allEmployees->where('category', 'Non-Teaching');
+        $incompletePds = $allEmployees->whereNull('pds_id');
+
+        $maleEmployees = $teachingStaff->where('sex', 1);
+        $femaleEmployees = $teachingStaff->where('sex', 0);
         $maleCount = $maleEmployees->count();
         $femaleCount = $femaleEmployees->count();
 
-        $nonTeachingMaleEmployees = $nonTeachingStaff->where('sex', 'Male');
-        $nonTeachingFemaleEmployees = $nonTeachingStaff->where('sex', 'Female');
+        $nonTeachingMaleEmployees = $nonTeachingStaff->where('sex', 1);
+        $nonTeachingFemaleEmployees = $nonTeachingStaff->where('sex', 0);
         $nonTeachingMaleCount = $nonTeachingMaleEmployees->count();
         $nonTeachingFemaleCount = $nonTeachingFemaleEmployees->count();
 
@@ -128,7 +143,7 @@ class HrController extends Controller
 
         $positions = Position::orderBy('position_name', 'asc')->get();
 
-        return view('hr.employees.index', compact('allEmployees', 'teachingStaff', 'nonTeachingStaff', 'incompletePds', 'maleEmployees', 'femaleEmployees', 'maleCount', 'femaleCount', 'nonTeachingMaleEmployees', 'nonTeachingFemaleEmployees', 'nonTeachingMaleCount', 'nonTeachingFemaleCount', 'search', 'genderStats', 'positionStats', 'learningAreas', 'positions'));
+        return view('hr.employees.index', compact('allEmployees', 'inactiveEmployees', 'teachingStaff', 'nonTeachingStaff', 'incompletePds', 'maleEmployees', 'femaleEmployees', 'maleCount', 'femaleCount', 'nonTeachingMaleEmployees', 'nonTeachingFemaleEmployees', 'nonTeachingMaleCount', 'nonTeachingFemaleCount', 'search', 'genderStats', 'positionStats', 'learningAreas', 'positions'));
     }
 
     public function viewProfile($id)
@@ -279,18 +294,143 @@ class HrController extends Controller
         $request->validate([
             'user_id' => 'required|exists:users,id',
             'position_id' => 'required|exists:positions,id',
+            'effective_date' => 'nullable|date',
         ]);
 
-        $employee = User::find($request->user_id);
-        if (! $employee) {
-            return redirect()->back()->with('error', 'Employee not found.');
+        try {
+            DB::transaction(function () use ($request) {
+                $user = User::findOrFail($request->user_id);
+                $user->position_id = $request->position_id;
+                $user->save();
+
+                $position = Position::find($request->position_id);
+                // Carry over the existing department / learning area if applicable
+                $learningArea = $user->learning_area_id ? LearningArea::find($user->learning_area_id) : null;
+
+                $effectiveDate = $request->effective_date ? Carbon::parse($request->effective_date) : now();
+                $endDate = $effectiveDate->copy()->subDay()->toDateString();
+
+                // Close active record
+                DB::table('service_records')
+                    ->where('user_id', $user->id)
+                    ->where(function ($query) {
+                        $query->whereNull('date_to')
+                            ->orWhere('date_to', 'Present')
+                            ->orWhere('date_to', 'PRESENT');
+                    })
+                    ->update([
+                        'date_to' => $endDate,
+                        'updated_at' => now(),
+                    ]);
+
+                // Create new record
+                DB::table('service_records')->insert([
+                    'user_id' => $user->id,
+                    'designation' => $position ? $position->position_name : null,
+                    'branch' => $learningArea ? $learningArea->name : null,
+                    'date_from' => $effectiveDate->toDateString(),
+                    'date_to' => 'PRESENT',
+                    'salary' => 'TBD', // Defaulting to TBD, can be updated in Service Records tab
+                    'station_place' => 'CNHS-JHS',
+                    'status' => 'Promoted',
+                    'leave_without_pay' => 'NONE',
+                    'separation_date' => 'NONE',
+                    'separation_cause' => 'NONE',
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]);
+            });
+        } catch (\Exception $e) {
+            \Log::error('Promotion failed: '.$e->getMessage());
+
+            return redirect()->back()->with('error', 'Failed to promote employee. Please try again.');
         }
 
-        $employee->position_id = $request->position_id;
-        // The effective date could be recorded if there was an employment history table.
-        // For now, updating the position directly reflects the promotion.
-        $employee->save();
+        return redirect()->back()->with('success', 'Employee promoted successfully.');
+    }
 
-        return redirect()->back()->with('success', 'Employee successfully promoted!');
+    public function offboardEmployee(Request $request)
+    {
+        if ($redirect = $this->requireHrAccess()) {
+            return $redirect;
+        }
+
+        $request->validate([
+            'user_id' => 'required|exists:users,id',
+            'separation_reason' => 'required|string',
+            'effective_date' => 'required|date',
+        ]);
+
+        $user = User::findOrFail($request->user_id);
+        $user->status = 'Inactive';
+        $user->separation_reason = $request->separation_reason;
+        $user->separation_date = $request->effective_date;
+        $user->save();
+
+        return redirect()->back()->with('success', 'Employee successfully offboarded and moved to Inactive tab.');
+    }
+
+    public function reassignEmployee(Request $request, $id)
+    {
+        if ($redirect = $this->requireHrAccess()) {
+            return $redirect;
+        }
+
+        $request->validate([
+            'position_id' => 'required|exists:positions,id',
+            'learning_area_id' => 'required|exists:learning_areas,id',
+            'effective_date' => 'required|date',
+        ]);
+
+        try {
+            DB::transaction(function () use ($request, $id) {
+                $user = User::findOrFail($id);
+                $user->position_id = $request->position_id;
+                $user->learning_area_id = $request->learning_area_id;
+                $user->save();
+
+                $position = Position::find($request->position_id);
+                $learningArea = LearningArea::find($request->learning_area_id);
+
+                $effectiveDate = Carbon::parse($request->effective_date);
+                $endDate = $effectiveDate->copy()->subDay()->toDateString();
+
+                // Close active record
+                DB::table('service_records')
+                    ->where('user_id', $user->id)
+                    ->where(function ($query) {
+                        $query->whereNull('date_to')
+                            ->orWhere('date_to', 'Present')
+                            ->orWhere('date_to', 'PRESENT');
+                    })
+                    ->update([
+                        'date_to' => $endDate,
+                        'updated_at' => now(),
+                    ]);
+
+                // Create new record
+                DB::table('service_records')->insert([
+                    'user_id' => $user->id,
+                    'designation' => $position ? $position->position_name : null,
+                    'branch' => $learningArea ? $learningArea->name : null,
+                    'date_from' => $effectiveDate->toDateString(),
+                    'date_to' => 'PRESENT',
+                    'salary' => 'TBD', // Defaulting to TBD
+                    'station_place' => 'CNHS-JHS',
+                    'status' => 'Reassigned',
+                    'leave_without_pay' => 'NONE',
+                    'separation_date' => 'NONE',
+                    'separation_cause' => $request->remarks ?? 'NONE',
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]);
+            });
+        } catch (\Exception $e) {
+            \Log::error('Reassignment failed: '.$e->getMessage());
+
+            return redirect()->back()->with('error', 'Failed to reassign employee. Please try again.');
+        }
+
+        return redirect()->back()->with('success', 'Employee successfully reassigned.');
     }
 }

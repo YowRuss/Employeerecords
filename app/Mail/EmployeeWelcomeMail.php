@@ -20,6 +20,6 @@ class EmployeeWelcomeMail extends Mailable
     public function build()
     {
         return $this->subject('Welcome to CNHS-JHS HR System - Your Account Details')
-                    ->view('emails.welcome_employee');
+            ->view('emails.welcome_employee');
     }
 }
