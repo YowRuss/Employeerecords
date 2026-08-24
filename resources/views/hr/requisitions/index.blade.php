@@ -458,10 +458,10 @@
 </div>
 
 {{-- ============================================ --}}
-{{-- PROMOTE EMPLOYEE MODAL (with Select2) --}}
+{{-- PROMOTE EMPLOYEE MODAL --}}
 {{-- ============================================ --}}
 <div class="modal fade" id="promoteEmployeeModal" tabindex="-1" aria-labelledby="promoteEmployeeModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-fullscreen-sm-down">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
         <div class="modal-content border-0 shadow">
             <div class="modal-header bg-light">
                 <h5 class="modal-title fw-bold" id="promoteEmployeeModalLabel" style="color: #1A3E6F;">Promote Employee</h5>
@@ -469,42 +469,68 @@
             </div>
             <form action="{{ route('hr.promote_employee') }}" method="POST">
                 @csrf
-                <div class="modal-body">
-                    <div class="mb-3">
-                        <label class="form-label fw-bold text-muted small text-uppercase">Select Employee <span class="text-danger">*</span></label>
-                        <select name="user_id" id="promote_employee_select" class="form-select" required>
-                            <option value="" disabled selected>Search for an employee...</option>
-                            @foreach($employees as $emp)
-                                <option value="{{ $emp->id }}" data-position="{{ $emp->position->position_name ?? 'NOT ASSIGNED' }}">
-                                    {{ $emp->last_name }}, {{ $emp->first_name }} {{ $emp->middle_name }} — {{ $emp->position->position_name ?? 'NOT ASSIGNED' }}
-                                </option>
-                            @endforeach
-                        </select>
-                    </div>
-
-                    <div class="mb-3">
-                        <label class="form-label fw-bold text-muted small text-uppercase">Current Position</label>
-                        <input type="text" class="form-control bg-light" id="promote_current_position" readonly placeholder="Select an employee above">
-                    </div>
-
-                    <div class="mb-3">
-                        <label class="form-label fw-bold text-muted small text-uppercase">New Position <span class="text-danger">*</span></label>
-                        <select name="position_id" id="promote_new_position" class="form-select" required>
-                            <option value="" disabled selected>Select New Position...</option>
-                            @foreach($positions as $position)
-                                <option value="{{ $position->id }}">{{ $position->position_name }}</option>
-                            @endforeach
-                        </select>
-                    </div>
-
-                    <div class="mb-3">
-                        <label class="form-label fw-bold text-muted small text-uppercase">Effective Date (Optional)</label>
-                        <input type="date" name="effective_date" class="form-control">
+                <div class="modal-body p-4">
+                    <div class="row g-3">
+                        <div class="col-12">
+                            <label class="form-label fw-bold text-muted small text-uppercase">Select Employee <span class="text-danger">*</span></label>
+                            <div class="input-group">
+                                <input type="hidden" name="user_id" id="promote_employee_id" required>
+                                <input type="text" id="promote_employee_name" class="form-control bg-light" readonly placeholder="Click 'Browse' to select an employee..." required>
+                                <button type="button" class="btn fw-bold btn-browse-employee shadow-sm" style="background-color: var(--accent-yellow, #FDE047); color: #1A3E6F; border-color: #EAB308;" data-target-id="promote_employee_id" data-target-name="promote_employee_name" data-target-action="promote">
+                                    <i class="bi bi-search me-1"></i> Browse
+                                </button>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small fw-bold text-muted mb-1">Date From <span class="text-danger">*</span></label>
+                            <input type="date" name="date_from" class="form-control" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small fw-bold text-muted mb-1">Date To <span class="text-danger">*</span></label>
+                            <input type="text" name="date_to" class="form-control text-uppercase" placeholder="YYYY-MM-DD or Present" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small fw-bold text-muted mb-1">Designation <span class="text-danger">*</span></label>
+                            <select name="designation" id="promote_designation_select" class="form-select text-uppercase" required>
+                                <option value="" disabled selected>Select Position...</option>
+                                @foreach($positions as $position)
+                                <option value="{{ $position->position_name }}">{{ $position->position_name }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small fw-bold text-muted mb-1">Status <span class="text-danger">*</span></label>
+                            <input type="text" name="status" class="form-control text-uppercase" placeholder="e.g. Perm" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small fw-bold text-muted mb-1">Salary <span class="text-danger">*</span></label>
+                            <input type="text" name="salary" class="form-control" placeholder="e.g. 239,280.00" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small fw-bold text-muted mb-1">Station/Place <span class="text-danger">*</span></label>
+                            <input type="text" name="station_place" class="form-control text-uppercase" placeholder="-do- or location name" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small fw-bold text-muted mb-1">Branch</label>
+                            <input type="text" name="branch" class="form-control text-uppercase" placeholder="-do- or Nat'l">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small fw-bold text-muted mb-1">Leave w/out pay</label>
+                            <input type="text" name="leave_without_pay" class="form-control text-uppercase" placeholder="None or -do-">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small fw-bold text-muted mb-1">Separation Date</label>
+                            <input type="text" name="separation_date" class="form-control text-uppercase">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small fw-bold text-muted mb-1">Separation Cause</label>
+                            <input type="text" name="separation_cause" class="form-control text-uppercase" placeholder="None or NBC 562">
+                        </div>
                     </div>
                 </div>
-                <div class="modal-footer bg-light">
-                    <button type="button" class="btn btn-secondary fw-bold" data-bs-dismiss="modal">Cancel</button>
-                    <button type="submit" class="btn fw-bold shadow-sm" style="background-color: var(--accent-yellow, #FDE047); color: #1A3E6F;">Confirm Promotion</button>
+                <div class="modal-footer bg-light justify-content-end border-top-0">
+                    <button type="button" class="btn btn-secondary px-4 fw-bold" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn fw-bold px-4 shadow-sm" style="background-color: var(--accent-yellow, #FDE047); color: #1A3E6F;">Confirm Promotion</button>
                 </div>
             </form>
         </div>
@@ -512,10 +538,10 @@
 </div>
 
 {{-- ============================================ --}}
-{{-- OFFBOARD EMPLOYEE MODAL (with Select2) --}}
+{{-- OFFBOARD EMPLOYEE MODAL --}}
 {{-- ============================================ --}}
 <div class="modal fade" id="offboardEmployeeModal" tabindex="-1" aria-labelledby="offboardEmployeeModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-fullscreen-sm-down">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
         <div class="modal-content border-0 shadow">
             <div class="modal-header bg-light">
                 <h5 class="modal-title fw-bold text-danger" id="offboardEmployeeModalLabel">Offboard Employee</h5>
@@ -523,40 +549,76 @@
             </div>
             <form action="{{ route('hr.offboard_employee') }}" method="POST">
                 @csrf
-                <div class="modal-body">
-                    <div class="mb-3">
-                        <label class="form-label fw-bold text-muted small text-uppercase">Select Employee <span class="text-danger">*</span></label>
-                        <select name="user_id" id="offboard_employee_select" class="form-select" required>
-                            <option value="" disabled selected>Search for an employee...</option>
-                            @foreach($employees as $emp)
-                                <option value="{{ $emp->id }}">
-                                    {{ $emp->last_name }}, {{ $emp->first_name }} {{ $emp->middle_name }} — {{ $emp->position->position_name ?? 'NOT ASSIGNED' }}
-                                </option>
-                            @endforeach
-                        </select>
-                    </div>
-
-                    <div class="mb-3">
-                        <label class="form-label fw-bold text-muted small text-uppercase">Reason for Separation <span class="text-danger">*</span></label>
-                        <select name="separation_reason" id="offboard_reason" class="form-select" required>
-                            <option value="" disabled selected>Select Reason...</option>
-                            <option value="Resignation">Resignation</option>
-                            <option value="Retirement">Retirement</option>
-                            <option value="Termination">Termination</option>
-                            <option value="Transfer to other agency">Transfer to other agency</option>
-                            <option value="End of Contract">End of Contract</option>
-                            <option value="Death">Death</option>
-                        </select>
-                    </div>
-
-                    <div class="mb-3">
-                        <label class="form-label fw-bold text-muted small text-uppercase">Effective Date <span class="text-danger">*</span></label>
-                        <input type="date" name="effective_date" id="offboard_effective_date" class="form-control" required>
+                <div class="modal-body p-4">
+                    <div class="row g-3">
+                        <div class="col-12">
+                            <label class="form-label fw-bold text-muted small text-uppercase">Select Employee <span class="text-danger">*</span></label>
+                            <div class="input-group">
+                                <input type="hidden" name="user_id" id="offboard_employee_id" required>
+                                <input type="text" id="offboard_employee_name" class="form-control bg-light" readonly placeholder="Click 'Browse' to select an employee..." required>
+                                <button type="button" class="btn fw-bold btn-browse-employee shadow-sm" style="background-color: var(--accent-yellow, #FDE047); color: #1A3E6F; border-color: #EAB308;" data-target-id="offboard_employee_id" data-target-name="offboard_employee_name" data-target-action="offboard">
+                                    <i class="bi bi-search me-1"></i> Browse
+                                </button>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small fw-bold text-muted mb-1">Date From <span class="text-danger">*</span></label>
+                            <input type="date" name="date_from" class="form-control" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small fw-bold text-muted mb-1">Date To <span class="text-danger">*</span></label>
+                            <input type="text" name="date_to" class="form-control text-uppercase" placeholder="YYYY-MM-DD or Present" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small fw-bold text-muted mb-1">Designation <span class="text-danger">*</span></label>
+                            <select name="designation" id="offboard_designation_select" class="form-select text-uppercase" required>
+                                <option value="" disabled selected>Select Position...</option>
+                                @foreach($positions as $position)
+                                <option value="{{ $position->position_name }}">{{ $position->position_name }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small fw-bold text-muted mb-1">Status <span class="text-danger">*</span></label>
+                            <input type="text" name="status" class="form-control text-uppercase" placeholder="e.g. Perm" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small fw-bold text-muted mb-1">Salary <span class="text-danger">*</span></label>
+                            <input type="text" name="salary" class="form-control" placeholder="e.g. 239,280.00" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small fw-bold text-muted mb-1">Station/Place <span class="text-danger">*</span></label>
+                            <input type="text" name="station_place" class="form-control text-uppercase" placeholder="-do- or location name" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small fw-bold text-muted mb-1">Branch</label>
+                            <input type="text" name="branch" class="form-control text-uppercase" placeholder="-do- or Nat'l">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small fw-bold text-muted mb-1">Leave w/out pay</label>
+                            <input type="text" name="leave_without_pay" class="form-control text-uppercase" placeholder="None or -do-">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small fw-bold text-muted mb-1">Separation Date <span class="text-danger">*</span></label>
+                            <input type="date" name="separation_date" class="form-control text-uppercase" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small fw-bold text-muted mb-1">Separation Cause <span class="text-danger">*</span></label>
+                            <select name="separation_cause" id="offboard_separation_cause" class="form-select" required>
+                                <option value="" disabled selected>Select Reason...</option>
+                                <option value="Resignation">Resignation</option>
+                                <option value="Retirement">Retirement</option>
+                                <option value="Termination">Termination</option>
+                                <option value="Transfer to other agency">Transfer to other agency</option>
+                                <option value="End of Contract">End of Contract</option>
+                                <option value="Death">Death</option>
+                            </select>
+                        </div>
                     </div>
                 </div>
-                <div class="modal-footer bg-light">
-                    <button type="button" class="btn btn-secondary fw-bold" data-bs-dismiss="modal">Cancel</button>
-                    <button type="submit" class="btn btn-danger fw-bold shadow-sm">Confirm Offboarding</button>
+                <div class="modal-footer bg-light justify-content-end border-top-0">
+                    <button type="button" class="btn btn-secondary px-4 fw-bold" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-danger fw-bold px-4 shadow-sm">Confirm Offboarding</button>
                 </div>
             </form>
         </div>
@@ -564,142 +626,473 @@
 </div>
 
 {{-- ============================================ --}}
-{{-- REASSIGN EMPLOYEE MODAL (with Select2) --}}
+{{-- REASSIGN EMPLOYEE MODAL --}}
 {{-- ============================================ --}}
 <div class="modal fade" id="reassignEmployeeModal" tabindex="-1" aria-labelledby="reassignEmployeeModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered modal-fullscreen-sm-down">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
         <div class="modal-content shadow">
-            <div class="modal-header border-bottom-0 bg-light">
+            <div class="modal-header bg-light">
                 <h5 class="modal-title fw-bold" style="color: #1A3E6F;" id="reassignEmployeeModalLabel">Reassign Employee</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <form id="reassignForm" action="{{ route('hr.reassign_employee', ['id' => 0]) }}" method="POST">
                 @csrf
-                <div class="modal-body">
-                    <div class="mb-3">
-                        <label class="form-label text-muted small fw-bold">Select Employee <span class="text-danger">*</span></label>
-                        <select name="user_id_select" id="reassign_employee_select" class="form-select" required>
-                            <option value="" disabled selected>Search for an employee...</option>
-                            @foreach($employees as $emp)
-                                <option value="{{ $emp->id }}" data-position="{{ $emp->position->position_name ?? 'NOT ASSIGNED' }}">
-                                    {{ $emp->last_name }}, {{ $emp->first_name }} {{ $emp->middle_name }} — {{ $emp->position->position_name ?? 'NOT ASSIGNED' }}
-                                </option>
-                            @endforeach
-                        </select>
-                    </div>
-
-                    <div class="mb-3">
-                        <label class="form-label text-muted small fw-bold">Current Position</label>
-                        <input type="text" class="form-control bg-light" id="reassign_current_position" readonly placeholder="Select an employee above">
-                    </div>
-
-                    <div class="mb-3">
-                        <label class="form-label text-muted small fw-bold">New Position <span class="text-danger">*</span></label>
-                        <select class="form-select focus-ring" name="position_id" id="reassign_new_position" required>
-                            <option value="">Select new position...</option>
-                            @foreach($positions as $position)
-                                <option value="{{ $position->id }}">{{ $position->position_name }} ({{ $position->category }})</option>
-                            @endforeach
-                        </select>
-                    </div>
-
-                    <div class="mb-3">
-                        <label class="form-label text-muted small fw-bold">New Department/Unit <span class="text-danger">*</span></label>
-                        <select class="form-select focus-ring" name="learning_area_id" id="reassign_new_department" required>
-                            <option value="">Select new department...</option>
-                            @foreach($learningAreas as $area)
-                                <option value="{{ $area->id }}">{{ $area->name }}</option>
-                            @endforeach
-                        </select>
-                    </div>
-
-                    <div class="mb-3">
-                        <label class="form-label text-muted small fw-bold">Effective Date <span class="text-danger">*</span></label>
-                        <input type="date" class="form-control focus-ring" name="effective_date" id="reassign_effective_date" required>
-                    </div>
-
-                    <div class="mb-3">
-                        <label class="form-label text-muted small fw-bold">Remarks / Reason for Transfer</label>
-                        <textarea class="form-control focus-ring" name="remarks" id="reassign_remarks" rows="2" placeholder="Optional remarks..."></textarea>
+                <div class="modal-body p-4">
+                    <div class="row g-3">
+                        <div class="col-12">
+                            <label class="form-label text-muted small fw-bold text-uppercase">Select Employee <span class="text-danger">*</span></label>
+                            <div class="input-group">
+                                <input type="hidden" name="user_id_select" id="reassign_employee_id" required>
+                                <input type="text" id="reassign_employee_name" class="form-control bg-light" readonly placeholder="Click 'Browse' to select an employee..." required>
+                                <button type="button" class="btn fw-bold btn-browse-employee shadow-sm" style="background-color: var(--accent-yellow, #FDE047); color: #1A3E6F; border-color: #EAB308;" data-target-id="reassign_employee_id" data-target-name="reassign_employee_name" data-target-action="reassign">
+                                    <i class="bi bi-search me-1"></i> Browse
+                                </button>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small fw-bold text-muted mb-1">Date From <span class="text-danger">*</span></label>
+                            <input type="date" name="date_from" class="form-control" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small fw-bold text-muted mb-1">Date To <span class="text-danger">*</span></label>
+                            <input type="text" name="date_to" class="form-control text-uppercase" placeholder="YYYY-MM-DD or Present" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small fw-bold text-muted mb-1">Designation <span class="text-danger">*</span></label>
+                            <select name="designation" id="reassign_designation_select" class="form-select text-uppercase" required>
+                                <option value="" disabled selected>Select Position...</option>
+                                @foreach($positions as $position)
+                                <option value="{{ $position->position_name }}">{{ $position->position_name }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small fw-bold text-muted mb-1">Status <span class="text-danger">*</span></label>
+                            <input type="text" name="status" class="form-control text-uppercase" placeholder="e.g. Perm" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small fw-bold text-muted mb-1">Salary <span class="text-danger">*</span></label>
+                            <input type="text" name="salary" class="form-control" placeholder="e.g. 239,280.00" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small fw-bold text-muted mb-1">Station/Place <span class="text-danger">*</span></label>
+                            <input type="text" name="station_place" class="form-control text-uppercase" placeholder="-do- or location name" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small fw-bold text-muted mb-1">Branch</label>
+                            <select class="form-select text-uppercase" name="branch" id="reassign_branch_select">
+                                <option value="">Select department...</option>
+                                @foreach($learningAreas as $area)
+                                    <option value="{{ $area->name }}">{{ $area->name }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small fw-bold text-muted mb-1">Leave w/out pay</label>
+                            <input type="text" name="leave_without_pay" class="form-control text-uppercase" placeholder="None or -do-">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small fw-bold text-muted mb-1">Separation Date</label>
+                            <input type="text" name="separation_date" class="form-control text-uppercase">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small fw-bold text-muted mb-1">Separation Cause</label>
+                            <input type="text" name="separation_cause" class="form-control text-uppercase" placeholder="None or NBC 562">
+                        </div>
                     </div>
                 </div>
-                <div class="modal-footer bg-light border-top-0">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                    <button type="submit" class="btn fw-bold shadow-sm" style="background-color: #FDE047; color: #1F2937; border-color: #EAB308;">Confirm Reassignment</button>
+                <div class="modal-footer bg-light justify-content-end border-top-0">
+                    <button type="button" class="btn btn-secondary px-4 fw-bold" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn fw-bold px-4 shadow-sm" style="background-color: #FDE047; color: #1F2937; border-color: #EAB308;">Confirm Reassignment</button>
                 </div>
             </form>
         </div>
     </div>
 </div>
 
+{{-- ============================================ --}}
+{{-- DEDICATED EMPLOYEE SELECTION MODAL (AJAX) --}}
+{{-- ============================================ --}}
+<div class="modal fade" id="employeeSelectionModal" tabindex="-1" aria-labelledby="employeeSelectionModalLabel" aria-hidden="true" style="z-index: 1065;">
+    <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header bg-light">
+                <h5 class="modal-title fw-bold" id="employeeSelectionModalLabel" style="color: #1A3E6F;">
+                    <i class="bi bi-people-fill me-2"></i> Select Employee
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-4">
+                {{-- Category Nav Tabs --}}
+                <ul class="nav nav-pills mb-3 gap-2" id="empModalTabs" role="tablist">
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link active fw-bold px-4 py-2" id="emp-tab-teaching" type="button" data-category="teaching">
+                            <i class="bi bi-mortarboard-fill me-1"></i> Teaching
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link fw-bold px-4 py-2" id="emp-tab-non-teaching" type="button" data-category="non-teaching">
+                            <i class="bi bi-briefcase-fill me-1"></i> Non-Teaching
+                        </button>
+                    </li>
+                </ul>
+
+                {{-- Search Filter Input --}}
+                <div class="mb-3">
+                    <div class="input-group">
+                        <span class="input-group-text bg-white border-end-0"><i class="bi bi-search text-muted"></i></span>
+                        <input type="search" id="emp-search-input" class="form-control border-start-0 ps-0" placeholder="Search employee by name or position...">
+                    </div>
+                </div>
+
+                {{-- Content Results Container --}}
+                <div id="employee-results" class="position-relative" style="min-height: 220px;">
+                    <!-- Dynamically populated via AJAX -->
+                </div>
+
+                {{-- Pagination Links Container --}}
+                <div id="employee-pagination" class="d-flex justify-content-center mt-3">
+                    <!-- Dynamically populated via AJAX -->
+                </div>
+            </div>
+            <div class="modal-footer bg-light border-top-0 justify-content-end">
+                <button type="button" class="btn btn-secondary px-4 fw-bold" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    #empModalTabs .nav-link {
+        color: #1A3E6F;
+        border-radius: 8px;
+        background-color: #f1f5f9;
+        border: 1px solid #e2e8f0;
+        transition: all 0.2s ease;
+    }
+    #empModalTabs .nav-link.active {
+        background-color: #FDE047 !important;
+        color: #1F2937 !important;
+        border-color: #EAB308 !important;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.08);
+    }
+</style>
+
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    // Initialize Select2 on all employee search dropdowns
-    const select2Config = {
-        theme: 'bootstrap-5',
-        width: '100%',
-        placeholder: 'Search for an employee...',
-        allowClear: true
-    };
+    // Helper function to initialize Select2 with Bootstrap 5 theme inside modals
+    function initSearchableDropdown(selector, modalId, placeholderText) {
+        $(selector).select2({
+            theme: 'bootstrap-5',
+            width: '100%',
+            placeholder: placeholderText,
+            allowClear: true,
+            dropdownParent: $(modalId)
+        });
+    }
 
-    // Promote modal Select2
-    $('#promote_employee_select').select2({
-        ...select2Config,
-        dropdownParent: $('#promoteEmployeeModal')
+    // Initialize Select2 dropdowns for position and department fields
+    initSearchableDropdown('#promote_designation_select', '#promoteEmployeeModal', 'Search & select position...');
+    initSearchableDropdown('#offboard_designation_select', '#offboardEmployeeModal', 'Search & select position...');
+    initSearchableDropdown('#offboard_separation_cause', '#offboardEmployeeModal', 'Search & select reason...');
+    initSearchableDropdown('#reassign_designation_select', '#reassignEmployeeModal', 'Search & select position...');
+    initSearchableDropdown('#reassign_branch_select', '#reassignEmployeeModal', 'Search & select department...');
+
+    // =========================================================================
+    // Employee Selection Modal State & AJAX Fetching
+    // =========================================================================
+    let currentCategory = 'teaching';
+    let searchQuery = '';
+    let currentPage = 1;
+    let activeTargetId = null;
+    let activeTargetName = null;
+    let activeTargetAction = null;
+    let activeParentModal = null;
+    let isBrowsing = false;
+    let debounceTimer = null;
+
+    // When "Browse" button is clicked from any parent modal
+    $(document).on('click', '.btn-browse-employee', function(e) {
+        e.preventDefault();
+        activeTargetId = $(this).data('target-id');
+        activeTargetName = $(this).data('target-name');
+        activeTargetAction = $(this).data('target-action');
+        activeParentModal = $(this).closest('.modal');
+        isBrowsing = true;
+        
+        // Reset search & pagination
+        $('#emp-search-input').val('');
+        searchQuery = '';
+        currentPage = 1;
+
+        // Hide parent modal and open selection modal
+        if (activeParentModal.length) {
+            bootstrap.Modal.getOrCreateInstance(activeParentModal[0]).hide();
+        }
+
+        setTimeout(function() {
+            bootstrap.Modal.getOrCreateInstance(document.getElementById('employeeSelectionModal')).show();
+            fetchEmployees();
+        }, 150);
     });
 
-    // Offboard modal Select2
-    $('#offboard_employee_select').select2({
-        ...select2Config,
-        dropdownParent: $('#offboardEmployeeModal')
+    // Handle Category Tab switching
+    $('#empModalTabs button').on('click', function() {
+        $('#empModalTabs button').removeClass('active');
+        $(this).addClass('active');
+        currentCategory = $(this).data('category');
+        currentPage = 1;
+        fetchEmployees();
     });
 
-    // Reassign modal Select2
-    $('#reassign_employee_select').select2({
-        ...select2Config,
-        dropdownParent: $('#reassignEmployeeModal')
+    // Handle Search Input with Debounce
+    $('#emp-search-input').on('input', function() {
+        clearTimeout(debounceTimer);
+        searchQuery = $(this).val().trim();
+        currentPage = 1;
+        debounceTimer = setTimeout(function() {
+            fetchEmployees();
+        }, 300);
     });
 
-    // Auto-populate current position when employee is selected (Promote)
-    $('#promote_employee_select').on('change', function() {
-        const selected = $(this).find(':selected');
-        const position = selected.data('position') || 'NOT ASSIGNED';
-        document.getElementById('promote_current_position').value = position;
+    // Handle Pagination Clicks
+    $(document).on('click', '#employee-pagination .page-link', function(e) {
+        e.preventDefault();
+        const page = $(this).data('page');
+        if (page && page !== currentPage) {
+            currentPage = page;
+            fetchEmployees();
+        }
     });
 
-    // Auto-populate current position when employee is selected (Reassign)
-    $('#reassign_employee_select').on('change', function() {
-        const selected = $(this).find(':selected');
-        const position = selected.data('position') || 'NOT ASSIGNED';
-        document.getElementById('reassign_current_position').value = position;
+    // Fetch Employees AJAX Request
+    function fetchEmployees() {
+        $('#employee-results').html(`
+            <div class="d-flex flex-column align-items-center justify-content-center py-5 text-muted">
+                <div class="spinner-border text-warning mb-2" role="status"></div>
+                <small>Loading employees...</small>
+            </div>
+        `);
 
-        // Update form action with selected employee ID
-        const userId = $(this).val();
-        const form = document.getElementById('reassignForm');
-        form.action = `/hr/employees/${userId}/reassign`;
+        $.ajax({
+            url: "{{ route('api.employees.get') }}",
+            type: "GET",
+            data: {
+                category: currentCategory,
+                search: searchQuery,
+                page: currentPage
+            },
+            dataType: "json",
+            success: function(response) {
+                console.log('Employee API success:', response);
+                renderEmployeeTable(response);
+            },
+            error: function(xhr, status, error) {
+                console.error('Employee API error:', status, error);
+                console.error('Response status:', xhr.status);
+                console.error('Response text:', xhr.responseText);
+                $('#employee-results').html(`
+                    <div class="alert alert-danger my-3 text-center">
+                        <i class="bi bi-exclamation-triangle-fill me-2"></i> Failed to load employees. Please try again.
+                        <br><small class="text-muted">Status: ${xhr.status} — Check browser console for details.</small>
+                    </div>
+                `);
+                $('#employee-pagination').html('');
+            }
+        });
+    }
+
+    // Render Employee Table
+    function renderEmployeeTable(response) {
+        const data = response.data || [];
+        if (data.length === 0) {
+            $('#employee-results').html(`
+                <div class="text-center py-5 text-muted">
+                    <i class="bi bi-person-x fs-1 d-block mb-2 opacity-50"></i>
+                    <p class="mb-0 fw-semibold">No employees found matching criteria.</p>
+                </div>
+            `);
+            $('#employee-pagination').html('');
+            return;
+        }
+
+        let html = `
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-light">
+                        <tr class="small text-uppercase text-muted">
+                            <th class="ps-3">Employee Name</th>
+                            <th>Current Position</th>
+                            <th>Department</th>
+                            <th class="text-end pe-3">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+        `;
+
+        data.forEach(emp => {
+            const fullName = `${emp.last_name}, ${emp.first_name} ${emp.middle_name ? emp.middle_name : ''}`.trim();
+            const posName = emp.position ? emp.position.position_name : 'NOT ASSIGNED';
+            const deptName = emp.learning_area ? emp.learning_area.name : '—';
+
+            html += `
+                <tr>
+                    <td class="ps-3">
+                        <div class="fw-bold text-dark text-uppercase">${fullName}</div>
+                        <small class="text-muted">ID: ${String(emp.id).padStart(4, '0')}</small>
+                    </td>
+                    <td><span class="badge bg-light text-dark border">${posName}</span></td>
+                    <td><small class="text-muted">${deptName}</small></td>
+                    <td class="text-end pe-3">
+                        <button type="button" class="btn btn-sm fw-bold px-3 btn-select-emp shadow-sm" style="background-color: var(--accent-yellow, #FDE047); color: #1A3E6F; border-color: #EAB308;"
+                            data-id="${emp.id}" 
+                            data-name="${fullName}" 
+                            data-position="${posName}">
+                            <i class="bi bi-check2 me-1"></i> Select
+                        </button>
+                    </td>
+                </tr>
+            `;
+        });
+
+        html += `</tbody></table></div>`;
+        $('#employee-results').html(html);
+
+        renderPagination(response);
+    }
+
+    // Render Pagination Controls
+    function renderPagination(response) {
+        if (!response.last_page || response.last_page <= 1) {
+            $('#employee-pagination').html('');
+            return;
+        }
+
+        let paginationHtml = '<nav><ul class="pagination pagination-sm mb-0">';
+
+        // Prev
+        if (response.current_page > 1) {
+            paginationHtml += `<li class="page-item"><a class="page-link" href="#" data-page="${response.current_page - 1}">&laquo; Prev</a></li>`;
+        } else {
+            paginationHtml += `<li class="page-item disabled"><span class="page-link">&laquo; Prev</span></li>`;
+        }
+
+        // Page Numbers
+        for (let i = 1; i <= response.last_page; i++) {
+            if (i === 1 || i === response.last_page || (i >= response.current_page - 1 && i <= response.current_page + 1)) {
+                if (i === response.current_page) {
+                    paginationHtml += `<li class="page-item active"><span class="page-link bg-warning text-dark border-warning fw-bold">${i}</span></li>`;
+                } else {
+                    paginationHtml += `<li class="page-item"><a class="page-link text-dark" href="#" data-page="${i}">${i}</a></li>`;
+                }
+            } else if (i === response.current_page - 2 || i === response.current_page + 2) {
+                paginationHtml += `<li class="page-item disabled"><span class="page-link">...</span></li>`;
+            }
+        }
+
+        // Next
+        if (response.current_page < response.last_page) {
+            paginationHtml += `<li class="page-item"><a class="page-link" href="#" data-page="${response.current_page + 1}">Next &raquo;</a></li>`;
+        } else {
+            paginationHtml += `<li class="page-item disabled"><span class="page-link">Next &raquo;</span></li>`;
+        }
+
+        paginationHtml += '</ul></nav>';
+        $('#employee-pagination').html(paginationHtml);
+    }
+
+    // When an Employee is Selected from the Modal
+    $(document).on('click', '.btn-select-emp', function() {
+        const empId = $(this).data('id');
+        const empName = $(this).data('name');
+        const empPosition = $(this).data('position');
+
+        if (activeTargetId) {
+            $('#' + activeTargetId).val(empId);
+        }
+        if (activeTargetName) {
+            $('#' + activeTargetName).val(empName);
+        }
+
+        // Perform action-specific mappings
+        if (activeTargetAction === 'offboard') {
+            if (empPosition && empPosition !== 'NOT ASSIGNED') {
+                $('#offboard_designation_select').val(empPosition).trigger('change');
+            }
+        } else if (activeTargetAction === 'reassign') {
+            const form = document.getElementById('reassignForm');
+            if (form) {
+                form.action = `/hr/employees/${empId}/reassign`;
+            }
+        }
+
+        // Close Employee Selection Modal cleanly (triggering hidden.bs.modal return)
+        const modalEl = document.getElementById('employeeSelectionModal');
+        const modalInstance = bootstrap.Modal.getInstance(modalEl);
+        if (modalInstance) {
+            modalInstance.hide();
+        }
     });
 
-    // Reset modals on close
-    $('#promoteEmployeeModal').on('hidden.bs.modal', function() {
-        $('#promote_employee_select').val(null).trigger('change');
-        document.getElementById('promote_current_position').value = '';
-        document.getElementById('promote_new_position').selectedIndex = 0;
-        $(this).find('input[type="date"]').val('');
+    // When Employee Selection Modal closes, return user to original parent modal
+    $('#employeeSelectionModal').on('hidden.bs.modal', function() {
+        if (activeParentModal && activeParentModal.length && isBrowsing) {
+            setTimeout(function() {
+                bootstrap.Modal.getOrCreateInstance(activeParentModal[0]).show();
+                isBrowsing = false;
+            }, 150);
+        } else {
+            isBrowsing = false;
+        }
     });
 
-    $('#offboardEmployeeModal').on('hidden.bs.modal', function() {
-        $('#offboard_employee_select').val(null).trigger('change');
-        document.getElementById('offboard_reason').selectedIndex = 0;
-        document.getElementById('offboard_effective_date').value = '';
+    // Modal Initializations and Form Resets
+    $('#promoteEmployeeModal').on('show.bs.modal', function() {
+        if (!$(this).find('input[name="status"]').val()) {
+            $(this).find('input[name="status"]').val('PROMOTED');
+            $(this).find('input[name="date_to"]').val('PRESENT');
+            $(this).find('input[name="station_place"]').val('CNHS-JHS');
+            $(this).find('input[name="leave_without_pay"]').val('NONE');
+            $(this).find('input[name="separation_cause"]').val('NONE');
+        }
+    }).on('hidden.bs.modal', function() {
+        if (isBrowsing) return;
+        $(this).find('form')[0].reset();
+        $('#promote_employee_id').val('');
+        $('#promote_employee_name').val('');
+        $('#promote_designation_select').val(null).trigger('change');
     });
 
-    $('#reassignEmployeeModal').on('hidden.bs.modal', function() {
-        $('#reassign_employee_select').val(null).trigger('change');
-        document.getElementById('reassign_current_position').value = '';
-        document.getElementById('reassign_new_position').selectedIndex = 0;
-        document.getElementById('reassign_new_department').selectedIndex = 0;
-        document.getElementById('reassign_effective_date').value = '';
-        document.getElementById('reassign_remarks').value = '';
+    $('#offboardEmployeeModal').on('show.bs.modal', function() {
+        if (!$(this).find('input[name="status"]').val()) {
+            $(this).find('input[name="status"]').val('SEPARATED');
+            $(this).find('input[name="station_place"]').val('CNHS-JHS');
+            $(this).find('input[name="leave_without_pay"]').val('NONE');
+        }
+    }).on('hidden.bs.modal', function() {
+        if (isBrowsing) return;
+        $(this).find('form')[0].reset();
+        $('#offboard_employee_id').val('');
+        $('#offboard_employee_name').val('');
+        $('#offboard_designation_select').val(null).trigger('change');
+        $('#offboard_separation_cause').val(null).trigger('change');
+    });
+
+    $('#reassignEmployeeModal').on('show.bs.modal', function() {
+        if (!$(this).find('input[name="status"]').val()) {
+            $(this).find('input[name="status"]').val('REASSIGNED');
+            $(this).find('input[name="date_to"]').val('PRESENT');
+            $(this).find('input[name="station_place"]').val('CNHS-JHS');
+            $(this).find('input[name="leave_without_pay"]').val('NONE');
+            $(this).find('input[name="separation_cause"]').val('NONE');
+        }
+    }).on('hidden.bs.modal', function() {
+        if (isBrowsing) return;
+        $(this).find('form')[0].reset();
+        $('#reassign_employee_id').val('');
+        $('#reassign_employee_name').val('');
+        $('#reassign_designation_select').val(null).trigger('change');
+        $('#reassign_branch_select').val(null).trigger('change');
     });
 });
 </script>

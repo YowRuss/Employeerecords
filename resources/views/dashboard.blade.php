@@ -218,7 +218,73 @@
         </div>
     </div>
 </div>
+
+<div class="row mb-4">
+    <div class="col-12">
+        <h5 class="text-accent fw-bold"><i class="bi bi-grid-fill me-2"></i> HR Management Modules</h5>
+    </div>
+</div>
+
+<div class="row g-4 mb-4">
+    <!-- Announcements -->
+    <div class="col-md-6 col-lg-4">
+        <div class="card h-100 border-0 shadow-sm rounded-4 hover-lift" style="border-bottom: 4px solid #0d6efd !important;">
+            <div class="card-body text-center p-4">
+                <div class="rounded-circle d-inline-flex align-items-center justify-content-center mb-3" style="width: 60px; height: 60px; background-color: rgba(13, 110, 253, 0.1);">
+                    <i class="bi bi-megaphone-fill fs-3 text-primary"></i>
+                </div>
+                <h6 class="fw-bold text-dark">Announcements</h6>
+                <p class="text-muted small mb-4">Broadcast alerts, policies, and track read receipts across all staff.</p>
+                <a href="{{ route('announcements.index') }}" class="btn btn-outline-primary btn-sm w-100 fw-bold rounded-pill">
+                    Manage Broadcasts
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Event Organizer -->
+    <div class="col-md-6 col-lg-4">
+        <div class="card h-100 border-0 shadow-sm rounded-4 hover-lift" style="border-bottom: 4px solid #198754 !important;">
+            <div class="card-body text-center p-4">
+                <div class="rounded-circle d-inline-flex align-items-center justify-content-center mb-3" style="width: 60px; height: 60px; background-color: rgba(25, 135, 84, 0.1);">
+                    <i class="bi bi-calendar-event-fill fs-3 text-success"></i>
+                </div>
+                <h6 class="fw-bold text-dark">Event Organizer</h6>
+                <p class="text-muted small mb-4">Schedule meetings, track RSVPs, and monitor staff attendance.</p>
+                <a href="{{ route('events.index') }}" class="btn btn-outline-success btn-sm w-100 fw-bold rounded-pill">
+                    Manage Events
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- System Reports -->
+    <div class="col-md-6 col-lg-4">
+        <div class="card h-100 border-0 shadow-sm rounded-4 hover-lift" style="border-bottom: 4px solid #0dcaf0 !important;">
+            <div class="card-body text-center p-4">
+                <div class="rounded-circle d-inline-flex align-items-center justify-content-center mb-3" style="width: 60px; height: 60px; background-color: rgba(13, 202, 240, 0.1);">
+                    <i class="bi bi-bar-chart-fill fs-3 text-info"></i>
+                </div>
+                <h6 class="fw-bold text-dark">System Reports</h6>
+                <p class="text-muted small mb-4">Generate comprehensive metrics on staff demographics and activities.</p>
+                <a href="{{ route('hr.reports.index') }}" class="btn btn-outline-info btn-sm w-100 fw-bold rounded-pill">
+                    View Reports
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
 @endif
+
+<style>
+    .hover-lift {
+        transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+    }
+    .hover-lift:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 10px 20px rgba(0,0,0,0.08) !important;
+    }
+</style>
 
 <!-- ADMIN DASHBOARD -->
 @if(session('role_id') == 3)
@@ -284,90 +350,6 @@
 </div>
 @endif
 
-<!-- PRINCIPAL DASHBOARD -->
-@if(session('role_id') == 4)
-<div class="row mb-4">
-    <div class="col-12">
-        <h4 class="fw-bold text-dark mb-1">Welcome, Principal</h4>
-        <p class="text-muted small">Select a module below to manage school operations and staff requests.</p>
-    </div>
-</div>
 
-<div class="row g-4">
-    <!-- Power 1: Announcements -->
-    <div class="col-md-6 col-lg-3">
-        <div class="card h-100 border-0 shadow-sm border-bottom border-4 border-primary hover-lift">
-            <div class="card-body text-center p-4">
-                <div class="rounded-circle bg-primary bg-opacity-10 d-inline-flex align-items-center justify-content-center mb-3" style="width: 60px; height: 60px;">
-                    <i class="bi bi-megaphone-fill text-primary fs-3"></i>
-                </div>
-                <h6 class="fw-bold text-dark">Announcements</h6>
-                <p class="text-muted small mb-4">Broadcast alerts, policies, and track read receipts across all staff.</p>
-                <a href="{{ route('announcements.index') }}" class="btn btn-outline-primary btn-sm w-100 fw-bold rounded-pill">
-                    Manage Broadcasts
-                </a>
-            </div>
-        </div>
-    </div>
-
-    <!-- Power 2: Event Organizer -->
-    <div class="col-md-6 col-lg-3">
-        <div class="card h-100 border-0 shadow-sm border-bottom border-4 border-success hover-lift">
-            <div class="card-body text-center p-4">
-                <div class="rounded-circle bg-success bg-opacity-10 d-inline-flex align-items-center justify-content-center mb-3" style="width: 60px; height: 60px;">
-                    <i class="bi bi-calendar-star-fill text-success fs-3"></i>
-                </div>
-                <h6 class="fw-bold text-dark">Event Organizer</h6>
-                <p class="text-muted small mb-4">Schedule meetings, track RSVPs, and monitor staff attendance.</p>
-                <a href="{{ route('events.index') }}" class="btn btn-outline-success btn-sm w-100 fw-bold rounded-pill">
-                    Manage Events
-                </a>
-            </div>
-        </div>
-    </div>
-
-    <!-- Power 3: Leave Approvals (Final Authority) -->
-    <div class="col-md-6 col-lg-3">
-        <div class="card h-100 border-0 shadow-sm border-bottom border-4 border-warning hover-lift">
-            <div class="card-body text-center p-4">
-                <div class="rounded-circle bg-warning bg-opacity-10 d-inline-flex align-items-center justify-content-center mb-3" style="width: 60px; height: 60px;">
-                    <i class="bi bi-check-circle-fill text-warning fs-3"></i>
-                </div>
-                <h6 class="fw-bold text-dark">Leave Approvals</h6>
-                <p class="text-muted small mb-4">Review, approve, or deny all staff leave applications.</p>
-                <a href="{{ route('principal.leaves.index') }}" class="btn btn-outline-warning btn-sm w-100 fw-bold rounded-pill">
-                    Manage Leave Requests
-                </a>
-            </div>
-        </div>
-    </div>
-
-    <!-- Institutional Reports -->
-    <div class="col-md-6 col-lg-3">
-        <div class="card h-100 border-0 shadow-sm border-bottom border-4 border-info hover-lift">
-            <div class="card-body text-center p-4">
-                <div class="rounded-circle bg-info bg-opacity-10 d-inline-flex align-items-center justify-content-center mb-3" style="width: 60px; height: 60px;">
-                    <i class="bi bi-bar-chart-fill text-info fs-3"></i>
-                </div>
-                <h6 class="fw-bold text-dark">System Reports</h6>
-                <p class="text-muted small mb-4">Generate comprehensive metrics on staff demographics and activities.</p>
-                <a class="btn btn-outline-info btn-sm w-100 fw-bold rounded-pill" href="{{ route('principal.reports.index') }}">
-                    View Reports
-                </a>
-            </div>
-        </div>
-    </div>
-</div>
-
-<style>
-    .hover-lift {
-        transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
-    }
-    .hover-lift:hover {
-        transform: translateY(-5px);
-        box-shadow: 0 10px 20px rgba(0,0,0,0.08) !important;
-    }
-</style>
-@endif
 
 @endsection

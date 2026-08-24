@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\PositionCategory;
 use App\Models\Announcement;
 use App\Models\Event;
 use Carbon\Carbon;
@@ -84,7 +85,7 @@ class DashboardController extends Controller
                 ->where(function ($query) {
                     $query->whereNull('users.status')->orWhere('users.status', '!=', 'Inactive');
                 })
-                ->where('positions.category', 'Teaching')
+                ->where('positions.category', PositionCategory::Teaching->value)
                 ->count();
 
             $data['nonTeachingCount'] = DB::table('users')
@@ -93,7 +94,7 @@ class DashboardController extends Controller
                 ->where(function ($query) {
                     $query->whereNull('users.status')->orWhere('users.status', '!=', 'Inactive');
                 })
-                ->where('positions.category', 'Non-Teaching')
+                ->where('positions.category', PositionCategory::NonTeaching->value)
                 ->count();
 
             $data['pendingLeaves'] = DB::table('leave_applications')->where('status', 'PENDING')->count();

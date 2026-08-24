@@ -2,15 +2,17 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\PositionCategory;
+use App\Models\Position;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\Rules\Enum;
 
 class PositionController extends Controller
 {
     public function index()
     {
-        $teachingPositions = DB::table('positions')->where('category', 'Teaching')->orderBy('position_name', 'asc')->get();
-        $nonTeachingPositions = DB::table('positions')->where('category', 'Non-Teaching')->orderBy('position_name', 'asc')->get();
+        $teachingPositions = Position::where('category', PositionCategory::Teaching->value)->orderBy('position_name', 'asc')->get();
+        $nonTeachingPositions = Position::where('category', PositionCategory::NonTeaching->value)->orderBy('position_name', 'asc')->get();
 
         return view('hr.positions.index', compact('teachingPositions', 'nonTeachingPositions'));
     }
@@ -19,22 +21,41 @@ class PositionController extends Controller
     {
         $request->validate([
             'position_name' => 'required|string|max:255',
-            'category' => 'required|string|in:Teaching,Non-Teaching',
+            'category' => ['required', new Enum(PositionCategory::class)],
         ]);
 
-        DB::table('positions')->insert([
+        Position::create([
             'position_name' => strtoupper($request->position_name),
             'category' => $request->category,
-            'created_at' => now(),
-            'updated_at' => now(),
         ]);
 
         return back()->with('success', 'New position added successfully!');
     }
 
+    public function update(Request $request, $id)
+    {
+        $request->validate([
+            'position_name' => 'required|string|max:255',
+            'category' => ['nullable', new Enum(PositionCategory::class)],
+        ]);
+
+        $position = Position::findOrFail($id);
+        $data = [
+            'position_name' => strtoupper($request->position_name),
+        ];
+
+        if ($request->filled('category')) {
+            $data['category'] = $request->category;
+        }
+
+        $position->update($data);
+
+        return back()->with('success', 'Position updated successfully!');
+    }
+
     public function destroy($id)
     {
-        DB::table('positions')->where('id', $id)->delete();
+        Position::where('id', $id)->delete();
 
         return back()->with('success', 'Position deleted.');
     }

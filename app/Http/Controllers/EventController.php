@@ -13,12 +13,12 @@ use Illuminate\Support\Facades\Session;
 class EventController extends Controller
 {
     // ==========================================
-    // PRINCIPAL POWERS: Manage Events
+    // HR POWERS: Manage Events
     // ==========================================
 
     public function index()
     {
-        if (Session::get('role_id') != 4) {
+        if (Session::get('role_id') != 2) {
             return redirect()->route('dashboard')->with('error', 'Unauthorized access.');
         }
 
@@ -32,7 +32,7 @@ class EventController extends Controller
             ->select('id', 'first_name', 'last_name')
             ->get();
 
-        return view('principal.events.index', compact('events', 'employees'));
+        return view('hr.events.index', compact('events', 'employees'));
     }
 
     public function store(Request $request)
@@ -75,7 +75,7 @@ class EventController extends Controller
             Announcement::create([
                 'title' => 'Official Adviser Assignment: '.$event->title,
                 'type' => 'Assignment',
-                'content' => 'Attention '.$adviser->first_name.' '.$adviser->last_name.': You have been designated by the Principal as the official event adviser for '.$event->title.' scheduled on '.Carbon::parse($event->event_date)->format('M d, Y').'.',
+                'content' => 'Attention '.$adviser->first_name.' '.$adviser->last_name.': You have been designated by HR as the official event adviser for '.$event->title.' scheduled on '.Carbon::parse($event->event_date)->format('M d, Y').'.',
                 'is_pinned' => 1,
             ]);
         }
@@ -105,7 +105,7 @@ class EventController extends Controller
         $registeredCount = $attendees->where('status', 'Registered')->count();
         $attendedCount = $attendees->where('status', 'Attended')->count();
 
-        return view('principal.events.tracking', compact('event', 'attendees', 'registeredCount', 'attendedCount'));
+        return view('hr.events.tracking', compact('event', 'attendees', 'registeredCount', 'attendedCount'));
     }
 
     public function markAttendance($id)

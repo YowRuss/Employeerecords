@@ -7,6 +7,93 @@
             max-width: 300px;
         }
     }
+
+    /* System Design Pagination Styling */
+    .pagination-centered nav {
+        width: 100%;
+        display: flex;
+        justify-content: center;
+    }
+    .pagination-centered .d-flex.justify-content-between.flex-fill.d-sm-none {
+        display: none !important; /* Hides mobile summary row */
+    }
+    .pagination-centered .d-none.flex-sm-fill.d-sm-flex.align-items-sm-center.justify-content-sm-between > div:first-child {
+        display: none !important; /* Hides the 'Showing 1 to 10...' text block */
+    }
+    .pagination-centered .d-none.flex-sm-fill.d-sm-flex.align-items-sm-center.justify-content-sm-between > div:last-child {
+        width: 100%;
+        display: flex;
+        justify-content: center;
+    }
+    .pagination-centered .pagination {
+        display: flex;
+        gap: 6px;
+        margin: 0;
+        padding: 0;
+    }
+    .pagination-centered .page-item .page-link {
+        color: #1A3E6F;
+        font-weight: 600;
+        font-size: 0.875rem;
+        min-width: 36px;
+        height: 36px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 8px !important;
+        border: 1px solid #e2e8f0;
+        background-color: #ffffff;
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+        transition: all 0.2s ease-in-out;
+        text-decoration: none;
+    }
+    .pagination-centered .page-item:not(.active):not(.disabled) .page-link:hover {
+        background-color: #f8fafc;
+        border-color: #cbd5e1;
+        color: #0f172a;
+        transform: translateY(-1px);
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.08);
+    }
+    .pagination-centered .page-item.active .page-link {
+        background: linear-gradient(135deg, #1A3E6F, #0f2746);
+        border-color: #1A3E6F;
+        color: #ffffff;
+        box-shadow: 0 4px 10px rgba(26, 62, 111, 0.25);
+    }
+    .pagination-centered .page-item.disabled .page-link {
+        background-color: #f8fafc;
+        border-color: #f1f5f9;
+        color: #94a3b8;
+        opacity: 0.6;
+        cursor: not-allowed;
+    }
+    .pagination-centered .page-link:focus {
+        box-shadow: 0 0 0 3px rgba(26, 62, 111, 0.2);
+    }
+
+    /* Tabs Styling */
+    .service-tabs .nav-link {
+        border: none;
+        color: #1A3E6F;
+        font-weight: 600;
+        background: transparent;
+        border-radius: 0;
+        padding: 1rem 1.5rem;
+        opacity: 0.7;
+        transition: all 0.3s ease;
+        border-bottom: 3px solid transparent;
+    }
+    .service-tabs .nav-link:hover {
+        opacity: 1;
+        border-color: rgba(253, 224, 71, 0.5);
+    }
+    .service-tabs .nav-link.active {
+        background-color: var(--accent-yellow, #FDE047);
+        color: #1A3E6F;
+        opacity: 1;
+        border-color: var(--accent-yellow, #FDE047);
+        border-radius: 8px 8px 0 0;
+    }
 </style>
 
 <div class="container-fluid py-2">
@@ -30,9 +117,28 @@
     @endif
 
     <div class="card shadow-sm border-0 rounded-4 overflow-hidden">
-        <div class="card-header bg-white py-3 border-bottom border-light d-flex align-items-center justify-content-between">
-            <h6 class="m-0 fw-bold text-dark">Employee Directory</h6>
-            <span class="badge bg-light text-dark border px-3 py-2 rounded-pill">{{ count($employees) }} Records</span>
+        <div class="card-header bg-white pt-3 pb-0 border-bottom-0">
+            <div class="d-flex align-items-center justify-content-between mb-3">
+                <h6 class="m-0 fw-bold text-dark">Employee Directory</h6>
+            </div>
+            <!-- Tabbed Navigation -->
+            <ul class="nav nav-tabs service-tabs border-bottom-0">
+                <li class="nav-item">
+                    <a class="nav-link {{ request('filter') === null || request('filter') === 'all' ? 'active' : '' }}" href="{{ route('hr.service_record.directory', ['filter' => 'all']) }}">
+                        All Employees <span class="badge bg-white text-dark ms-1">{{ $allCount ?? 0 }}</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link {{ request('filter') === 'teaching' ? 'active' : '' }}" href="{{ route('hr.service_record.directory', ['filter' => 'teaching']) }}">
+                        Teaching Positions <span class="badge bg-white text-dark ms-1">{{ $teachingCount ?? 0 }}</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link {{ request('filter') === 'non-teaching' ? 'active' : '' }}" href="{{ route('hr.service_record.directory', ['filter' => 'non-teaching']) }}">
+                        Non-Teaching Positions <span class="badge bg-white text-dark ms-1">{{ $nonTeachingCount ?? 0 }}</span>
+                    </a>
+                </li>
+            </ul>
         </div>
         <div class="card-body p-0 table-responsive">
             <table class="table table-hover align-middle mb-0 border-top-0">
@@ -92,9 +198,10 @@
                 </tbody>
             </table>
         </div>
-        <div class="card-footer bg-white py-3 border-top border-light text-muted small d-flex flex-column flex-sm-row justify-content-between align-items-sm-center gap-2">
-            <span>Showing all employee service records.</span>
-            <button class="btn btn-light btn-sm text-muted rounded-3 align-self-start align-self-sm-auto"><i class="bi bi-arrow-clockwise me-1"></i> Refresh</button>
+        <div class="card-footer bg-white border-0 py-2 border-top border-light">
+            <div class="d-flex justify-content-center mt-4 mb-2 pagination-centered">
+                {{ $employees->links('pagination::bootstrap-5') }}
+            </div>
         </div>
     </div>
 </div>

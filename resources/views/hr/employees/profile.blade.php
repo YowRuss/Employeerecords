@@ -266,19 +266,19 @@
                     <div class="mb-4">
                         <label class="form-label small fw-bold text-uppercase tracking-wider" style="color: #1A3E6F;">Category</label>
                         <div class="btn-group w-100 mt-2 shadow-sm" role="group">
-                            <input type="radio" class="btn-check position-category-radio" name="position_category" id="catTeaching" value="Teaching" autocomplete="off" {{ ($employee->position->category ?? '') == 'Teaching' ? 'checked' : '' }}>
+                            <input type="radio" class="btn-check position-category-radio" name="position_category" id="catTeaching" value="{{ \App\Enums\PositionCategory::Teaching->value }}" autocomplete="off" {{ ($employee->position->category ?? null) === \App\Enums\PositionCategory::Teaching ? 'checked' : '' }}>
                             <label class="btn btn-outline-theme fw-bold py-2" for="catTeaching"><i class="bi bi-book me-1"></i> Teaching</label>
 
-                            <input type="radio" class="btn-check position-category-radio" name="position_category" id="catNonTeaching" value="Non-Teaching" autocomplete="off" {{ ($employee->position->category ?? 'Non-Teaching') == 'Non-Teaching' ? 'checked' : '' }}>
+                            <input type="radio" class="btn-check position-category-radio" name="position_category" id="catNonTeaching" value="{{ \App\Enums\PositionCategory::NonTeaching->value }}" autocomplete="off" {{ ($employee->position->category ?? null) === \App\Enums\PositionCategory::NonTeaching ? 'checked' : '' }}>
                             <label class="btn btn-outline-theme fw-bold py-2" for="catNonTeaching"><i class="bi bi-briefcase me-1"></i> Non-Teaching</label>
                         </div>
                     </div>
 
-                    <div class="mb-4 position-select-container" id="containerTeaching" style="{{ ($employee->position->category ?? '') == 'Teaching' ? '' : 'display: none;' }}">
+                    <div class="mb-4 position-select-container" id="containerTeaching" style="{{ ($employee->position->category ?? null) === \App\Enums\PositionCategory::Teaching ? '' : 'display: none;' }}">
                         <label class="form-label small fw-bold text-uppercase tracking-wider" style="color: #1A3E6F;">Teaching Position <span class="text-danger">*</span></label>
                         <select id="selectTeaching" class="form-select p-3 bg-light border-0 select2-position" style="border-radius: 8px;">
                             <option value="" disabled {{ !$employee->position_id ? 'selected' : '' }}>Select Teaching Position</option>
-                            @foreach($positions->where('category', 'Teaching') as $position)
+                            @foreach($positions->where('category', \App\Enums\PositionCategory::Teaching) as $position)
                                 <option value="{{ $position->id }}" {{ $employee->position_id == $position->id ? 'selected' : '' }}>
                                     {{ $position->position_name }}
                                 </option>
@@ -286,11 +286,11 @@
                         </select>
                     </div>
 
-                    <div class="mb-4 position-select-container" id="containerNonTeaching" style="{{ ($employee->position->category ?? 'Non-Teaching') == 'Non-Teaching' ? '' : 'display: none;' }}">
+                    <div class="mb-4 position-select-container" id="containerNonTeaching" style="{{ ($employee->position->category ?? null) === \App\Enums\PositionCategory::NonTeaching ? '' : 'display: none;' }}">
                         <label class="form-label small fw-bold text-uppercase tracking-wider" style="color: #1A3E6F;">Non-Teaching Position <span class="text-danger">*</span></label>
                         <select id="selectNonTeaching" class="form-select p-3 bg-light border-0 select2-position" style="border-radius: 8px;">
                             <option value="" disabled {{ !$employee->position_id ? 'selected' : '' }}>Select Non-Teaching Position</option>
-                            @foreach($positions->where('category', 'Non-Teaching') as $position)
+                            @foreach($positions->where('category', \App\Enums\PositionCategory::NonTeaching) as $position)
                                 <option value="{{ $position->id }}" {{ $employee->position_id == $position->id ? 'selected' : '' }}>
                                     {{ $position->position_name }}
                                 </option>
@@ -311,6 +311,7 @@
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+    const TEACHING_VALUE = '{{ \App\Enums\PositionCategory::Teaching->value }}';
     const radios = document.querySelectorAll('.position-category-radio');
     const containerT = document.getElementById('containerTeaching');
     const containerNT = document.getElementById('containerNonTeaching');
@@ -322,7 +323,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const selectedCat = document.querySelector('.position-category-radio:checked');
         if (!selectedCat) return;
         
-        if (selectedCat.value === 'Teaching') {
+        if (selectedCat.value === TEACHING_VALUE) {
             containerT.style.display = '';
             containerNT.style.display = 'none';
             selectT.required = true;

@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\PositionCategory;
+use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Session;
@@ -77,18 +79,38 @@ class ServiceRecordController extends Controller
     // =========================================================
     // HR SERVICE RECORD DIRECTORY
     // =========================================================
-    public function hrDirectory()
+    public function hrDirectory(Request $request)
     {
         if (! Session::has('user_id') || Session::get('role_id') == 1) { // Block standard employees
             return redirect()->route('dashboard')->with('error', 'Unauthorized access.');
         }
 
-        // Fetch all employees (role_id 1) to list in the directory
-        $employees = DB::table('users')
-            ->where('users.role_id', 1)
-            ->orderBy('users.last_name', 'asc')
-            ->get();
+        $filter = $request->query('filter', 'all');
 
-        return view('hr.service_records.index', compact('employees'));
+        $query = User::with('position')->where('role_id', 1);
+
+        if ($filter === 'teaching') {
+            $query->whereHas('position', function ($q) {
+                $q->where('category', PositionCategory::Teaching->value);
+            });
+        } elseif ($filter === 'non-teaching') {
+            $query->whereHas('position', function ($q) {
+                $q->where('category', PositionCategory::NonTeaching->value);
+            });
+        }
+
+        $employees = $query->orderBy('last_name', 'asc')->paginate(10)->withQueryString();
+
+        $allCount = User::where('role_id', 1)->count();
+        $teachingCount = User::where('role_id', 1)
+            ->whereHas('position', function ($q) {
+                $q->where('category', PositionCategory::Teaching->value);
+            })->count();
+        $nonTeachingCount = User::where('role_id', 1)
+            ->whereHas('position', function ($q) {
+                $q->where('category', PositionCategory::NonTeaching->value);
+            })->count();
+
+        return view('hr.service_records.index', compact('employees', 'filter', 'allCount', 'teachingCount', 'nonTeachingCount'));
     }
 }

@@ -12,13 +12,13 @@ use Illuminate\Support\Facades\Session;
 class AnnouncementController extends Controller
 {
     // ==========================================
-    // PRINCIPAL POWERS: Manage Announcements
+    // HR POWERS: Manage Announcements
     // ==========================================
 
     public function index()
     {
-        // Ensure only Principal (Role 4) can access management
-        if (Session::get('role_id') != 4) {
+        // Ensure only HR Admin (Role 2) can access management
+        if (Session::get('role_id') != 2) {
             return redirect()->route('dashboard')->with('error', 'Unauthorized access.');
         }
 
@@ -26,7 +26,7 @@ class AnnouncementController extends Controller
             ->orderBy('created_at', 'desc')
             ->get();
 
-        return view('principal.announcements.index', compact('announcements'));
+        return view('hr.announcements.index', compact('announcements'));
     }
 
     public function store(Request $request)
@@ -75,7 +75,7 @@ class AnnouncementController extends Controller
             ->select('users.first_name', 'users.last_name', 'announcement_acknowledgments.acknowledged_at')
             ->get();
 
-        return view('principal.announcements.tracking', compact('announcement', 'totalEmployees', 'acknowledgedCount', 'acknowledgedUsers'));
+        return view('hr.announcements.tracking', compact('announcement', 'totalEmployees', 'acknowledgedCount', 'acknowledgedUsers'));
     }
 
     // ==========================================

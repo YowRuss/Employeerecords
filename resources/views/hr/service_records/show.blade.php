@@ -187,7 +187,7 @@
                         </div>
                         <div class="col-md-6">
                             <label class="form-label small fw-bold text-muted mb-1">Designation <span class="text-danger">*</span></label>
-                            <select name="designation" class="form-select text-uppercase" required>
+                            <select name="designation" id="sr_designation_select" class="form-select text-uppercase searchable-dropdown" required>
                                 <option value="" disabled selected>Select Position...</option>
                                 @foreach($positions as $pos)
                                 <option value="{{ $pos->position_name }}">{{ $pos->position_name }}</option>
@@ -232,4 +232,21 @@
         </form>
     </div>
 </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    $('#sr_designation_select').select2({
+        theme: 'bootstrap-5',
+        width: '100%',
+        placeholder: 'Search & select position...',
+        allowClear: true,
+        dropdownParent: $('#addServiceRecordModal')
+    });
+
+    $('#addServiceRecordModal').on('hidden.bs.modal', function() {
+        $(this).find('form')[0].reset();
+        $('#sr_designation_select').val(null).trigger('change');
+    });
+});
+</script>
 @endsection

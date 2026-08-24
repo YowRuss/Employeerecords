@@ -48,8 +48,9 @@
                         <label class="small fw-bold text-muted text-uppercase tracking-wider">Category</label>
                         <select name="category" class="form-select" required>
                             <option value="" disabled selected>Select Category</option>
-                            <option value="Teaching">Teaching</option>
-                            <option value="Non-Teaching">Non-Teaching</option>
+                            @foreach(\App\Enums\PositionCategory::cases() as $category)
+                            <option value="{{ $category->value }}">{{ $category->label() }}</option>
+                            @endforeach
                         </select>
                     </div>
                     <button type="submit" class="btn text-white w-100 fw-bold" style="background-color: #1A3E6F;">Save Position</button>

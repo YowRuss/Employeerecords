@@ -8,6 +8,7 @@ use App\Http\Controllers\EmployeeController;
 use App\Http\Controllers\EventController;
 use App\Http\Controllers\HrController;
 use App\Http\Controllers\HrMessageController;
+use App\Http\Controllers\HrReportController;
 use App\Http\Controllers\HrSettingsController;
 use App\Http\Controllers\JobApplicationController;
 use App\Http\Controllers\JobPostingController;
@@ -15,8 +16,6 @@ use App\Http\Controllers\LeaveController;
 use App\Http\Controllers\LocationController;
 use App\Http\Controllers\PdsController;
 use App\Http\Controllers\PositionController;
-use App\Http\Controllers\PrincipalLeaveController;
-use App\Http\Controllers\PrincipalReportController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\RequisitionController;
 use App\Http\Controllers\SalnController;
@@ -52,17 +51,18 @@ Route::post('/positions/store', [DashboardController::class, 'storePosition'])->
 // Employee Management Routes (For HR and Admin)
 Route::get('/employees/create', [DashboardController::class, 'createEmployee'])->name('employees.create');
 Route::post('/employees/store', [DashboardController::class, 'storeEmployee'])->name('employees.store');
+Route::get('/api/employees', [EmployeeController::class, 'apiGetEmployees'])->name('api.employees.get');
 
-// Principal Announcement Routes
-Route::prefix('principal/announcements')->group(function () {
+// HR Announcement Routes
+Route::prefix('hr/announcements')->group(function () {
     Route::get('/', [AnnouncementController::class, 'index'])->name('announcements.index');
     Route::post('/store', [AnnouncementController::class, 'store'])->name('announcements.store');
     Route::post('/delete/{id}', [AnnouncementController::class, 'destroy'])->name('announcements.destroy');
     Route::get('/track/{id}', [AnnouncementController::class, 'tracking'])->name('announcements.track');
 });
 
-// Principal Event Routes
-Route::prefix('principal/events')->group(function () {
+// HR Event Routes
+Route::prefix('hr/events')->group(function () {
     Route::get('/', [EventController::class, 'index'])->name('events.index');
     Route::post('/store', [EventController::class, 'store'])->name('events.store');
     Route::post('/delete/{id}', [EventController::class, 'destroy'])->name('events.destroy');
@@ -70,14 +70,8 @@ Route::prefix('principal/events')->group(function () {
     Route::post('/attendance/{id}', [EventController::class, 'markAttendance'])->name('events.attendance');
 });
 
-// Principal Leave Approval Routes
-Route::prefix('principal/leaves')->group(function () {
-    Route::get('/', [PrincipalLeaveController::class, 'index'])->name('principal.leaves.index');
-    Route::post('/{id}/status', [PrincipalLeaveController::class, 'updateStatus'])->name('principal.leaves.update');
-});
-
-// Principal Reports Route
-Route::get('/principal/reports', [PrincipalReportController::class, 'index'])->name('principal.reports.index');
+// HR Reports Route
+Route::get('/hr/reports', [HrReportController::class, 'index'])->name('hr.reports.index');
 
 // Employee Registration Route
 Route::post('/events/{id}/register', [EventController::class, 'register'])->name('events.register');
@@ -133,9 +127,8 @@ Route::get('/my-events', [DashboardController::class, 'employeeEvents'])->name('
 Route::get('/hr/employee/{id}/pds', [HrController::class, 'viewPds'])->name('hr.view_pds');
 Route::get('/hr/employee/{id}/saln', [HrController::class, 'viewSaln'])->name('hr.view_saln');
 Route::get('/hr/staff-profiling', [HrController::class, 'staffProfiling'])->name('hr.staff_profiling');
-// Add this to your routes/web.php
 Route::post('/hr/positions/store', [PositionController::class, 'store'])->name('hr.positions.store');
-Route::post('/hr/positions/store', [PositionController::class, 'store'])->name('hr.positions.store');
+Route::post('/hr/positions/update/{id}', [PositionController::class, 'update'])->name('hr.positions.update');
 Route::post('/hr/positions/delete/{id}', [PositionController::class, 'destroy'])->name('hr.positions.destroy');
 
 Route::prefix('hr/job-postings')->group(function () {
@@ -216,6 +209,7 @@ Route::get('/requisitions', [RequisitionController::class, 'index'])->name('requ
 // HR Settings Module
 Route::get('/hr/settings/positions-areas', [HrSettingsController::class, 'positionsAndAreas'])->name('hr.settings.positions_areas');
 Route::post('/hr/settings/learning-areas/store', [HrSettingsController::class, 'storeLearningArea'])->name('hr.learning_areas.store');
+Route::post('/hr/settings/learning-areas/update/{id}', [HrSettingsController::class, 'updateLearningArea'])->name('hr.learning_areas.update');
 Route::post('/hr/settings/learning-areas/delete/{id}', [HrSettingsController::class, 'destroyLearningArea'])->name('hr.learning_areas.destroy');
 // Employee Routes (Service Record)
 Route::get('/my-service-record', [EmployeeController::class, 'myServiceRecord'])->name('employee.service_record');

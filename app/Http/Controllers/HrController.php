@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\PositionCategory;
 use App\Models\LearningArea;
 use App\Models\PdsPersonalInfo;
 use App\Models\Position;
@@ -79,8 +80,8 @@ class HrController extends Controller
             ->groupBy('pds_personal_info.sex')
             ->pluck('total', 'sex');
 
-        // Fetch all employees
-        $employees = User::with(['learningArea', 'position'])
+        // Fetch all employees query
+        $query = User::with(['learningArea', 'position'])
             ->leftJoin('pds_personal_info', 'users.id', '=', 'pds_personal_info.user_id')
             ->select(
                 'users.*',
@@ -90,39 +91,43 @@ class HrController extends Controller
                 'pds_personal_info.id as pds_id',
                 'pds_personal_info.sex'
             )
-            ->where('users.role_id', 1)
-            ->orderBy('users.last_name', 'asc')
-            ->get();
+            ->where('users.role_id', 1);
+
+        // Apply search filter in query
+        if ($search !== '') {
+            $term = strtolower($search);
+            $query->where(function ($q) use ($term) {
+                $q->where(DB::raw('LOWER(users.last_name)'), 'like', '%'.$term.'%')
+                    ->orWhere(DB::raw('LOWER(users.first_name)'), 'like', '%'.$term.'%')
+                    ->orWhere(DB::raw('LOWER(users.username)'), 'like', '%'.$term.'%')
+                    ->orWhereHas('position', function ($qPos) use ($term) {
+                        $qPos->where(DB::raw('LOWER(position_name)'), 'like', '%'.$term.'%');
+                    });
+            });
+        }
+
+        $employees = $query->orderBy('users.last_name', 'asc')->paginate(10)->withQueryString();
 
         $learningAreas = LearningArea::orderBy('name', 'asc')->get();
 
+        $employeeCollection = collect($employees->items());
+
         // Map the correct position and category to each employee based on their user record
-        foreach ($employees as $emp) {
+        foreach ($employeeCollection as $emp) {
             $emp->position_name = $emp->position ? $emp->position->position_name : null;
             $emp->category = $emp->position ? $emp->position->category : null;
         }
 
-        // Apply search filter in memory
-        if ($search !== '') {
-            $term = strtolower($search);
-            $employees = $employees->filter(function ($emp) use ($term) {
-                return str_contains(strtolower($emp->last_name), $term)
-                    || str_contains(strtolower($emp->first_name), $term)
-                    || str_contains(strtolower($emp->username), $term)
-                    || str_contains(strtolower($emp->position_name ?? ''), $term);
-            });
-        }
-
-        $allEmployees = $employees->filter(function ($emp) {
+        $allEmployees = $employeeCollection->filter(function ($emp) {
             return $emp->status !== 'Inactive';
         })->values();
 
-        $inactiveEmployees = $employees->filter(function ($emp) {
+        $inactiveEmployees = $employeeCollection->filter(function ($emp) {
             return $emp->status === 'Inactive';
         })->values();
 
-        $teachingStaff = $allEmployees->where('category', 'Teaching');
-        $nonTeachingStaff = $allEmployees->where('category', 'Non-Teaching');
+        $teachingStaff = $allEmployees->filter(fn ($emp) => $emp->category === PositionCategory::Teaching);
+        $nonTeachingStaff = $allEmployees->filter(fn ($emp) => $emp->category === PositionCategory::NonTeaching);
         $incompletePds = $allEmployees->whereNull('pds_id');
 
         $maleEmployees = $teachingStaff->where('sex', 1);
@@ -137,13 +142,13 @@ class HrController extends Controller
 
         // Get position category statistics
         $positionStats = collect([
-            'Teaching' => $teachingStaff->count(),
-            'Non-Teaching' => $nonTeachingStaff->count(),
+            PositionCategory::Teaching->label() => $teachingStaff->count(),
+            PositionCategory::NonTeaching->label() => $nonTeachingStaff->count(),
         ]);
 
         $positions = Position::orderBy('position_name', 'asc')->get();
 
-        return view('hr.employees.index', compact('allEmployees', 'inactiveEmployees', 'teachingStaff', 'nonTeachingStaff', 'incompletePds', 'maleEmployees', 'femaleEmployees', 'maleCount', 'femaleCount', 'nonTeachingMaleEmployees', 'nonTeachingFemaleEmployees', 'nonTeachingMaleCount', 'nonTeachingFemaleCount', 'search', 'genderStats', 'positionStats', 'learningAreas', 'positions'));
+        return view('hr.employees.index', compact('employees', 'allEmployees', 'inactiveEmployees', 'teachingStaff', 'nonTeachingStaff', 'incompletePds', 'maleEmployees', 'femaleEmployees', 'maleCount', 'femaleCount', 'nonTeachingMaleEmployees', 'nonTeachingFemaleEmployees', 'nonTeachingMaleCount', 'nonTeachingFemaleCount', 'search', 'genderStats', 'positionStats', 'learningAreas', 'positions'));
     }
 
     public function viewProfile($id)
@@ -293,21 +298,28 @@ class HrController extends Controller
 
         $request->validate([
             'user_id' => 'required|exists:users,id',
-            'position_id' => 'required|exists:positions,id',
-            'effective_date' => 'nullable|date',
+            'date_from' => 'required|date',
+            'date_to' => 'required|string',
+            'designation' => 'required|string',
+            'status' => 'required|string',
+            'salary' => 'required|string',
+            'station_place' => 'required|string',
+            'branch' => 'nullable|string',
+            'leave_without_pay' => 'nullable|string',
+            'separation_date' => 'nullable|string',
+            'separation_cause' => 'nullable|string',
         ]);
 
         try {
             DB::transaction(function () use ($request) {
                 $user = User::findOrFail($request->user_id);
-                $user->position_id = $request->position_id;
-                $user->save();
+                $position = Position::where('position_name', $request->designation)->first();
+                if ($position) {
+                    $user->position_id = $position->id;
+                    $user->save();
+                }
 
-                $position = Position::find($request->position_id);
-                // Carry over the existing department / learning area if applicable
-                $learningArea = $user->learning_area_id ? LearningArea::find($user->learning_area_id) : null;
-
-                $effectiveDate = $request->effective_date ? Carbon::parse($request->effective_date) : now();
+                $effectiveDate = Carbon::parse($request->date_from);
                 $endDate = $effectiveDate->copy()->subDay()->toDateString();
 
                 // Close active record
@@ -326,16 +338,16 @@ class HrController extends Controller
                 // Create new record
                 DB::table('service_records')->insert([
                     'user_id' => $user->id,
-                    'designation' => $position ? $position->position_name : null,
-                    'branch' => $learningArea ? $learningArea->name : null,
-                    'date_from' => $effectiveDate->toDateString(),
-                    'date_to' => 'PRESENT',
-                    'salary' => 'TBD', // Defaulting to TBD, can be updated in Service Records tab
-                    'station_place' => 'CNHS-JHS',
-                    'status' => 'Promoted',
-                    'leave_without_pay' => 'NONE',
-                    'separation_date' => 'NONE',
-                    'separation_cause' => 'NONE',
+                    'designation' => $request->designation,
+                    'branch' => $request->branch ?? 'NONE',
+                    'date_from' => $request->date_from,
+                    'date_to' => strtoupper($request->date_to),
+                    'salary' => $request->salary,
+                    'station_place' => $request->station_place,
+                    'status' => $request->status,
+                    'leave_without_pay' => $request->leave_without_pay ?? 'NONE',
+                    'separation_date' => $request->separation_date ?? 'NONE',
+                    'separation_cause' => $request->separation_cause ?? 'NONE',
                     'created_at' => now(),
                     'updated_at' => now(),
                 ]);
@@ -357,15 +369,46 @@ class HrController extends Controller
 
         $request->validate([
             'user_id' => 'required|exists:users,id',
-            'separation_reason' => 'required|string',
-            'effective_date' => 'required|date',
+            'date_from' => 'required|date',
+            'date_to' => 'required|string',
+            'designation' => 'required|string',
+            'status' => 'required|string',
+            'salary' => 'required|string',
+            'station_place' => 'required|string',
+            'branch' => 'nullable|string',
+            'leave_without_pay' => 'nullable|string',
+            'separation_date' => 'required|date',
+            'separation_cause' => 'required|string',
         ]);
 
-        $user = User::findOrFail($request->user_id);
-        $user->status = 'Inactive';
-        $user->separation_reason = $request->separation_reason;
-        $user->separation_date = $request->effective_date;
-        $user->save();
+        try {
+            DB::transaction(function () use ($request) {
+                $user = User::findOrFail($request->user_id);
+                $user->status = 'Inactive';
+                $user->separation_reason = $request->separation_cause;
+                $user->separation_date = $request->separation_date;
+                $user->save();
+
+                // Close active record
+                DB::table('service_records')
+                    ->where('user_id', $user->id)
+                    ->where(function ($query) {
+                        $query->whereNull('date_to')
+                            ->orWhere('date_to', 'Present')
+                            ->orWhere('date_to', 'PRESENT');
+                    })
+                    ->update([
+                        'date_to' => strtoupper($request->date_to),
+                        'separation_date' => $request->separation_date,
+                        'separation_cause' => $request->separation_cause,
+                        'updated_at' => now(),
+                    ]);
+            });
+        } catch (\Exception $e) {
+            \Log::error('Offboarding failed: '.$e->getMessage());
+
+            return redirect()->back()->with('error', 'Failed to offboard employee. Please try again.');
+        }
 
         return redirect()->back()->with('success', 'Employee successfully offboarded and moved to Inactive tab.');
     }
@@ -377,22 +420,33 @@ class HrController extends Controller
         }
 
         $request->validate([
-            'position_id' => 'required|exists:positions,id',
-            'learning_area_id' => 'required|exists:learning_areas,id',
-            'effective_date' => 'required|date',
+            'date_from' => 'required|date',
+            'date_to' => 'required|string',
+            'designation' => 'required|string',
+            'status' => 'required|string',
+            'salary' => 'required|string',
+            'station_place' => 'required|string',
+            'branch' => 'required|string',
+            'leave_without_pay' => 'nullable|string',
+            'separation_date' => 'nullable|string',
+            'separation_cause' => 'nullable|string',
         ]);
 
         try {
             DB::transaction(function () use ($request, $id) {
                 $user = User::findOrFail($id);
-                $user->position_id = $request->position_id;
-                $user->learning_area_id = $request->learning_area_id;
+
+                $position = Position::where('position_name', $request->designation)->first();
+                if ($position) {
+                    $user->position_id = $position->id;
+                }
+                $learningArea = LearningArea::where('name', $request->branch)->first();
+                if ($learningArea) {
+                    $user->learning_area_id = $learningArea->id;
+                }
                 $user->save();
 
-                $position = Position::find($request->position_id);
-                $learningArea = LearningArea::find($request->learning_area_id);
-
-                $effectiveDate = Carbon::parse($request->effective_date);
+                $effectiveDate = Carbon::parse($request->date_from);
                 $endDate = $effectiveDate->copy()->subDay()->toDateString();
 
                 // Close active record
@@ -411,16 +465,16 @@ class HrController extends Controller
                 // Create new record
                 DB::table('service_records')->insert([
                     'user_id' => $user->id,
-                    'designation' => $position ? $position->position_name : null,
-                    'branch' => $learningArea ? $learningArea->name : null,
-                    'date_from' => $effectiveDate->toDateString(),
-                    'date_to' => 'PRESENT',
-                    'salary' => 'TBD', // Defaulting to TBD
-                    'station_place' => 'CNHS-JHS',
-                    'status' => 'Reassigned',
-                    'leave_without_pay' => 'NONE',
-                    'separation_date' => 'NONE',
-                    'separation_cause' => $request->remarks ?? 'NONE',
+                    'designation' => $request->designation,
+                    'branch' => $request->branch,
+                    'date_from' => $request->date_from,
+                    'date_to' => strtoupper($request->date_to),
+                    'salary' => $request->salary,
+                    'station_place' => $request->station_place,
+                    'status' => $request->status,
+                    'leave_without_pay' => $request->leave_without_pay ?? 'NONE',
+                    'separation_date' => $request->separation_date ?? 'NONE',
+                    'separation_cause' => $request->separation_cause ?? 'NONE',
                     'created_at' => now(),
                     'updated_at' => now(),
                 ]);

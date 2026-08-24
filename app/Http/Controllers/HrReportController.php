@@ -5,12 +5,12 @@ namespace App\Http\Controllers;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Session;
 
-class PrincipalReportController extends Controller
+class HrReportController extends Controller
 {
     public function index()
     {
-        // Strictly limit to Principal (Role 4)
-        if (Session::get('role_id') != 4) {
+        // Strictly limit to HR Admin (Role 2)
+        if (Session::get('role_id') != 2) {
             return redirect()->route('dashboard')->with('error', 'Unauthorized access.');
         }
 
@@ -44,7 +44,7 @@ class PrincipalReportController extends Controller
         $totalAnnouncements = DB::table('announcements')->count();
         $totalAcknowledgments = DB::table('announcement_acknowledgments')->count();
 
-        return view('principal.reports.index', compact(
+        return view('hr.reports.index', compact(
             'totalEmployees',
             'totalHR',
             'employeesByPosition',

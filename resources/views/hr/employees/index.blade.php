@@ -7,6 +7,69 @@
             max-width: 350px;
         }
     }
+
+    /* System Design Pagination Styling */
+    .pagination-centered nav {
+        width: 100%;
+        display: flex;
+        justify-content: center;
+    }
+    .pagination-centered .d-flex.justify-content-between.flex-fill.d-sm-none {
+        display: none !important; /* Hides mobile summary row */
+    }
+    .pagination-centered .d-none.flex-sm-fill.d-sm-flex.align-items-sm-center.justify-content-sm-between > div:first-child {
+        display: none !important; /* Hides the 'Showing 1 to 10...' text block */
+    }
+    .pagination-centered .d-none.flex-sm-fill.d-sm-flex.align-items-sm-center.justify-content-sm-between > div:last-child {
+        width: 100%;
+        display: flex;
+        justify-content: center;
+    }
+    .pagination-centered .pagination {
+        display: flex;
+        gap: 6px;
+        margin: 0;
+        padding: 0;
+    }
+    .pagination-centered .page-item .page-link {
+        color: #1A3E6F;
+        font-weight: 600;
+        font-size: 0.875rem;
+        min-width: 36px;
+        height: 36px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 8px !important;
+        border: 1px solid #e2e8f0;
+        background-color: #ffffff;
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+        transition: all 0.2s ease-in-out;
+        text-decoration: none;
+    }
+    .pagination-centered .page-item:not(.active):not(.disabled) .page-link:hover {
+        background-color: #f8fafc;
+        border-color: #cbd5e1;
+        color: #0f172a;
+        transform: translateY(-1px);
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.08);
+    }
+    .pagination-centered .page-item.active .page-link {
+        background: linear-gradient(135deg, #1A3E6F, #0f2746);
+        border-color: #1A3E6F;
+        color: #ffffff;
+        box-shadow: 0 4px 10px rgba(26, 62, 111, 0.25);
+    }
+    .pagination-centered .page-item.disabled .page-link {
+        background-color: #f8fafc;
+        border-color: #f1f5f9;
+        color: #94a3b8;
+        opacity: 0.6;
+        cursor: not-allowed;
+    }
+    .pagination-centered .page-link:focus {
+        box-shadow: 0 0 0 3px rgba(26, 62, 111, 0.2);
+    }
 </style>
 
 <div class="container-fluid py-2">
@@ -285,14 +348,53 @@
             </div>
         </div>
 
-        <div class="card-footer bg-white py-3 border-top border-light text-muted small d-flex justify-content-center">
-            <span>Showing all employee profiles.</span>
+        <div class="card-footer bg-white border-0 py-2">
+            <div class="d-flex justify-content-center mt-4 mb-2 pagination-centered">
+                {{ $employees->links('pagination::bootstrap-5') }}
+            </div>
         </div>
     </div>
 </div>
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+    // 1. Restore active tab from URL hash (e.g., #teaching, #non-teaching)
+    const currentHash = window.location.hash;
+    if (currentHash) {
+        const targetTabButton = document.querySelector(`button[data-bs-target="${currentHash}"]`);
+        if (targetTabButton) {
+            const tabInstance = bootstrap.Tab.getOrCreateInstance(targetTabButton);
+            tabInstance.show();
+        }
+    }
+
+    // Function to append active hash to pagination links so page changes preserve the tab
+    function syncPaginationHash(hash) {
+        if (!hash) return;
+        document.querySelectorAll('.pagination-centered .page-link').forEach(link => {
+            const baseHref = link.href.split('#')[0];
+            link.href = baseHref + hash;
+        });
+    }
+
+    // Sync initial pagination links if a hash is present
+    if (window.location.hash) {
+        syncPaginationHash(window.location.hash);
+    }
+
+    // 2. Listen for tab switches and update URL hash + pagination links
+    const tabButtons = document.querySelectorAll('#staffTabs button[data-bs-toggle="tab"]');
+    tabButtons.forEach(btn => {
+        btn.addEventListener('shown.bs.tab', function(e) {
+            const target = e.target.getAttribute('data-bs-target');
+            if (target && target.startsWith('#')) {
+                history.replaceState(null, null, window.location.pathname + window.location.search + target);
+                syncPaginationHash(target);
+            }
+        });
+    });
+
+    // 3. Learning Area Filter
     const filterSelect = document.getElementById('teaching-learning-area-filter');
     if (filterSelect) {
         filterSelect.addEventListener('change', function() {
