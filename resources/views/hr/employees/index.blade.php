@@ -70,6 +70,56 @@
     .pagination-centered .page-link:focus {
         box-shadow: 0 0 0 3px rgba(26, 62, 111, 0.2);
     }
+
+    .staff-tabs .nav-link {
+        border: none;
+        color: #1A3E6F;
+        font-weight: 600;
+        background: transparent;
+        border-radius: 0;
+        padding: 1rem 1.5rem;
+        opacity: 0.7;
+        transition: all 0.3s ease;
+        border-bottom: 3px solid transparent;
+    }
+    .staff-tabs .nav-link:hover {
+        opacity: 1;
+        border-color: rgba(253, 224, 71, 0.5);
+    }
+    .staff-tabs .nav-link.active {
+        background-color: var(--accent-yellow, #FDE047);
+        color: #1A3E6F;
+        opacity: 1;
+        border-color: var(--accent-yellow, #FDE047);
+        border-radius: 8px 8px 0 0;
+    }
+
+    /* Sex Sub-Tabs (Rectangular) */
+    .sex-pills .nav-link,
+    .gender-pills .nav-link {
+        border-radius: 6px;
+        padding: 0.38rem 1.1rem;
+        font-size: 0.82rem;
+        font-weight: 600;
+        color: #1A3E6F;
+        background-color: #f1f5f9;
+        border: 1px solid #e2e8f0;
+        transition: all 0.2s ease-in-out;
+        cursor: pointer;
+    }
+    .sex-pills .nav-link:hover,
+    .gender-pills .nav-link:hover {
+        background-color: #e2e8f0;
+        color: #1A3E6F;
+    }
+    .sex-pills .nav-link.active,
+    .gender-pills .nav-link.active {
+        background-color: var(--accent-yellow, #FDE047) !important;
+        color: #1A3E6F !important;
+        border-color: var(--accent-yellow, #FDE047) !important;
+        font-weight: 700;
+        box-shadow: 0 2px 5px rgba(253, 224, 71, 0.45);
+    }
 </style>
 
 <div class="container-fluid py-2">
@@ -88,38 +138,12 @@
     </div>
     @endif
 
-    <!-- Employee Statistics -->
+    <!-- Employee Statistics (Commented out but structurally repaired) -->
+    <!--
     <div class="row g-3 mb-3">
-        <!-- Gender Statistics 
         <div class="col-12 col-lg-6">
-            <div class="card shadow-sm border-0 rounded-4 h-100 overflow-hidden" style="background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);">
-                <div class="card-body p-3">
-                    <div class="d-flex align-items-center mb-2">
-                        <div class="bg-primary text-white rounded-circle d-flex align-items-center justify-content-center me-2 shadow-sm" style="width: 36px; height: 36px;">
-                            <i class="bi bi-gender-ambiguous fs-5"></i>
-                        </div>
-                        <h6 class="fw-bold m-0 text-dark">Gender Distribution</h6>
-                    </div>
-                    <div class="row g-2 text-center mt-1">
-                        <div class="col-6">
-                            <div class="p-2 bg-white rounded-3 shadow-sm border border-light">
-                                <h4 class="fw-bold text-primary mb-0">{{ $maleCount }}</h4>
-                                <div class="text-muted small fw-medium text-uppercase" style="font-size: 0.75rem;"><i class="bi bi-gender-male me-1"></i> Male</div>
-                            </div>
-                        </div>
-                        <div class="col-6">
-                            <div class="p-2 bg-white rounded-3 shadow-sm border border-light">
-                                <h4 class="fw-bold text-danger mb-0">{{ $femaleCount }}</h4>
-                                <div class="text-muted small fw-medium text-uppercase" style="font-size: 0.75rem;"><i class="bi bi-gender-female me-1"></i> Female</div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
+            ...
         </div>
-        -->
-
-        <!-- Position Statistics 
         <div class="col-12 col-lg-6">
             <div class="card shadow-sm border-0 rounded-4 h-100 overflow-hidden" style="background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);">
                 <div class="card-body p-3">
@@ -149,38 +173,14 @@
     </div>
     -->
 
-    <style>
-        .staff-tabs .nav-link {
-            border: none;
-            color: #1A3E6F;
-            font-weight: 600;
-            background: transparent;
-            border-radius: 0;
-            padding: 1rem 1.5rem;
-            opacity: 0.7;
-            transition: all 0.3s ease;
-            border-bottom: 3px solid transparent;
-        }
-        .staff-tabs .nav-link:hover {
-            opacity: 1;
-            border-color: rgba(253, 224, 71, 0.5);
-        }
-        .staff-tabs .nav-link.active {
-            background-color: var(--accent-yellow, #FDE047);
-            color: #1A3E6F;
-            opacity: 1;
-            border-color: var(--accent-yellow, #FDE047);
-            border-radius: 8px 8px 0 0;
-        }
-    </style>
-
     <div class="card shadow-sm border-0 rounded-4 overflow-hidden">
+        <form method="GET" action="{{ route('hr.staff_profiling') }}" id="staff-filter-form">
         <div class="card-header bg-white pt-3 pb-0 border-bottom-0">
             <div class="d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-3 mb-3">
                 <div class="d-flex align-items-center">
                     <h6 class="m-0 fw-bold text-dark me-3">Staff Directory</h6>
                 </div>
-                <form method="GET" action="{{ route('hr.staff_profiling') }}" class="search-container w-100">
+                <div class="search-container w-100">
                     <div class="input-group shadow-sm" style="border-radius: 8px; overflow: hidden;">
                         <span class="input-group-text bg-white border-end-0 border-light"><i class="bi bi-search text-muted"></i></span>
                         <input
@@ -201,150 +201,109 @@
                         </button>
                         @endif
                     </div>
-                </form>
+                </div>
             </div>
 
             <!-- Tabbed Navigation -->
             <ul class="nav nav-tabs staff-tabs border-bottom-0" id="staffTabs" role="tablist">
                 <li class="nav-item" role="presentation">
-                    <button class="nav-link active" id="all-employees-tab" data-bs-toggle="tab" data-bs-target="#all-employees" type="button" role="tab" aria-controls="all-employees" aria-selected="true">
-                        All Employees <span class="badge bg-white text-dark ms-1">{{ count($allEmployees) }}</span>
+                    <button class="nav-link {{ !in_array(request('category'), ['teaching', 'non-teaching', 'incomplete', 'inactive']) ? 'active' : '' }}" id="all-employees-tab" data-bs-toggle="tab" data-bs-target="#all-employees" type="button" role="tab" aria-controls="all-employees" aria-selected="{{ !in_array(request('category'), ['teaching', 'non-teaching', 'incomplete', 'inactive']) ? 'true' : 'false' }}">
+                        All Employees <span class="badge bg-white text-dark ms-1">{{ $totalActiveCount }}</span>
                     </button>
                 </li>
                 <li class="nav-item" role="presentation">
-                    <button class="nav-link" id="teaching-tab" data-bs-toggle="tab" data-bs-target="#teaching" type="button" role="tab" aria-controls="teaching" aria-selected="false">
-                        Teaching Positions <span class="badge bg-white text-dark ms-1">{{ count($teachingStaff) }}</span>
+                    <button class="nav-link {{ request('category') == 'teaching' ? 'active' : '' }}" id="teaching-tab" data-bs-toggle="tab" data-bs-target="#teaching" type="button" role="tab" aria-controls="teaching" aria-selected="{{ request('category') == 'teaching' ? 'true' : 'false' }}">
+                        Teaching Positions <span class="badge bg-white text-dark ms-1">{{ $teachingCount }}</span>
                     </button>
                 </li>
                 <li class="nav-item" role="presentation">
-                    <button class="nav-link" id="non-teaching-tab" data-bs-toggle="tab" data-bs-target="#non-teaching" type="button" role="tab" aria-controls="non-teaching" aria-selected="false">
-                        Non-Teaching Positions <span class="badge bg-white text-dark ms-1">{{ count($nonTeachingStaff) }}</span>
+                    <button class="nav-link {{ request('category') == 'non-teaching' ? 'active' : '' }}" id="non-teaching-tab" data-bs-toggle="tab" data-bs-target="#non-teaching" type="button" role="tab" aria-controls="non-teaching" aria-selected="{{ request('category') == 'non-teaching' ? 'true' : 'false' }}">
+                        Non-Teaching Positions <span class="badge bg-white text-dark ms-1">{{ $nonTeachingCount }}</span>
                     </button>
                 </li>
                 <li class="nav-item" role="presentation">
-                    <button class="nav-link text-danger" id="incomplete-tab" data-bs-toggle="tab" data-bs-target="#incomplete" type="button" role="tab" aria-controls="incomplete" aria-selected="false">
-                        Incomplete PDS <span class="badge bg-danger ms-1">{{ count($incompletePds) }}</span>
+                    <button class="nav-link text-danger {{ request('category') == 'incomplete' ? 'active' : '' }}" id="incomplete-tab" data-bs-toggle="tab" data-bs-target="#incomplete" type="button" role="tab" aria-controls="incomplete" aria-selected="{{ request('category') == 'incomplete' ? 'true' : 'false' }}">
+                        Incomplete PDS <span class="badge bg-danger ms-1">{{ $incompleteCount }}</span>
                     </button>
                 </li>
                 <li class="nav-item" role="presentation">
-                    <button class="nav-link text-muted" id="inactive-tab" data-bs-toggle="tab" data-bs-target="#inactive" type="button" role="tab" aria-controls="inactive" aria-selected="false">
-                        Inactive / Separated <span class="badge bg-secondary ms-1">{{ count($inactiveEmployees) }}</span>
+                    <button class="nav-link text-muted {{ request('category') == 'inactive' ? 'active' : '' }}" id="inactive-tab" data-bs-toggle="tab" data-bs-target="#inactive" type="button" role="tab" aria-controls="inactive" aria-selected="{{ request('category') == 'inactive' ? 'true' : 'false' }}">
+                        Inactive / Separated <span class="badge bg-secondary ms-1">{{ $inactiveCount }}</span>
                     </button>
                 </li>
             </ul>
         </div>
 
         <div class="card-body p-0 border-top border-light">
-            <div class="tab-content" id="staffTabsContent">
-                <!-- All Employees Tab -->
-                <div class="tab-pane fade show active" id="all-employees" role="tabpanel" aria-labelledby="all-employees-tab">
-                    @include('hr.employees.partials.staff_table', ['employees' => $allEmployees, 'showContact' => true, 'showReminder' => false])
+            <input type="hidden" name="category" id="active_category" value="{{ request('category', '') }}">
+            <input type="hidden" name="sex" id="sex_filter_input" value="{{ request('sex') }}">
+            
+            <!-- Global Filters: Sex, Position & Learning Area -->
+            <div class="p-3 bg-light border-bottom d-flex flex-column flex-lg-row align-items-lg-center justify-content-between gap-3">
+                
+                <!-- Sex Sub-Tabs (Rectangular) -->
+                <div class="d-flex align-items-center flex-wrap gap-2">
+                    <ul class="nav nav-pills sex-pills gap-1" id="sexFilterTabs" role="tablist">
+                        <li class="nav-item" role="presentation">
+                            <button type="button" 
+                                    class="nav-link {{ request()->has('sex') && request('sex') !== '' ? '' : 'active' }}" 
+                                    onclick="document.getElementById('sex_filter_input').value = ''; document.getElementById('staff-filter-form').submit();">
+                                All
+                            </button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button type="button" 
+                                    class="nav-link {{ request('sex') === '1' ? 'active' : '' }}" 
+                                    onclick="document.getElementById('sex_filter_input').value = '1'; document.getElementById('staff-filter-form').submit();">
+                                Male
+                            </button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button type="button" 
+                                    class="nav-link {{ request('sex') === '0' ? 'active' : '' }}" 
+                                    onclick="document.getElementById('sex_filter_input').value = '0'; document.getElementById('staff-filter-form').submit();">
+                                Female
+                            </button>
+                        </li>
+                    </ul>
                 </div>
 
-                <!-- Teaching Tab -->
-                <div class="tab-pane fade" id="teaching" role="tabpanel" aria-labelledby="teaching-tab">
-                    
-                    <!-- Sub-tabs for Teaching & Filter -->
-                    <div class="px-3 pt-3 d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3">
-                        <ul class="nav nav-pills" id="teaching-subtabs" role="tablist">
-                            <li class="nav-item" role="presentation">
-                                <button class="nav-link active rounded-pill fw-bold px-4" id="teaching-all-tab" data-bs-toggle="pill" data-bs-target="#teaching-all" type="button" role="tab" aria-controls="teaching-all" aria-selected="true" style="transition: all 0.2s;">
-                                    All Teaching
-                                </button>
-                            </li>
-                            <li class="nav-item" role="presentation">
-                                <button class="nav-link rounded-pill fw-bold px-4 mx-2" id="teaching-male-tab" data-bs-toggle="pill" data-bs-target="#teaching-male" type="button" role="tab" aria-controls="teaching-male" aria-selected="false" style="transition: all 0.2s;">
-                                    Male <span class="badge bg-secondary ms-1">{{ $maleCount }}</span>
-                                </button>
-                            </li>
-                            <li class="nav-item" role="presentation">
-                                <button class="nav-link rounded-pill fw-bold px-4" id="teaching-female-tab" data-bs-toggle="pill" data-bs-target="#teaching-female" type="button" role="tab" aria-controls="teaching-female" aria-selected="false" style="transition: all 0.2s;">
-                                    Female <span class="badge bg-secondary ms-1">{{ $femaleCount }}</span>
-                                </button>
-                            </li>
-                        </ul>
-                        
-                        <!-- Learning Area Filter -->
-                        <div class="d-flex align-items-center mt-3 mt-md-0">
-                            <label for="teaching-learning-area-filter" class="form-label mb-0 me-2 fw-bold text-nowrap" style="color: #1A3E6F;">Filter by Learning Area:</label>
-                            <select id="teaching-learning-area-filter" class="form-select shadow-sm" style="background-color: white; color: #1A3E6F; border-color: #1A3E6F; min-width: 200px;">
-                                <option value="">All Learning Areas</option>
-                                @foreach($learningAreas as $area)
-                                    <option value="{{ $area->id }}">{{ $area->name }}</option>
+                <!-- Position & Learning Area Filters -->
+                <div class="d-flex flex-wrap align-items-center justify-content-lg-end gap-3">
+                    <div class="d-flex align-items-center">
+                        <label class="fw-bold me-2 small text-nowrap" style="color: #1A3E6F;">Filter by Position:</label>
+                        <select name="position_id" id="positionSelect" class="form-select form-select-sm shadow-sm" onchange="this.form.submit()" style="background-color: white; color: #1A3E6F; border-color: #1A3E6F; min-width: 200px;">
+                            <option value="">All Positions</option>
+                            
+                            <!-- Always render both optgroups, JavaScript will dynamically hide/disable them based on the active tab -->
+                            <optgroup label="Teaching Positions" id="optgroup-teaching">
+                                @foreach($filterPositions->where('category', \App\Enums\PositionCategory::Teaching) as $pos)
+                                    <option value="{{ $pos->id }}" {{ request('position_id') == $pos->id ? 'selected' : '' }}>{{ $pos->position_name }}</option>
                                 @endforeach
-                            </select>
-                        </div>
+                            </optgroup>
+                            
+                            <optgroup label="Non-Teaching Positions" id="optgroup-non-teaching">
+                                @foreach($filterPositions->where('category', \App\Enums\PositionCategory::NonTeaching) as $pos)
+                                    <option value="{{ $pos->id }}" {{ request('position_id') == $pos->id ? 'selected' : '' }}>{{ $pos->position_name }}</option>
+                                @endforeach
+                            </optgroup>
+                        </select>
                     </div>
                     
-                    <div class="tab-content mt-3" id="teaching-subtabs-content">
-                        <!-- All Teaching -->
-                        <div class="tab-pane fade show active" id="teaching-all" role="tabpanel" aria-labelledby="teaching-all-tab">
-                            @include('hr.employees.partials.staff_table', ['employees' => $teachingStaff, 'showContact' => true, 'showReminder' => false])
-                        </div>
-                        
-                        <!-- Male Teaching -->
-                        <div class="tab-pane fade" id="teaching-male" role="tabpanel" aria-labelledby="teaching-male-tab">
-                            @include('hr.employees.partials.staff_table', ['employees' => $maleEmployees, 'showContact' => true, 'showReminder' => false])
-                        </div>
-                        
-                        <!-- Female Teaching -->
-                        <div class="tab-pane fade" id="teaching-female" role="tabpanel" aria-labelledby="teaching-female-tab">
-                            @include('hr.employees.partials.staff_table', ['employees' => $femaleEmployees, 'showContact' => true, 'showReminder' => false])
-                        </div>
+                    <div id="learningAreaFilterWrapper" class="align-items-center {{ request('category') == 'teaching' ? 'd-flex' : 'd-none' }}">
+                        <label for="teaching-learning-area-filter" class="form-label mb-0 me-2 fw-bold text-nowrap" style="color: #1A3E6F;">Filter by Learning Area:</label>
+                        <select name="learning_area_id" id="teaching-learning-area-filter" class="form-select form-select-sm shadow-sm" onchange="this.form.submit()" style="background-color: white; color: #1A3E6F; border-color: #1A3E6F; min-width: 200px;">
+                            <option value="">All Learning Areas</option>
+                            @foreach($learningAreas as $area)
+                                <option value="{{ $area->id }}" {{ request('learning_area_id') == $area->id ? 'selected' : '' }}>{{ $area->name }}</option>
+                            @endforeach
+                        </select>
                     </div>
                 </div>
-                
-                <!-- Non-Teaching Tab -->
-                <div class="tab-pane fade" id="non-teaching" role="tabpanel" aria-labelledby="non-teaching-tab">
-                    
-                    <!-- Sub-tabs for Non-Teaching -->
-                    <div class="px-3 pt-3">
-                        <ul class="nav nav-pills" id="non-teaching-subtabs" role="tablist">
-                            <li class="nav-item" role="presentation">
-                                <button class="nav-link active rounded-pill fw-bold px-4" id="non-teaching-all-tab" data-bs-toggle="pill" data-bs-target="#non-teaching-all" type="button" role="tab" aria-controls="non-teaching-all" aria-selected="true" style="transition: all 0.2s;">
-                                    All Non-Teaching
-                                </button>
-                            </li>
-                            <li class="nav-item" role="presentation">
-                                <button class="nav-link rounded-pill fw-bold px-4 mx-2" id="non-teaching-male-tab" data-bs-toggle="pill" data-bs-target="#non-teaching-male" type="button" role="tab" aria-controls="non-teaching-male" aria-selected="false" style="transition: all 0.2s;">
-                                    Male <span class="badge bg-secondary ms-1">{{ $nonTeachingMaleCount }}</span>
-                                </button>
-                            </li>
-                            <li class="nav-item" role="presentation">
-                                <button class="nav-link rounded-pill fw-bold px-4" id="non-teaching-female-tab" data-bs-toggle="pill" data-bs-target="#non-teaching-female" type="button" role="tab" aria-controls="non-teaching-female" aria-selected="false" style="transition: all 0.2s;">
-                                    Female <span class="badge bg-secondary ms-1">{{ $nonTeachingFemaleCount }}</span>
-                                </button>
-                            </li>
-                        </ul>
-                    </div>
-                    
-                    <div class="tab-content mt-3" id="non-teaching-subtabs-content">
-                        <!-- All Non-Teaching -->
-                        <div class="tab-pane fade show active" id="non-teaching-all" role="tabpanel" aria-labelledby="non-teaching-all-tab">
-                            @include('hr.employees.partials.staff_table', ['employees' => $nonTeachingStaff, 'showContact' => true, 'showReminder' => false])
-                        </div>
-                        
-                        <!-- Male Non-Teaching -->
-                        <div class="tab-pane fade" id="non-teaching-male" role="tabpanel" aria-labelledby="non-teaching-male-tab">
-                            @include('hr.employees.partials.staff_table', ['employees' => $nonTeachingMaleEmployees, 'showContact' => true, 'showReminder' => false])
-                        </div>
-                        
-                        <!-- Female Non-Teaching -->
-                        <div class="tab-pane fade" id="non-teaching-female" role="tabpanel" aria-labelledby="non-teaching-female-tab">
-                            @include('hr.employees.partials.staff_table', ['employees' => $nonTeachingFemaleEmployees, 'showContact' => true, 'showReminder' => false])
-                        </div>
-                    </div>
-                </div>
-                
-                <!-- Incomplete PDS Tab -->
-                <div class="tab-pane fade" id="incomplete" role="tabpanel" aria-labelledby="incomplete-tab">
-                    @include('hr.employees.partials.staff_table', ['employees' => $incompletePds, 'showContact' => false, 'showReminder' => true])
-                </div>
-                
-                <!-- Inactive / Separated Tab -->
-                <div class="tab-pane fade" id="inactive" role="tabpanel" aria-labelledby="inactive-tab">
-                    @include('hr.employees.partials.staff_table', ['employees' => $inactiveEmployees, 'showContact' => true, 'showReminder' => false])
-                </div>
+            </div>
+
+            <div class="px-3 pb-3">
+                @include('hr.employees.partials.staff_table', ['employees' => $employees, 'showContact' => request('category') !== 'incomplete', 'showReminder' => request('category') === 'incomplete'])
             </div>
         </div>
 
@@ -353,22 +312,82 @@
                 {{ $employees->links('pagination::bootstrap-5') }}
             </div>
         </div>
+        </form>
     </div>
 </div>
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    // 1. Restore active tab from URL hash (e.g., #teaching, #non-teaching)
-    const currentHash = window.location.hash;
-    if (currentHash) {
-        const targetTabButton = document.querySelector(`button[data-bs-target="${currentHash}"]`);
-        if (targetTabButton) {
-            const tabInstance = bootstrap.Tab.getOrCreateInstance(targetTabButton);
-            tabInstance.show();
+    
+    // Core Dynamic Form Sync Logic
+    function syncEmployeeForm() {
+        const category = document.getElementById('active_category').value;
+        const teachingGroup = document.getElementById('optgroup-teaching');
+        const nonTeachingGroup = document.getElementById('optgroup-non-teaching');
+        const learningAreaWrapper = document.getElementById('learningAreaFilterWrapper');
+        const positionSelect = document.getElementById('positionSelect');
+        const learningAreaSelect = document.getElementById('teaching-learning-area-filter');
+
+        // Reset visibility and disabled states based on the active tab
+        if (category === 'teaching') {
+            if (teachingGroup) { teachingGroup.style.display = ''; teachingGroup.disabled = false; }
+            if (nonTeachingGroup) { nonTeachingGroup.style.display = 'none'; nonTeachingGroup.disabled = true; }
+            if (learningAreaWrapper) { 
+                learningAreaWrapper.classList.remove('d-none');
+                learningAreaWrapper.classList.add('d-flex');
+            }
+            
+        } else if (category === 'non-teaching') {
+            if (teachingGroup) { teachingGroup.style.display = 'none'; teachingGroup.disabled = true; }
+            if (nonTeachingGroup) { nonTeachingGroup.style.display = ''; nonTeachingGroup.disabled = false; }
+            if (learningAreaWrapper) { 
+                learningAreaWrapper.classList.remove('d-flex');
+                learningAreaWrapper.classList.add('d-none'); 
+                if(learningAreaSelect) learningAreaSelect.value = ''; // clear value if hidden
+            }
+            
+        } else {
+            // "All Employees" or other tabs - Show everything for positions, hide Learning Area
+            if (teachingGroup) { teachingGroup.style.display = ''; teachingGroup.disabled = false; }
+            if (nonTeachingGroup) { nonTeachingGroup.style.display = ''; nonTeachingGroup.disabled = false; }
+            if (learningAreaWrapper) { 
+                learningAreaWrapper.classList.remove('d-flex');
+                learningAreaWrapper.classList.add('d-none'); 
+                if(learningAreaSelect) learningAreaSelect.value = ''; 
+            }
+        }
+
+        // If the current selected Position belongs to a group we just hid, reset the select box to "All Positions"
+        const selectedOption = positionSelect.options[positionSelect.selectedIndex];
+        if (selectedOption && selectedOption.parentNode.disabled) {
+            positionSelect.value = '';
         }
     }
 
-    // Function to append active hash to pagination links so page changes preserve the tab
+    // Execute immediately on page load to set the correct visual state
+    syncEmployeeForm();
+
+    // Tab Change Listener
+    const tabButtons = document.querySelectorAll('#staffTabs button[data-bs-toggle="tab"]');
+    tabButtons.forEach(btn => {
+        btn.addEventListener('shown.bs.tab', function(e) {
+            const target = e.target.getAttribute('data-bs-target');
+            if (target && target.startsWith('#')) {
+                const category = target.replace('#', '');
+                
+                // Update hidden input
+                document.getElementById('active_category').value = category;
+                
+                // Sync the form visual state BEFORE submitting
+                syncEmployeeForm();
+
+                // Submit the form to fetch backend data
+                document.getElementById('staff-filter-form').submit();
+            }
+        });
+    });
+
+    // Function to append active hash to pagination links
     function syncPaginationHash(hash) {
         if (!hash) return;
         document.querySelectorAll('.pagination-centered .page-link').forEach(link => {
@@ -377,48 +396,8 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    // Sync initial pagination links if a hash is present
     if (window.location.hash) {
         syncPaginationHash(window.location.hash);
-    }
-
-    // 2. Listen for tab switches and update URL hash + pagination links
-    const tabButtons = document.querySelectorAll('#staffTabs button[data-bs-toggle="tab"]');
-    tabButtons.forEach(btn => {
-        btn.addEventListener('shown.bs.tab', function(e) {
-            const target = e.target.getAttribute('data-bs-target');
-            if (target && target.startsWith('#')) {
-                history.replaceState(null, null, window.location.pathname + window.location.search + target);
-                syncPaginationHash(target);
-            }
-        });
-    });
-
-    // 3. Learning Area Filter
-    const filterSelect = document.getElementById('teaching-learning-area-filter');
-    if (filterSelect) {
-        filterSelect.addEventListener('change', function() {
-            const selectedAreaId = this.value;
-            
-            // Only filter rows inside the teaching tab pane
-            const teachingPanes = document.querySelectorAll('#teaching .tab-pane');
-            
-            teachingPanes.forEach(pane => {
-                const rows = pane.querySelectorAll('tbody tr.employee-row');
-                rows.forEach(row => {
-                    if (selectedAreaId === '') {
-                        row.style.display = '';
-                    } else {
-                        const rowAreaId = row.getAttribute('data-learning-area');
-                        if (rowAreaId === selectedAreaId) {
-                            row.style.display = '';
-                        } else {
-                            row.style.display = 'none';
-                        }
-                    }
-                });
-            });
-        });
     }
 });
 </script>

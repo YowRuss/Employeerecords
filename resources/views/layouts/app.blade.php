@@ -139,28 +139,24 @@
             <a class="nav-link {{ request()->routeIs('requisitions.*') ? 'active bg-warning text-dark fw-bold' : 'text-muted' }} d-flex align-items-center gap-3 px-3 py-2 mb-1 rounded" href="{{ route('requisitions.index') }}">
                 <i class="bi bi-clipboard-data-fill fs-5"></i> <span class="hide-on-mini">Requisitions</span>
             </a>
+
+            <a class="nav-link {{ request()->routeIs('hr.payroll.*') ? 'active bg-warning text-dark fw-bold' : 'text-muted' }} d-flex align-items-center gap-3 px-3 py-2 mb-1 rounded" href="{{ route('hr.payroll.index') }}">
+                <i class="bi bi-cash-stack fs-5"></i> <span class="hide-on-mini">Payroll Management</span>
+            </a>
+            <!--
             <a class="nav-link {{ request()->routeIs('hr.applications.*') ? 'active bg-warning text-dark fw-bold' : 'text-muted' }} d-flex align-items-center gap-3 px-3 py-2 mb-1 rounded" href="{{ route('hr.applications.index') }}">
                 <i class="bi bi-person-lines-fill fs-5"></i> <span class="hide-on-mini">Job Applicants</span>
             </a>
             <a class="nav-link {{ request()->routeIs('hr.job_postings.*') ? 'active bg-warning text-dark fw-bold' : 'text-muted' }} d-flex align-items-center gap-3 px-3 py-2 mb-1 rounded" href="{{ route('hr.job_postings.index') }}">
                 <i class="bi bi-briefcase-fill fs-5"></i> <span class="hide-on-mini">Job Postings</span>
             </a>
+-->
             
             <a class="nav-link {{ request()->routeIs('hr.settings.positions_areas') ? 'active bg-warning text-dark fw-bold' : 'text-muted' }} d-flex align-items-center gap-3 px-3 py-2 mb-1 rounded" href="{{ route('hr.settings.positions_areas') }}">
                 <i class="bi bi-gear-fill fs-5"></i> <span class="hide-on-mini">Positions & Areas</span>
             </a>
 
-            <a class="nav-link {{ request()->routeIs('announcements.*') ? 'active bg-warning text-dark fw-bold' : 'text-muted' }} d-flex align-items-center gap-3 px-3 py-2 mb-1 rounded" href="{{ route('announcements.index') }}">
-                <i class="bi bi-megaphone-fill fs-5"></i> <span class="hide-on-mini">Announcements</span>
-            </a>
-
-            <a class="nav-link {{ request()->routeIs('events.*') ? 'active bg-warning text-dark fw-bold' : 'text-muted' }} d-flex align-items-center gap-3 px-3 py-2 mb-1 rounded" href="{{ route('events.index') }}">
-                <i class="bi bi-calendar-event-fill fs-5"></i> <span class="hide-on-mini">Events</span>
-            </a>
-
-            <a class="nav-link {{ request()->routeIs('hr.reports.*') ? 'active bg-warning text-dark fw-bold' : 'text-muted' }} d-flex align-items-center gap-3 px-3 py-2 mb-1 rounded" href="{{ route('hr.reports.index') }}">
-                <i class="bi bi-bar-chart-fill fs-5"></i> <span class="hide-on-mini">System Reports</span>
-            </a>
+          
 
             @if(session('role_id') == 2)
                 @php

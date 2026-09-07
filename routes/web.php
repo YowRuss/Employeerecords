@@ -13,12 +13,15 @@ use App\Http\Controllers\HrSettingsController;
 use App\Http\Controllers\JobApplicationController;
 use App\Http\Controllers\JobPostingController;
 use App\Http\Controllers\LeaveController;
+use App\Http\Controllers\LeaveCreditController;
 use App\Http\Controllers\LocationController;
+use App\Http\Controllers\PayrollController;
 use App\Http\Controllers\PdsController;
 use App\Http\Controllers\PositionController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\RequisitionController;
 use App\Http\Controllers\SalnController;
+use App\Http\Controllers\SeminarController;
 use App\Http\Controllers\ServiceRecordController;
 use App\Models\PdsFather;
 use App\Models\PdsMother;
@@ -166,6 +169,9 @@ Route::get('/leave-requests', [LeaveController::class, 'index'])->name('leave.in
 Route::post('/leave-requests', [LeaveController::class, 'store'])->name('leave.store');
 Route::post('/my-leave/delete/{id}', [LeaveController::class, 'destroy'])->name('leave.destroy');
 Route::get('/my-leave/{id}/pdf', [LeaveController::class, 'exportLeavePDF'])->name('leave.export_pdf');
+Route::middleware(['teaching.only'])->group(function () {
+    Route::post('/my-leave/seminar/store', [SeminarController::class, 'store'])->name('leave.seminar.store');
+});
 
 // User Profile Routes
 Route::get('/my-profile', [ProfileController::class, 'editProfile'])->name('profile.edit');
@@ -183,6 +189,10 @@ Route::post('/manage-leaves/{id}', [LeaveController::class, 'updateLeaveStatus']
 Route::get('/hr/leave-monitoring', [LeaveController::class, 'hrIndex'])->name('hr.leave.index');
 Route::post('/hr/leave/{id}/status', [LeaveController::class, 'hrUpdateStatus'])->name('hr.leave.update_status');
 Route::get('/hr/leave/{id}/print', [LeaveController::class, 'exportLeavePDF'])->name('hr.leave.print');
+Route::post('/hr/credits/adjust/{user_id}', [LeaveCreditController::class, 'adjust'])->name('hr.credits.adjust');
+Route::put('/hr/credits/settings', [LeaveCreditController::class, 'updateSettings'])->name('hr.credits.settings.update');
+Route::post('/hr/seminars/{id}/approve', [SeminarController::class, 'approve'])->name('hr.seminars.approve');
+Route::post('/hr/seminars/{id}/reject', [SeminarController::class, 'reject'])->name('hr.seminars.reject');
 
 // HR Routes (Service Records)
 Route::get('/hr/service-record/{user_id}', [ServiceRecordController::class, 'hrIndex'])->name('hr.service_record.index');
@@ -192,6 +202,9 @@ Route::post('/hr/service-record/delete/{id}', [ServiceRecordController::class, '
 // Route::post('/hr/service-record/store', [App\Http\Controllers\HrController::class, 'storeServiceRecord'])->name('hr.store_service_record');
 // HR Service Records Directory (Shows list of employees)
 Route::get('/hr/service-records-directory', [ServiceRecordController::class, 'hrDirectory'])->name('hr.service_record.directory');
+
+Route::get('/hr/service-records/{user_id}/print', [ServiceRecordController::class, 'printToExcel'])
+    ->name('hr.service_records.print');
 // routes/web.php
 Route::get('/hr/staff-profiling', [HrController::class, 'staffProfiling'])->name('hr.staff_profiling');
 Route::post('/hr/employee/{id}/update-position', [HrController::class, 'updatePosition'])->name('hr.update_position');
@@ -220,6 +233,14 @@ Route::get('/my-service-record', [ServiceRecordController::class, 'index'])->nam
 
 // Dashboard Route pointing to our new controller
 Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
+
+// Payroll Management Routes
+Route::prefix('hr/payroll')->name('hr.payroll.')->group(function () {
+    Route::get('/', [PayrollController::class, 'index'])->name('index');
+    Route::post('/', [PayrollController::class, 'store'])->name('store'); // To generate a new period
+    Route::put('/record/{id}', [PayrollController::class, 'updateRecord'])->name('update_record');
+    Route::get('/{id}', [PayrollController::class, 'show'])->name('show');
+});
 
 Route::get('/dev/cleanup-family-data', function () {
     $models = [PdsSpouse::class, PdsFather::class, PdsMother::class];

@@ -2,7 +2,13 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\LeaveApplication;
+use App\Models\LeaveCreditBalance;
+use App\Models\LeaveCreditLog;
+use App\Models\LeaveCreditSetting;
+use App\Models\Seminar;
 use App\Models\User;
+use App\Services\LeaveCreditService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -159,7 +165,28 @@ class LeaveController extends Controller
             ->orderBy('created_at', 'desc')
             ->get();
 
-        return view('employee.leaves', compact('user', 'leaves', 'current_position', 'current_salary'));
+        // Credit Ledger data
+        $creditLogs = LeaveCreditLog::where('user_id', $user_id)
+            ->orderBy('created_at', 'desc')
+            ->get();
+
+        $balanceRecord = $user->leaveCreditBalance;
+        $currentBalance = $balanceRecord->vl_balance + $balanceRecord->sl_balance + $balanceRecord->service_credits;
+
+        // My Seminars data
+        $mySeminars = Seminar::where('user_id', $user_id)
+            ->orderBy('created_at', 'desc')
+            ->get();
+
+        return view('employee.leaves', compact(
+            'user',
+            'leaves',
+            'current_position',
+            'current_salary',
+            'creditLogs',
+            'currentBalance',
+            'mySeminars',
+        ));
     }
 
     public function store(Request $request)
@@ -178,8 +205,9 @@ class LeaveController extends Controller
             'leave_type_others' => ['nullable', 'required_if:leave_type,Others', 'string', 'max:255'],
             'leave_details' => ['nullable', 'string', 'max:255'],
             'leave_details_specific' => ['nullable', 'string', 'max:255'],
-            'working_days' => ['required', 'integer', 'min:1', 'max:365'],
-            'inclusive_dates' => ['required', 'string', 'max:255'],
+            'leave_details_specific' => ['nullable', 'string', 'max:255'],
+            'start_date' => ['required', 'date'],
+            'end_date' => ['required', 'date', 'after_or_equal:start_date'],
             'commutation' => ['required', 'in:Requested,Not Requested'],
         ], [
             'leave_type_others.required_if' => 'Please specify the leave type when selecting "Others".',
@@ -211,6 +239,14 @@ class LeaveController extends Controller
             $validated['leave_details_specific'] = null;
         }
 
+        $startDate = Carbon::parse($validated['start_date']);
+        $endDate = Carbon::parse($validated['end_date']);
+        $workingDays = $startDate->diffInDaysFiltered(function (Carbon $date) {
+            return $date->isWeekday();
+        }, $endDate) + 1;
+
+        $inclusiveDates = $startDate->format('M d, Y').' - '.$endDate->format('M d, Y');
+
         try {
             DB::table('leave_applications')->insert([
                 'user_id' => $user_id,
@@ -222,8 +258,8 @@ class LeaveController extends Controller
                 'leave_type_others' => $this->upper($validated['leave_type_others'] ?? ''),
                 'leave_details' => $validated['leave_details'] ?? null,
                 'leave_details_specific' => $this->upper($validated['leave_details_specific'] ?? ''),
-                'working_days' => $validated['working_days'],
-                'inclusive_dates' => $this->upper($validated['inclusive_dates']),
+                'working_days' => $workingDays,
+                'inclusive_dates' => $this->upper($inclusiveDates),
                 'commutation' => $validated['commutation'],
                 'status' => 'PENDING',
                 'created_at' => now(),
@@ -295,7 +331,8 @@ class LeaveController extends Controller
 
         $query = DB::table('leave_applications')
             ->join('users', 'leave_applications.user_id', '=', 'users.id')
-            ->select('leave_applications.*', 'users.first_name', 'users.last_name');
+            ->leftJoin('leave_credit_balances', 'users.id', '=', 'leave_credit_balances.user_id')
+            ->select('leave_applications.*', 'users.first_name', 'users.last_name', 'leave_credit_balances.vl_balance', 'leave_credit_balances.sl_balance', 'leave_credit_balances.service_credits');
 
         // FIX: `$request->has('status')` was true even for `?status=`, and the requested
         // value went into the query unchecked. Whitelist it instead.
@@ -327,8 +364,9 @@ class LeaveController extends Controller
         // FIX: stats were counted from the already-filtered collection, so filtering by
         // "Approved" reported 0 pending / 0 denied. Count from the whole table instead.
         $statusCounts = DB::table('leave_applications')
-            ->select('status', DB::raw('COUNT(*) as total'))
-            ->groupBy('status')
+            ->join('users', 'leave_applications.user_id', '=', 'users.id')
+            ->select('leave_applications.status', DB::raw('COUNT(*) as total'))
+            ->groupBy('leave_applications.status')
             ->pluck('total', 'status');
 
         $stats = [
@@ -337,7 +375,37 @@ class LeaveController extends Controller
             'denied' => (int) ($statusCounts['DISAPPROVED'] ?? 0),
         ];
 
-        return view('hr.leaves.index', compact('leaves', 'stats'));
+        // Employee Balances tab
+        $employees = User::with(['position', 'leaveCreditBalance'])
+            ->where('role_id', self::ROLE_EMPLOYEE)
+            ->get();
+
+        // Seminar Approvals tab
+        $pendingSeminars = Seminar::with('user')
+            ->where('status', 'PENDING')
+            ->orderBy('created_at', 'desc')
+            ->get();
+        $pendingSeminarsCount = $pendingSeminars->count();
+
+        // Configure Rates modal
+        $settingsRaw = LeaveCreditSetting::all();
+        $settings = [];
+        foreach ($settingsRaw as $row) {
+            $key = $row->setting_key;
+            if ($key === 'seminar_hour_to_credit_rate') {
+                $key = 'seminar_rate';
+            }
+            $settings[$row->employee_type][$key] = $row->setting_value;
+        }
+
+        return view('hr.leaves.index', compact(
+            'leaves',
+            'stats',
+            'employees',
+            'pendingSeminars',
+            'pendingSeminarsCount',
+            'settings',
+        ));
     }
 
     public function hrUpdateStatus(Request $request, $id)
@@ -364,11 +432,55 @@ class LeaveController extends Controller
         }
 
         try {
-            DB::table('leave_applications')->where('id', $id)->update([
-                'status' => $request->status,
-                'hr_remarks' => $this->upper($request->input('hr_remarks', '')),
-                'updated_at' => now(),
-            ]);
+            DB::transaction(function () use ($id, $request, $leave) {
+                $daysWithPay = null;
+                $daysWithoutPay = null;
+
+                if ($request->status === 'APPROVED' && $leave->status !== 'APPROVED') {
+                    $leaveModel = LeaveApplication::find($id);
+                    if ($leaveModel) {
+                        if (in_array($leaveModel->leave_type, ['Maternity Leave', 'Paternity Leave'])) {
+                            $daysWithPay = (float) $leaveModel->working_days;
+                            $daysWithoutPay = 0;
+                        } else {
+                            $balanceRecord = LeaveCreditBalance::firstOrCreate(
+                                ['user_id' => $leaveModel->user_id],
+                                ['vl_balance' => 0, 'sl_balance' => 0, 'service_credits' => 0]
+                            );
+
+                            $bucketColumn = ($leaveModel->leave_type === 'Sick Leave') ? 'sl_balance' : 'vl_balance';
+                            $available = $balanceRecord->{$bucketColumn};
+                            $workingDays = (float) $leaveModel->working_days;
+
+                            $daysWithPay = min($workingDays, $available);
+                            $daysWithoutPay = max(0, $workingDays - $available);
+                        }
+
+                        app(LeaveCreditService::class)->processLeaveDeduction($leaveModel, (float) $leaveModel->working_days);
+                    }
+                } elseif ($request->status === 'DISAPPROVED' && $leave->status === 'APPROVED') {
+                    $leaveModel = LeaveApplication::find($id);
+                    if ($leaveModel) {
+                        app(LeaveCreditService::class)->processLeaveRefund($leaveModel);
+                    }
+                }
+
+                $updateData = [
+                    'status' => $request->status,
+                    'hr_remarks' => $this->upper($request->input('hr_remarks', '')),
+                    'updated_at' => now(),
+                ];
+
+                if ($request->status === 'APPROVED' && $leave->status !== 'APPROVED') {
+                    $updateData['days_with_pay'] = $daysWithPay;
+                    $updateData['days_without_pay'] = $daysWithoutPay;
+                } elseif ($request->status !== 'APPROVED') {
+                    $updateData['days_with_pay'] = null;
+                    $updateData['days_without_pay'] = null;
+                }
+
+                DB::table('leave_applications')->where('id', $id)->update($updateData);
+            });
         } catch (\Throwable $e) {
             Log::error('Leave status update failed: '.$e->getMessage());
 
@@ -470,6 +582,21 @@ class LeaveController extends Controller
                 'Requested' => [116.40, 177.70],
             ],
 
+            // 7.A CERTIFICATION OF LEAVE CREDITS
+            // Pushed X right by 4mm (48 -> 52) to give spacing after the word "As"
+            'as_of_date' => [52.00, 205.00, 55.00, 4.50],
+
+            // The table balances are perfect; do not change these!
+            'balances' => [
+                'vacation_earned' => [55.00, 214.00, 25.00, 4.50],
+                'vacation_deducted' => [55.00, 218.00, 25.00, 4.50],
+                'vacation_balance' => [55.00, 222.00, 25.00, 4.50],
+
+                'sick_earned' => [85.00, 214.00, 25.00, 4.50],
+                'sick_deducted' => [85.00, 218.00, 25.00, 4.50],
+                'sick_balance' => [85.00, 222.00, 25.00, 4.50],
+            ],
+
             // 7.B — filled only once a decision exists (see RENDER_DECISION_SECTION)
             'recommendation' => [
                 'APPROVED' => [116.40, 205.40],
@@ -480,6 +607,18 @@ class LeaveController extends Controller
                 [121.30, 213.60, 72.50, 4.20],
                 [121.50, 217.60, 72.50, 4.20],
                 [121.70, 221.30, 72.50, 4.20],
+            ],
+
+            // 7.C Approved For
+            'approved_days_with_pay' => [20.00, 245.00, 20.00, 4.50],
+            'approved_days_without_pay' => [20.00, 250.00, 20.00, 4.50],
+            'approved_others' => [20.00, 255.00, 20.00, 4.50],
+
+            // 7.D Disapproved Due To
+            'disapproved_lines' => [
+                [120.00, 245.00, 75.00, 4.50],
+                [120.00, 250.00, 75.00, 4.50],
+                [120.00, 255.00, 75.00, 4.50],
             ],
         ];
     }
@@ -666,14 +805,87 @@ class LeaveController extends Controller
                 $drawCheck($layout['commutation'][$commutationKey]);
             }
 
-            // 7.B recommendation — only once HR/principal has acted
+            // 7.A CERTIFICATION OF LEAVE CREDITS
             $status = strtoupper(trim((string) ($leave->status ?? '')));
+            $isActioned = in_array($status, ['APPROVED', 'RECOMMENDED'], true);
+
+            // Determine "As of" date
+            $asOfDate = $isActioned
+                ? Carbon::parse($leave->updated_at)
+                : Carbon::now();
+            $writeBox($layout['as_of_date'], $asOfDate->format('M d, Y'), 'L', 8);
+
+            // Fetch the deduction log tied to this specific leave application
+            $deductionLog = LeaveCreditLog::where('source', 'leave_deduction')
+                ->where('reference_id', $leave->id)
+                ->first();
+
+            if ($deductionLog) {
+                // --- Leave is Approved: calculate historical balances ---
+                $deductedBucket = $deductionLog->leave_bucket; // 'VL' or 'SL'
+                $lessThisApp = abs($deductionLog->amount);
+                $balanceAfter = $deductionLog->balance_after;
+                $totalEarned = $balanceAfter + $lessThisApp;
+
+                if ($deductedBucket === 'VL') {
+                    $writeBox($layout['balances']['vacation_earned'], number_format($totalEarned, 3), 'C');
+                    $writeBox($layout['balances']['vacation_deducted'], number_format($lessThisApp, 3), 'C');
+                    $writeBox($layout['balances']['vacation_balance'], number_format($balanceAfter, 3), 'C');
+
+                    // SL: fetch the most recent log at or before the 'As of' date
+                    $otherLog = LeaveCreditLog::where('user_id', $leave->u_id)
+                        ->where('leave_bucket', 'SL')
+                        ->where('created_at', '<=', $asOfDate)
+                        ->orderByDesc('created_at')
+                        ->first();
+                    $otherBalance = $otherLog ? $otherLog->balance_after : 0;
+                    $writeBox($layout['balances']['sick_earned'], number_format($otherBalance, 3), 'C');
+                    $writeBox($layout['balances']['sick_balance'], number_format($otherBalance, 3), 'C');
+                } else {
+                    // SL was deducted
+                    $writeBox($layout['balances']['sick_earned'], number_format($totalEarned, 3), 'C');
+                    $writeBox($layout['balances']['sick_deducted'], number_format($lessThisApp, 3), 'C');
+                    $writeBox($layout['balances']['sick_balance'], number_format($balanceAfter, 3), 'C');
+
+                    // VL: fetch the most recent log at or before the 'As of' date
+                    $otherLog = LeaveCreditLog::where('user_id', $leave->u_id)
+                        ->where('leave_bucket', 'VL')
+                        ->where('created_at', '<=', $asOfDate)
+                        ->orderByDesc('created_at')
+                        ->first();
+                    $otherBalance = $otherLog ? $otherLog->balance_after : 0;
+                    $writeBox($layout['balances']['vacation_earned'], number_format($otherBalance, 3), 'C');
+                    $writeBox($layout['balances']['vacation_balance'], number_format($otherBalance, 3), 'C');
+                }
+            } else {
+                // --- Leave is Pending: show live balances ---
+                $balance = LeaveCreditBalance::where('user_id', $leave->u_id)->first();
+                if ($balance) {
+                    $writeBox($layout['balances']['vacation_earned'], number_format($balance->vl_balance, 3), 'C');
+                    $writeBox($layout['balances']['vacation_balance'], number_format($balance->vl_balance, 3), 'C');
+                    $writeBox($layout['balances']['sick_earned'], number_format($balance->sl_balance, 3), 'C');
+                    $writeBox($layout['balances']['sick_balance'], number_format($balance->sl_balance, 3), 'C');
+                }
+            }
+
+            // 7.B recommendation — only once HR/principal has acted
             if (self::RENDER_DECISION_SECTION && isset($layout['recommendation'][$status])) {
                 $drawCheck($layout['recommendation'][$status]);
+            }
 
-                if ($status === 'DISAPPROVED') {
-                    $writeOnLines($this->upper($leave->hr_remarks ?? ''), $layout['remark_lines']);
+            // 7.C / 7.D
+            if ($status === 'APPROVED') {
+                if ($leave->days_with_pay > 0) {
+                    $formattedWithPay = (string) (float) $leave->days_with_pay;
+                    $writeBox($layout['approved_days_with_pay'], $formattedWithPay, 'C');
                 }
+                if ($leave->days_without_pay > 0) {
+                    $formattedWithoutPay = (string) (float) $leave->days_without_pay;
+                    $writeBox($layout['approved_days_without_pay'], $formattedWithoutPay, 'C');
+                }
+
+            } elseif ($status === 'DISAPPROVED') {
+                $writeOnLines($this->upper($leave->hr_remarks ?? ''), $layout['disapproved_lines']);
             }
 
             $lastName = preg_replace('/[^A-Za-z0-9\-]/', '', (string) $leave->last_name);

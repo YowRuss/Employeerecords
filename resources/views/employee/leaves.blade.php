@@ -30,275 +30,44 @@
     </div>
     @endif
 
-    <ul class="nav nav-tabs mb-4" id="leaveTabs" role="tablist">
+    <ul class="nav nav-tabs mb-4 staff-tabs" id="leaveTabs" role="tablist">
         <li class="nav-item" role="presentation">
             <button class="nav-link active fw-bold" id="history-tab" data-bs-toggle="tab" data-bs-target="#history" type="button" role="tab" aria-controls="history" aria-selected="true" style="color: #1A3E6F;">
                 <i class="bi bi-clock-history"></i> My Leave History
             </button>
         </li>
         <li class="nav-item" role="presentation">
-            <button class="nav-link text-secondary" id="apply-tab" data-bs-toggle="tab" data-bs-target="#apply" type="button" role="tab" aria-controls="apply" aria-selected="false">
+            <button class="nav-link text-secondary fw-bold" id="apply-tab" data-bs-toggle="tab" data-bs-target="#apply" type="button" role="tab" aria-controls="apply" aria-selected="false">
                 <i class="bi bi-pencil-square"></i> Apply for Leave
             </button>
         </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link text-secondary fw-bold" id="ledger-tab" data-bs-toggle="tab" data-bs-target="#ledger" type="button" role="tab" aria-controls="ledger" aria-selected="false">
+                <i class="bi bi-journal-text"></i> My Credit Ledger
+            </button>
+        </li>
+        @if(auth()->user()?->position && auth()->user()->position->category === \App\Enums\PositionCategory::Teaching)
+        <li class="nav-item" role="presentation">
+            <button class="nav-link text-secondary fw-bold" id="seminars-tab" data-bs-toggle="tab" data-bs-target="#seminars" type="button" role="tab" aria-controls="seminars" aria-selected="false">
+                <i class="bi bi-award"></i> My Seminars
+            </button>
+        </li>
+        @endif
     </ul>
 
     <div class="tab-content" id="leaveTabsContent">
-        <div class="tab-pane fade show active" id="history" role="tabpanel" aria-labelledby="history-tab">
-            <div class="d-flex justify-content-end mb-3">
-                <button class="btn btn-outline-secondary btn-sm" onclick="window.print()"><i class="bi bi-printer"></i> Print / Export</button>
-            </div>
-
-    <!-- RECENT LEAVE APPLICATIONS TABLE -->
-    <div class="card shadow-sm border-0 border-top border-4 border-accent mb-5">
-        <div class="card-header bg-white py-3">
-            <h6 class="mb-0 fw-bold text-muted">My Leave History</h6>
-        </div>
-        <div class="card-body p-0 table-responsive">
-            <table class="table table-hover align-middle text-center mb-0" style="font-size: 0.85rem;">
-                <thead class="table-light text-muted">
-                    <tr>
-                        <th>Date Filed</th>
-                        <th>Type of Leave</th>
-                        <th class="d-none d-md-table-cell">Inclusive Dates</th>
-                        <th class="d-none d-md-table-cell">Days</th>
-                        <th>Status</th>
-                        <th>Action</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @forelse($leaves as $leave)
-                    <tr>
-                        <td class="align-middle">{{ \Carbon\Carbon::parse($leave->date_of_filing)->format('M d, Y') }}</td>
-                        <td class="text-start align-middle">
-                            <div class="fw-bold">{{ $leave->leave_type }}</div>
-                            <div class="d-md-none mt-1">
-                                <span class="badge bg-light text-dark border mb-1 d-block text-wrap text-start">Dates: {{ $leave->inclusive_dates }}</span>
-                                <span class="badge bg-light text-dark border">Days: {{ $leave->working_days }}</span>
-                            </div>
-                        </td>
-                        <td class="d-none d-md-table-cell align-middle">{{ $leave->inclusive_dates }}</td>
-                        <td class="d-none d-md-table-cell align-middle">{{ $leave->working_days }}</td>
-                        <td class="align-middle">
-                            @if($leave->status == 'PENDING')
-                            <span class="badge bg-warning text-dark px-3 py-2 rounded-pill">PENDING</span>
-                            @elseif($leave->status == 'APPROVED')
-                            <span class="badge bg-success px-3 py-2 rounded-pill">APPROVED</span>
-                            @else
-                            <span class="badge bg-danger px-3 py-2 rounded-pill">DISAPPROVED</span>
-                            @endif
-
-                            <!-- ADD THIS SO THE EMPLOYEE SEES HR's COMMENT -->
-                            @if($leave->hr_remarks)
-                            <div class="mt-1 small text-muted fst-italic text-wrap" style="font-size: 0.7rem; max-width: 150px; margin: 0 auto;">{{ $leave->hr_remarks }}</div>
-                            @endif
-                        </td>
-                        <td class="align-middle">
-                            @if($leave->status == 'PENDING')
-                            <form action="{{ route('leave.destroy', $leave->id) }}" method="POST" onsubmit="return confirm('Cancel this pending leave application?');">
-                                @csrf
-                                <button type="submit" class="btn btn-sm btn-outline-danger p-1" title="Cancel Leave"><i class="bi bi-x-circle d-md-none"></i><span class="d-none d-md-inline"><i class="bi bi-x-circle me-1"></i>Cancel</span></button>
-                            </form>
-                            @elseif($leave->status == 'APPROVED')
-                            <a href="{{ route('leave.export_pdf', $leave->id) }}" class="btn btn-sm" style="background-color: #fff; color: #1A3E6F; border: 1px solid #1A3E6F;" title="Download PDF">
-                                <i class="bi bi-file-earmark-pdf"></i><span class="d-none d-md-inline ms-1">Download PDF</span>
-                            </a>
-                            @else
-                            <span class="text-muted small"><i class="bi bi-lock-fill"></i> <span class="d-none d-md-inline">Locked</span></span>
-                            @endif
-                        </td>
-                    </tr>
-                    @empty
-                    <tr>
-                        <td colspan="6" class="text-center text-muted py-4">No leave applications found.</td>
-                    </tr>
-                    @endforelse
-                </tbody>
-            </table>
-        </div>
-    </div>
-        </div>
-
-        <div class="tab-pane fade" id="apply" role="tabpanel" aria-labelledby="apply-tab">
-
-    <!-- NEW LEAVE APPLICATION FORM -->
-    <div class="card shadow-sm border-0 border-start border-4 border-accent">
-        <div class="card-body p-4">
-            <h5 class="fw-bold mb-1 text-accent text-center">CS FORM NO. 6 (Revised 2020)</h5>
-            <h6 class="text-center text-muted fw-bold mb-4">APPLICATION FOR LEAVE</h6>
-
-            <form action="{{ route('leave.store') }}" method="POST">
-                @csrf
-
-                <!-- SECTION 1-5 -->
-                <div class="pds-section-card mb-4">
-                    <div class="pds-section-header text-center">APPLICATION FOR LEAVE (CS FORM NO. 6)</div>
-                    <div class="pds-section-body">
-                        <div class="row g-3">
-                            <div class="col-md-3">
-                                <label class="form-label small fw-bold text-muted mb-1">1. Office / Dept</label>
-                                <input type="text" class="form-control form-control-sm text-uppercase" value="CNHS-JH" readonly disabled>
-                            </div>
-                            <div class="col-md-9">
-                                <label class="form-label small fw-bold text-muted mb-1">2. Name (Last, First, Middle, Suffix)</label>
-                                <input type="text" class="form-control form-control-sm text-uppercase fw-bold" value="{{ trim($user->last_name . ', ' . $user->first_name . ' ' . $user->middle_name . ' ' . $user->suffix) }}" readonly disabled>
-                            </div>
-
-                            <div class="col-md-4">
-                                <label class="form-label small fw-bold text-muted mb-1">3. Date of Filing <span class="text-danger">*</span></label>
-                                <input type="date" name="date_of_filing" class="form-control form-control-sm @error('date_of_filing') is-invalid @enderror" value="{{ old('date_of_filing', date('Y-m-d')) }}" required>
-                                @error('date_of_filing')
-                                <div class="invalid-feedback">{{ $message }}</div>
-                                @enderror
-                            </div>
-                            <!-- Update Section 4 and Section 5 inside your Leave Application Form -->
-                            <div class="col-md-4">
-                                <label class="form-label small fw-bold text-muted mb-1">4. Position <span class="text-danger">*</span></label>
-                                <!-- Autofilled from the user's official position -->
-                                <input type="text" name="position" class="form-control form-control-sm text-uppercase bg-light" style="color: #1A3E6F;" value="{{ $user->position->name ?? $user->position->position_name ?? 'No Position Assigned' }}" required readonly>
-                            </div>
-                            <div class="col-md-4">
-                                <label class="form-label small fw-bold text-muted mb-1">5. Salary <span class="text-danger">*</span></label>
-                                <!-- Autofilled from the latest Service Record -->
-                                <input type="text" name="salary" class="form-control form-control-sm text-uppercase" value="{{ $current_salary }}" placeholder="e.g. 27,000.00" required>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- SECTION 6 -->
-                <div class="pds-section-card mb-4">
-                    <div class="pds-section-header text-center">6. DETAILS OF APPLICATION</div>
-                    <div class="pds-section-body">
-                        <!-- SECTION 6.A & 6.B -->
-                        <div class="row g-4 mb-4">
-                            <div class="col-md-6 border-end-md pe-md-4 mb-4 mb-md-0">
-                                <h6 class="fw-bold text-muted small border-bottom pb-2">6.A TYPE OF LEAVE TO BE AVAILED OF</h6>
-                                <select name="leave_type" class="form-select form-select-sm mb-2 @error('leave_type') is-invalid @enderror" onchange="checkLeaveType(this)" required>
-                                    <option value="" disabled {{ old('leave_type') ? '' : 'selected' }}>Select Leave Type...</option>
-                                    @foreach ([
-                                    'Vacation Leave' => 'Vacation Leave (Sec. 51, Rule XVI)',
-                                    'Mandatory/Forced Leave' => 'Mandatory/Forced Leave',
-                                    'Sick Leave' => 'Sick Leave',
-                                    'Maternity Leave' => 'Maternity Leave',
-                                    'Paternity Leave' => 'Paternity Leave',
-                                    'Special Privilege Leave' => 'Special Privilege Leave',
-                                    'Solo Parent Leave' => 'Solo Parent Leave',
-                                    'Study Leave' => 'Study Leave',
-                                    '10-Day VAWC Leave' => '10-Day VAWC Leave',
-                                    'Rehabilitation Privilege' => 'Rehabilitation Privilege',
-                                    'Special Leave Benefits for Women' => 'Special Leave Benefits for Women',
-                                    'Special Emergency (Calamity) Leave' => 'Special Emergency (Calamity) Leave',
-                                    'Adoption Leave' => 'Adoption Leave',
-                                    'Others' => 'Others (Specify)',
-                                    ] as $value => $label)
-                                    <option value="{{ $value }}" {{ old('leave_type') == $value ? 'selected' : '' }}>{{ $label }}</option>
-                                    @endforeach
-                                </select>
-                                @error('leave_type')
-                                <div class="invalid-feedback d-block">{{ $message }}</div>
-                                @enderror
-
-                                <input type="text" name="leave_type_others" id="leave_type_others"
-                                    class="form-control form-control-sm text-uppercase mt-2 {{ old('leave_type') == 'Others' ? '' : 'd-none' }} @error('leave_type_others') is-invalid @enderror"
-                                    placeholder="Please specify other leave type"
-                                    value="{{ old('leave_type_others') }}">
-                                @error('leave_type_others')
-                                <div class="invalid-feedback">{{ $message }}</div>
-                                @enderror
-                            </div>
-
-                            <div class="col-md-6" id="leave_details_section" style="{{ old('leave_type') == 'Maternity Leave' ? 'display:none;' : '' }}">
-                                <h6 class="fw-bold text-muted small border-bottom pb-2">6.B DETAILS OF LEAVE <span class="fw-normal text-muted">(optional)</span></h6>
-                                <select name="leave_details" id="leave_details_select" class="form-select form-select-sm mb-2 @error('leave_details') is-invalid @enderror">
-                                    <option value="">Select Details (If applicable)...</option>
-
-                                    <optgroup label="Vacation/Special Privilege Leave" data-leave-types="Vacation Leave,Special Privilege Leave">
-                                        <option value="Within the Philippines" {{ old('leave_details') == 'Within the Philippines' ? 'selected' : '' }}>Within the Philippines</option>
-                                        <option value="Abroad" {{ old('leave_details') == 'Abroad' ? 'selected' : '' }}>Abroad</option>
-                                    </optgroup>
-
-                                    <optgroup label="Sick Leave" data-leave-types="Sick Leave">
-                                        <option value="In Hospital" {{ old('leave_details') == 'In Hospital' ? 'selected' : '' }}>In Hospital</option>
-                                        <option value="Out Patient" {{ old('leave_details') == 'Out Patient' ? 'selected' : '' }}>Out Patient</option>
-                                    </optgroup>
-
-                                    <optgroup label="Study Leave" data-leave-types="Study Leave">
-                                        <option value="Completion of Master's Degree" {{ old('leave_details') == "Completion of Master's Degree" ? 'selected' : '' }}>Completion of Master's Degree</option>
-                                        <option value="BAR/Board Examination Review" {{ old('leave_details') == 'BAR/Board Examination Review' ? 'selected' : '' }}>BAR/Board Examination Review</option>
-                                    </optgroup>
-
-                                    <optgroup label="Other Purpose" data-leave-types="Vacation Leave,Mandatory/Forced Leave,Sick Leave,Paternity Leave,Special Privilege Leave,Solo Parent Leave,Study Leave,10-Day VAWC Leave,Rehabilitation Privilege,Special Leave Benefits for Women,Special Emergency (Calamity) Leave,Adoption Leave,Others">
-                                        <option value="Monetization of Leave Credits" {{ old('leave_details') == 'Monetization of Leave Credits' ? 'selected' : '' }}>Monetization of Leave Credits</option>
-                                        <option value="Terminal Leave" {{ old('leave_details') == 'Terminal Leave' ? 'selected' : '' }}>Terminal Leave</option>
-                                    </optgroup>
-                                </select>
-                                @error('leave_details')
-                                <div class="invalid-feedback d-block">{{ $message }}</div>
-                                @enderror
-
-                                <input type="text" name="leave_details_specific" class="form-control form-control-sm text-uppercase @error('leave_details_specific') is-invalid @enderror" value="{{ old('leave_details_specific') }}" placeholder="Specify Location / Illness (if required)">
-                                @error('leave_details_specific')
-                                <div class="invalid-feedback">{{ $message }}</div>
-                                @enderror
-                            </div>
-                        </div>
-
-                        <!-- SECTION 6.C & 6.D -->
-                        <div class="row g-4 mb-4">
-                            <div class="col-md-6 border-end-md pe-md-4 mb-4 mb-md-0">
-                                <h6 class="fw-bold text-muted small border-bottom pb-2">6.C NUMBER OF WORKING DAYS APPLIED FOR</h6>
-                                <div class="row g-2">
-                                    <div class="col-4">
-                                        <label class="small text-muted fw-bold">No. of Days <span class="text-danger">*</span></label>
-                                        <input type="number" name="working_days" class="form-control form-control-sm @error('working_days') is-invalid @enderror" value="{{ old('working_days') }}" min="1" required>
-                                        @error('working_days')
-                                        <div class="invalid-feedback">{{ $message }}</div>
-                                        @enderror
-                                    </div>
-                                    <div class="col-8">
-                                        <label class="small text-muted fw-bold">Inclusive Dates <span class="text-danger">*</span></label>
-                                        <input type="text" name="inclusive_dates" class="form-control form-control-sm text-uppercase @error('inclusive_dates') is-invalid @enderror" value="{{ old('inclusive_dates') }}" placeholder="e.g. Oct 12 - Oct 15, 2026" required>
-                                        @error('inclusive_dates')
-                                        <div class="invalid-feedback">{{ $message }}</div>
-                                        @enderror
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div class="col-md-6">
-                                <h6 class="fw-bold text-muted small border-bottom pb-2">6.D COMMUTATION</h6>
-                                <div class="d-flex gap-3 mt-3">
-                                    <div class="form-check">
-                                        <input class="form-check-input" type="radio" name="commutation" id="commNotReq" value="Not Requested" {{ old('commutation', 'Not Requested') == 'Not Requested' ? 'checked' : '' }} required>
-                                        <label class="form-check-label small" for="commNotReq">Not Requested</label>
-                                    </div>
-                                    <div class="form-check">
-                                        <input class="form-check-input" type="radio" name="commutation" id="commReq" value="Requested" {{ old('commutation') == 'Requested' ? 'checked' : '' }}>
-                                        <label class="form-check-label small" for="commReq">Requested</label>
-                                    </div>
-                                </div>
-                                @error('commutation')
-                                <div class="invalid-feedback d-block">{{ $message }}</div>
-                                @enderror
-                            </div>
-                        </div>
-
-                    </div>
-                </div>
-        </div>
-
-        <div class="d-grid d-md-flex justify-content-md-end mt-4">
-            <button type="submit" class="btn btn-accent px-5 py-2 fw-bold shadow-sm">
-                <i class="bi bi-send-fill me-2"></i> Submit Application for Leave
-            </button>
-        </div>
-        </form>
-    </div>
-        </div>
+        @include('employee.partials.history_tab')
+        @include('employee.partials.apply_tab')
+        @include('employee.partials.ledger_tab')
+        @if(auth()->user()?->position && auth()->user()->position->category === \App\Enums\PositionCategory::Teaching)
+        @include('employee.partials.seminars_tab')
+        @endif
     </div>
 </div>
-</div>
+
+@if(auth()->user()?->position && auth()->user()->position->category === \App\Enums\PositionCategory::Teaching)
+@include('employee.partials.claim_seminar_modal')
+@endif
 
 <script>
     function checkLeaveType(select) {

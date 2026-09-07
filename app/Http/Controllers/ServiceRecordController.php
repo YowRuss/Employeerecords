@@ -6,7 +6,10 @@ use App\Enums\PositionCategory;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Response;
 use Illuminate\Support\Facades\Session;
+use PhpOffice\PhpSpreadsheet\IOFactory;
+use PhpOffice\PhpSpreadsheet\Style\Border;
 
 class ServiceRecordController extends Controller
 {
@@ -112,5 +115,77 @@ class ServiceRecordController extends Controller
             })->count();
 
         return view('hr.service_records.index', compact('employees', 'filter', 'allCount', 'teachingCount', 'nonTeachingCount'));
+    }
+
+    // =========================================================
+    // PRINT / EXPORT SERVICE RECORD
+    // =========================================================
+    public function printToExcel($user_id)
+    {
+        if (! Session::has('user_id')) {
+            return redirect()->route('login');
+        }
+
+        // Fetch employee data
+        $user = DB::table('users')->where('id', $user_id)->first();
+        $personal_info = DB::table('pds_personal_info')->where('user_id', $user_id)->first();
+        $records = DB::table('service_records')->where('user_id', $user_id)->orderBy('date_from', 'asc')->get();
+
+        // Load the verbatim template
+        $templatePath = storage_path('app/templates/Service Record - Blank Template.xls');
+        $spreadsheet = IOFactory::load($templatePath);
+        $sheet = $spreadsheet->getActiveSheet();
+
+        // 1. Populate Header Information (Mapped precisely to your template's layout)
+        // Row 12 contains the blanks above (Surname), (Given Name), and (M.I)
+        $sheet->setCellValue('B12', strtoupper($user->last_name));
+        $sheet->setCellValue('C12', strtoupper($user->first_name));
+
+        // Optional: If you have middle name in your DB, you can place it in E12
+        if (isset($user->middle_name)) {
+            $sheet->setCellValue('E12', strtoupper(substr($user->middle_name, 0, 1)).'.');
+        }
+
+        // Row 15 contains the blanks above (Date of Birth) and (Place of Birth)
+        $sheet->setCellValue('B15', $personal_info->date_of_birth ?? 'N/A');
+
+        // Optional: If you track place of birth in your pds_personal_info table
+        if (isset($personal_info->place_of_birth)) {
+            $sheet->setCellValue('D15', strtoupper($personal_info->place_of_birth));
+        }
+
+        // 2. Populate Service Records
+        $row = 25; // The actual table rows in your template start exactly at Row 25
+
+        foreach ($records as $record) {
+            $sheet->setCellValue('A'.$row, $record->date_from);
+            $sheet->setCellValue('B'.$row, $record->date_to);
+            $sheet->setCellValue('C'.$row, $record->designation);
+            $sheet->setCellValue('D'.$row, $record->status);
+            $sheet->setCellValue('E'.$row, $record->salary);
+            $sheet->setCellValue('F'.$row, $record->station_place);
+            $sheet->setCellValue('G'.$row, $record->branch);
+            $sheet->setCellValue('H'.$row, $record->leave_without_pay);
+
+            // Separation Date & Cause are usually placed at the end columns (I and J)
+            $sheet->setCellValue('I'.$row, $record->separation_date);
+            $sheet->setCellValue('J'.$row, $record->separation_cause);
+
+            // Apply simple styling to borders to keep the grid intact
+            $sheet->getStyle("A{$row}:J{$row}")->getBorders()->getAllBorders()->setBorderStyle(Border::BORDER_THIN);
+
+            $row++;
+        }
+
+        // 3. Save as a temporary file and return as download
+        $fileName = 'Service_Record_'.strtoupper($user->last_name).'.xls';
+        $writer = IOFactory::createWriter($spreadsheet, 'Xls');
+
+        $tempFile = tempnam(sys_get_temp_dir(), 'sr_export');
+        $writer->save($tempFile);
+
+        return Response::download($tempFile, $fileName, [
+            'Content-Type' => 'application/vnd.ms-excel',
+        ])->deleteFileAfterSend(true);
     }
 }

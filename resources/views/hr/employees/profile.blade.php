@@ -44,14 +44,14 @@
                                 </button>
                             </span>
                             <br>
-                            @if(isset($employee->position) && $employee->position->category === 'Teaching')
+                            <div id="learningAreaWrapper" style="{{ (isset($employee->position) && $employee->position->category === \App\Enums\PositionCategory::Teaching) ? '' : 'display: none;' }}">
                             <span class="d-inline-flex align-items-center mt-1 text-dark" style="font-size: 0.9rem;">
                                 <span>Area of Specialization: <span class="fw-bold">{{ $employee->learningArea->name ?? 'Not Set' }}</span></span>
                                 <button type="button" class="btn btn-sm btn-light border shadow-sm rounded-circle text-primary ms-2" data-bs-toggle="modal" data-bs-target="#editLearningAreaModal" title="Edit Area of Specialization" style="width: 24px; height: 24px; padding: 0; display: inline-flex; align-items: center; justify-content: center;">
                                     <i class="bi bi-pencil-square" style="font-size: 0.7rem;"></i>
                                 </button>
                             </span>
-                            @endif
+                            </div>
                         </p>
                         <div class="d-grid gap-2">
                             <a href="{{ route('hr.view_pds', $employee->id) }}" class="btn btn-warning fw-bold text-dark rounded-pill shadow-sm">
@@ -266,39 +266,37 @@
                     <div class="mb-4">
                         <label class="form-label small fw-bold text-uppercase tracking-wider" style="color: #1A3E6F;">Category</label>
                         <div class="btn-group w-100 mt-2 shadow-sm" role="group">
-                            <input type="radio" class="btn-check position-category-radio" name="position_category" id="catTeaching" value="{{ \App\Enums\PositionCategory::Teaching->value }}" autocomplete="off" {{ ($employee->position->category ?? null) === \App\Enums\PositionCategory::Teaching ? 'checked' : '' }}>
+                            <input type="radio" class="btn-check" name="position_category" id="catTeaching" value="{{ \App\Enums\PositionCategory::Teaching->value }}" autocomplete="off" {{ ($employee->position->category ?? null) === \App\Enums\PositionCategory::Teaching ? 'checked' : '' }}>
                             <label class="btn btn-outline-theme fw-bold py-2" for="catTeaching"><i class="bi bi-book me-1"></i> Teaching</label>
 
-                            <input type="radio" class="btn-check position-category-radio" name="position_category" id="catNonTeaching" value="{{ \App\Enums\PositionCategory::NonTeaching->value }}" autocomplete="off" {{ ($employee->position->category ?? null) === \App\Enums\PositionCategory::NonTeaching ? 'checked' : '' }}>
+                            <input type="radio" class="btn-check" name="position_category" id="catNonTeaching" value="{{ \App\Enums\PositionCategory::NonTeaching->value }}" autocomplete="off" {{ ($employee->position->category ?? null) === \App\Enums\PositionCategory::NonTeaching ? 'checked' : '' }}>
                             <label class="btn btn-outline-theme fw-bold py-2" for="catNonTeaching"><i class="bi bi-briefcase me-1"></i> Non-Teaching</label>
                         </div>
                     </div>
 
-                    <div class="mb-4 position-select-container" id="containerTeaching" style="{{ ($employee->position->category ?? null) === \App\Enums\PositionCategory::Teaching ? '' : 'display: none;' }}">
-                        <label class="form-label small fw-bold text-uppercase tracking-wider" style="color: #1A3E6F;">Teaching Position <span class="text-danger">*</span></label>
-                        <select id="selectTeaching" class="form-select p-3 bg-light border-0 select2-position" style="border-radius: 8px;">
-                            <option value="" disabled {{ !$employee->position_id ? 'selected' : '' }}>Select Teaching Position</option>
-                            @foreach($positions->where('category', \App\Enums\PositionCategory::Teaching) as $position)
-                                <option value="{{ $position->id }}" {{ $employee->position_id == $position->id ? 'selected' : '' }}>
+                    <div class="mb-4">
+                        <label class="form-label small fw-bold text-uppercase tracking-wider" style="color: #1A3E6F;">Position <span class="text-danger">*</span></label>
+                        <select id="positionSelect" name="position_id" class="form-select p-3 bg-light border-0" required style="border-radius: 8px;">
+                            <option value="" disabled>Select a Position</option>
+                            @foreach($positions as $position)
+                                <option value="{{ $position->id }}" data-category="{{ $position->category->value ?? $position->category }}" {{ $employee->position_id == $position->id ? 'selected' : '' }}>
                                     {{ $position->position_name }}
                                 </option>
                             @endforeach
                         </select>
                     </div>
 
-                    <div class="mb-4 position-select-container" id="containerNonTeaching" style="{{ ($employee->position->category ?? null) === \App\Enums\PositionCategory::NonTeaching ? '' : 'display: none;' }}">
-                        <label class="form-label small fw-bold text-uppercase tracking-wider" style="color: #1A3E6F;">Non-Teaching Position <span class="text-danger">*</span></label>
-                        <select id="selectNonTeaching" class="form-select p-3 bg-light border-0 select2-position" style="border-radius: 8px;">
-                            <option value="" disabled {{ !$employee->position_id ? 'selected' : '' }}>Select Non-Teaching Position</option>
-                            @foreach($positions->where('category', \App\Enums\PositionCategory::NonTeaching) as $position)
-                                <option value="{{ $position->id }}" {{ $employee->position_id == $position->id ? 'selected' : '' }}>
-                                    {{ $position->position_name }}
+                    <div id="modalLearningAreaWrapper" class="mb-4" style="{{ ($employee->position->category ?? null) === \App\Enums\PositionCategory::Teaching ? '' : 'display: none;' }}">
+                        <label class="form-label small fw-bold text-uppercase tracking-wider" style="color: #1A3E6F;">Learning Area</label>
+                        <select id="modalSelectLearningArea" name="learning_area_id" class="form-select p-3 bg-light border-0" style="border-radius: 8px;">
+                            <option value="">Select a Learning Area</option>
+                            @foreach($learningAreas as $area)
+                                <option value="{{ $area->id }}" {{ $employee->learning_area_id == $area->id ? 'selected' : '' }}>
+                                    {{ $area->name }}
                                 </option>
                             @endforeach
                         </select>
                     </div>
-                    
-                    <input type="hidden" name="position_id" id="finalPositionId" value="{{ $employee->position_id }}">
                 </div>
                 <div class="modal-footer bg-light border-top-0 py-3">
                     <button type="button" class="btn btn-light px-4 fw-bold rounded-pill text-muted border" data-bs-dismiss="modal">Cancel</button>
@@ -312,42 +310,69 @@
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     const TEACHING_VALUE = '{{ \App\Enums\PositionCategory::Teaching->value }}';
-    const radios = document.querySelectorAll('.position-category-radio');
-    const containerT = document.getElementById('containerTeaching');
-    const containerNT = document.getElementById('containerNonTeaching');
-    const selectT = document.getElementById('selectTeaching');
-    const selectNT = document.getElementById('selectNonTeaching');
-    const finalInput = document.getElementById('finalPositionId');
+    const NON_TEACHING_VALUE = '{{ \App\Enums\PositionCategory::NonTeaching->value }}';
+    const categoryRadios = document.querySelectorAll('input[name="position_category"]');
+    const positionSelect = document.getElementById('positionSelect');
+    const learningAreaWrapper = document.getElementById('learningAreaWrapper');
+    const modalLearningAreaWrapper = document.getElementById('modalLearningAreaWrapper');
+    const modalLearningAreaSelect = document.getElementById('modalSelectLearningArea');
+    const positionOptions = positionSelect ? positionSelect.querySelectorAll('option[data-category]') : [];
 
-    function updateVisibility() {
-        const selectedCat = document.querySelector('.position-category-radio:checked');
-        if (!selectedCat) return;
-        
-        if (selectedCat.value === TEACHING_VALUE) {
-            containerT.style.display = '';
-            containerNT.style.display = 'none';
-            selectT.required = true;
-            selectNT.required = false;
-            finalInput.value = selectT.value;
-        } else {
-            containerT.style.display = 'none';
-            containerNT.style.display = '';
-            selectT.required = false;
-            selectNT.required = true;
-            finalInput.value = selectNT.value;
+    function syncEmployeeForm() {
+        const selectedRadio = document.querySelector('input[name="position_category"]:checked');
+        if (!selectedRadio || !positionSelect) return;
+
+        const selectedCategory = selectedRadio.value;
+        const isTeaching = selectedCategory === TEACHING_VALUE;
+
+        // Learning Area Toggle: show for Teaching, hide for Non-Teaching
+        if (learningAreaWrapper) {
+            learningAreaWrapper.style.display = isTeaching ? '' : 'none';
+        }
+        if (modalLearningAreaWrapper) {
+            modalLearningAreaWrapper.style.display = isTeaching ? '' : 'none';
+            if (!isTeaching && modalLearningAreaSelect) {
+                modalLearningAreaSelect.value = '';
+            }
+        }
+
+        // Position Filtering: show/enable matching options, hide/disable non-matching
+        let currentPositionStillValid = false;
+        positionOptions.forEach(function(option) {
+            if (option.getAttribute('data-category') === selectedCategory) {
+                option.style.display = '';
+                option.disabled = false;
+                if (option.selected) {
+                    currentPositionStillValid = true;
+                }
+            } else {
+                option.style.display = 'none';
+                option.disabled = true;
+            }
+        });
+
+        // Reset position if current selection is now hidden/disabled
+        if (!currentPositionStillValid) {
+            positionSelect.value = '';
+        }
+
+        // Trigger Select2 update if present
+        if (typeof $ !== 'undefined' && $.fn.select2 && $(positionSelect).hasClass('select2-hidden-accessible')) {
+            $(positionSelect).trigger('change');
         }
     }
 
-    radios.forEach(r => r.addEventListener('change', updateVisibility));
-    
-    // Initialize select2
+    // Attach event listeners to category radio buttons
+    categoryRadios.forEach(function(radio) {
+        radio.addEventListener('change', syncEmployeeForm);
+    });
+
+    // Initialize Select2 if available
     if (typeof $ !== 'undefined' && $.fn.select2) {
-        $('#selectTeaching, #selectNonTeaching').select2({
+        $('#positionSelect').select2({
             theme: 'bootstrap-5',
             width: '100%',
             dropdownParent: $('#editPositionModal')
-        }).on('change', function() {
-            finalInput.value = this.value;
         });
 
         $('#selectLearningArea').select2({
@@ -355,13 +380,16 @@ document.addEventListener('DOMContentLoaded', function() {
             width: '100%',
             dropdownParent: $('#editLearningAreaModal')
         });
-    } else {
-        if (selectT) selectT.addEventListener('change', () => finalInput.value = selectT.value);
-        if (selectNT) selectNT.addEventListener('change', () => finalInput.value = selectNT.value);
+
+        $('#modalSelectLearningArea').select2({
+            theme: 'bootstrap-5',
+            width: '100%',
+            dropdownParent: $('#editPositionModal')
+        });
     }
-    
-    // Initial setup
-    updateVisibility();
+
+    // Run on initial page load to set correct state
+    syncEmployeeForm();
 });
 </script>
 @endsection

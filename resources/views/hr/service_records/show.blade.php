@@ -9,7 +9,14 @@
         <div>
             <!-- Button for HR to go back to employee list -->
             <a href="#" class="btn btn-outline-secondary btn-sm me-2"><i class="bi bi-arrow-left"></i> Back to Employee List</a>
-            <button class="btn btn-accent btn-sm fw-bold shadow-sm" onclick="window.print()"><i class="bi bi-printer"></i> Print Document</button>
+            <!-- Place inside your white-themed container near the top header -->
+            <div class="d-flex justify-content-end mb-3">
+                <a href="{{ route('hr.service_records.print', $user->id) }}" 
+                class="btn text-white fw-bold shadow-sm" 
+                style="background-color: #e2ce17ff; border-color: #ebd61cff;">
+                    <i class="bi bi-printer me-2"></i> Print Service Record
+                </a>
+            </div>
         </div>
     </div>
 

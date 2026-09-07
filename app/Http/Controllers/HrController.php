@@ -68,8 +68,36 @@ class HrController extends Controller
         }
 
         $search = trim($request->query('search', ''));
+        $category = $request->query('category', '');
 
-        // Get gender statistics (Active only)
+        // 1. Independent Statistics (Standalone queries for absolute tab counts)
+        $baseCountQuery = User::where('role_id', 1);
+
+        $totalActiveCount = (clone $baseCountQuery)->where(function ($q) {
+            $q->whereNull('users.status')->orWhere('users.status', '!=', 'Inactive');
+        })->count();
+
+        $inactiveCount = (clone $baseCountQuery)->where('users.status', 'Inactive')->count();
+
+        $teachingCount = (clone $baseCountQuery)->where(function ($q) {
+            $q->whereNull('users.status')->orWhere('users.status', '!=', 'Inactive');
+        })->whereHas('position', function ($q) {
+            $q->where('category', PositionCategory::Teaching->value);
+        })->count();
+
+        $nonTeachingCount = (clone $baseCountQuery)->where(function ($q) {
+            $q->whereNull('users.status')->orWhere('users.status', '!=', 'Inactive');
+        })->whereHas('position', function ($q) {
+            $q->where('category', PositionCategory::NonTeaching->value);
+        })->count();
+
+        $incompleteCount = (clone $baseCountQuery)->where(function ($q) {
+            $q->whereNull('users.status')->orWhere('users.status', '!=', 'Inactive');
+        })->leftJoin('pds_personal_info', 'users.id', '=', 'pds_personal_info.user_id')
+            ->whereNull('pds_personal_info.id')
+            ->count('users.id');
+
+        // Gender stats for dashboard widget
         $genderStats = DB::table('users')
             ->join('pds_personal_info', 'users.id', '=', 'pds_personal_info.user_id')
             ->where('users.role_id', 1)
@@ -80,7 +108,13 @@ class HrController extends Controller
             ->groupBy('pds_personal_info.sex')
             ->pluck('total', 'sex');
 
-        // Fetch all employees query
+        // Position Stats for dashboard widget
+        $positionStats = collect([
+            PositionCategory::Teaching->label() => $teachingCount,
+            PositionCategory::NonTeaching->label() => $nonTeachingCount,
+        ]);
+
+        // 2. Fetch Paginated Employees
         $query = User::with(['learningArea', 'position'])
             ->leftJoin('pds_personal_info', 'users.id', '=', 'pds_personal_info.user_id')
             ->select(
@@ -93,7 +127,21 @@ class HrController extends Controller
             )
             ->where('users.role_id', 1);
 
-        // Apply search filter in query
+        // Apply Tab Status Logic
+        if ($category === 'inactive') {
+            $query->where('users.status', 'Inactive');
+        } elseif ($category === 'incomplete') {
+            $query->whereNull('pds_personal_info.id')
+                ->where(function ($q) {
+                    $q->whereNull('users.status')->orWhere('users.status', '!=', 'Inactive');
+                });
+        } else {
+            $query->where(function ($q) {
+                $q->whereNull('users.status')->orWhere('users.status', '!=', 'Inactive');
+            });
+        }
+
+        // Apply search filter
         if ($search !== '') {
             $term = strtolower($search);
             $query->where(function ($q) use ($term) {
@@ -106,49 +154,51 @@ class HrController extends Controller
             });
         }
 
+        // Apply Sex / Gender Filter
+        $query->when($request->filled('sex'), function ($q) use ($request) {
+            $q->where('pds_personal_info.sex', $request->sex);
+        });
+
+        // Apply Position Filter
+        $query->when($request->filled('position_id'), function ($q) use ($request) {
+            $q->where('position_id', $request->position_id);
+        });
+
+        // Apply Learning Area Filter (only when on teaching tab)
+        $query->when($request->filled('learning_area_id') && $category === 'teaching', function ($q) use ($request) {
+            $q->where('learning_area_id', $request->learning_area_id);
+        });
+
+        // Apply Tab Category Position Filter
+        $query->when($request->filled('category') && in_array($category, ['teaching', 'non-teaching']), function ($q) use ($category) {
+            $categoryValue = $category === 'teaching'
+                ? PositionCategory::Teaching->value
+                : PositionCategory::NonTeaching->value;
+            $q->whereHas('position', function ($posQ) use ($categoryValue) {
+                $posQ->where('category', $categoryValue);
+            });
+        });
+
         $employees = $query->orderBy('users.last_name', 'asc')->paginate(10)->withQueryString();
 
         $learningAreas = LearningArea::orderBy('name', 'asc')->get();
-
-        $employeeCollection = collect($employees->items());
-
-        // Map the correct position and category to each employee based on their user record
-        foreach ($employeeCollection as $emp) {
-            $emp->position_name = $emp->position ? $emp->position->position_name : null;
-            $emp->category = $emp->position ? $emp->position->category : null;
-        }
-
-        $allEmployees = $employeeCollection->filter(function ($emp) {
-            return $emp->status !== 'Inactive';
-        })->values();
-
-        $inactiveEmployees = $employeeCollection->filter(function ($emp) {
-            return $emp->status === 'Inactive';
-        })->values();
-
-        $teachingStaff = $allEmployees->filter(fn ($emp) => $emp->category === PositionCategory::Teaching);
-        $nonTeachingStaff = $allEmployees->filter(fn ($emp) => $emp->category === PositionCategory::NonTeaching);
-        $incompletePds = $allEmployees->whereNull('pds_id');
-
-        $maleEmployees = $teachingStaff->where('sex', 1);
-        $femaleEmployees = $teachingStaff->where('sex', 0);
-        $maleCount = $maleEmployees->count();
-        $femaleCount = $femaleEmployees->count();
-
-        $nonTeachingMaleEmployees = $nonTeachingStaff->where('sex', 1);
-        $nonTeachingFemaleEmployees = $nonTeachingStaff->where('sex', 0);
-        $nonTeachingMaleCount = $nonTeachingMaleEmployees->count();
-        $nonTeachingFemaleCount = $nonTeachingFemaleEmployees->count();
-
-        // Get position category statistics
-        $positionStats = collect([
-            PositionCategory::Teaching->label() => $teachingStaff->count(),
-            PositionCategory::NonTeaching->label() => $nonTeachingStaff->count(),
-        ]);
-
         $positions = Position::orderBy('position_name', 'asc')->get();
+        $filterPositions = Position::orderBy('position_name', 'asc')->get();
 
-        return view('hr.employees.index', compact('employees', 'allEmployees', 'inactiveEmployees', 'teachingStaff', 'nonTeachingStaff', 'incompletePds', 'maleEmployees', 'femaleEmployees', 'maleCount', 'femaleCount', 'nonTeachingMaleEmployees', 'nonTeachingFemaleEmployees', 'nonTeachingMaleCount', 'nonTeachingFemaleCount', 'search', 'genderStats', 'positionStats', 'learningAreas', 'positions'));
+        return view('hr.employees.index', compact(
+            'employees',
+            'totalActiveCount',
+            'inactiveCount',
+            'teachingCount',
+            'nonTeachingCount',
+            'incompleteCount',
+            'search',
+            'genderStats',
+            'positionStats',
+            'learningAreas',
+            'positions',
+            'filterPositions'
+        ));
     }
 
     public function viewProfile($id)
