@@ -2,7 +2,7 @@
 
 @section('content')
 <div class="container-fluid">
-    <h4 class="text-accent fw-bold mb-4"><i class="bi bi-gear-fill me-2"></i> Manage Positions</h4>
+    <h4 class="text-header-blue fw-bold mb-4"><i class="bi bi-gear-fill me-2 text-header-blue"></i> Manage Positions</h4>
 
     @if(session('success'))
     <div class="alert alert-success shadow-sm">{{ session('success') }}</div>
@@ -40,9 +40,15 @@
                 <h6 class="fw-bold mb-3" style="color: #1A3E6F;">Add New Position</h6>
                 <form action="{{ route('hr.positions.store') }}" method="POST">
                     @csrf
-                    <div class="mb-3">
-                        <label class="small fw-bold text-muted text-uppercase tracking-wider">Position Name</label>
-                        <input type="text" name="position_name" class="form-control text-uppercase" placeholder="e.g. TEACHER III" required>
+                    <div class="row g-2 mb-3">
+                        <div class="col-8">
+                            <label class="small fw-bold text-muted text-uppercase tracking-wider">Position Name</label>
+                            <input type="text" name="position_name" class="form-control text-uppercase" placeholder="e.g. TEACHER III" required>
+                        </div>
+                        <div class="col-4">
+                            <label class="small fw-bold text-muted text-uppercase tracking-wider text-nowrap">Salary Grade</label>
+                            <input type="number" name="salary_grade" class="form-control" placeholder="SG (1-33)" min="1" max="33" required>
+                        </div>
                     </div>
                     <div class="mb-4">
                         <label class="small fw-bold text-muted text-uppercase tracking-wider">Category</label>
@@ -86,6 +92,7 @@
                                         <tr>
                                             <th class="ps-4 text-muted small fw-bold text-uppercase py-3 border-0">ID</th>
                                             <th class="text-muted small fw-bold text-uppercase py-3 border-0">Position Name</th>
+                                            <th class="text-muted small fw-bold text-uppercase py-3 border-0">Salary Grade</th>
                                             <th class="text-muted small fw-bold text-uppercase py-3 border-0">Created At</th>
                                             <th class="text-end pe-4 text-muted small fw-bold text-uppercase py-3 border-0">Action</th>
                                         </tr>
@@ -95,12 +102,58 @@
                                         <tr>
                                             <td class="ps-4 py-3 text-muted border-light">{{ $pos->id }}</td>
                                             <td class="fw-bold text-uppercase py-3 border-light">{{ $pos->position_name }}</td>
+                                            <td class="py-3 border-light"><span class="badge bg-light text-dark border">{{ $pos->salary_grade ? 'SG ' . $pos->salary_grade : 'Not Set' }}</span></td>
                                             <td class="text-muted small py-3 border-light">{{ \Carbon\Carbon::parse($pos->created_at)->format('M d, Y') }}</td>
                                             <td class="text-end pe-4 py-3 border-light">
-                                                <form action="{{ route('hr.positions.destroy', $pos->id) }}" method="POST" onsubmit="return confirm('Delete this position?');">
-                                                    @csrf
-                                                    <button type="submit" class="btn btn-sm btn-outline-danger p-1 shadow-sm rounded-circle" style="width: 32px; height: 32px;" title="Delete Position"><i class="bi bi-trash"></i></button>
-                                                </form>
+                                                <div class="d-flex justify-content-end gap-2">
+                                                    <button type="button" class="btn btn-sm btn-outline-primary p-1 shadow-sm rounded-circle" style="width: 32px; height: 32px;" title="Edit Position" data-bs-toggle="modal" data-bs-target="#editPositionModal{{ $pos->id }}">
+                                                        <i class="bi bi-pencil"></i>
+                                                    </button>
+                                                    <form action="{{ route('hr.positions.destroy', $pos->id) }}" method="POST" onsubmit="return confirm('Delete this position?');">
+                                                        @csrf
+                                                        <button type="submit" class="btn btn-sm btn-outline-danger p-1 shadow-sm rounded-circle" style="width: 32px; height: 32px;" title="Delete Position"><i class="bi bi-trash"></i></button>
+                                                    </form>
+                                                </div>
+
+                                                <!-- Edit Position Modal -->
+                                                <div class="modal fade text-start" id="editPositionModal{{ $pos->id }}" tabindex="-1" aria-hidden="true">
+                                                    <div class="modal-dialog modal-dialog-centered">
+                                                        <div class="modal-content border-0 shadow">
+                                                            <div class="modal-header bg-light">
+                                                                <h5 class="modal-title fw-bold" style="color: #1A3E6F;"><i class="bi bi-pencil-square me-2"></i>Edit Position</h5>
+                                                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                                            </div>
+                                                            <form action="{{ route('hr.positions.update', $pos->id) }}" method="POST">
+                                                                @csrf
+                                                                <input type="hidden" name="active_tab" value="teaching">
+                                                                <div class="modal-body p-4">
+                                                                    <div class="mb-3">
+                                                                        <label class="small fw-bold text-muted text-uppercase tracking-wider">Position Name</label>
+                                                                        <input type="text" name="position_name" class="form-control text-uppercase" value="{{ $pos->position_name }}" required>
+                                                                    </div>
+                                                                    <div class="row g-2 mb-3">
+                                                                        <div class="col-8">
+                                                                            <label class="small fw-bold text-muted text-uppercase tracking-wider">Category</label>
+                                                                            <select name="category" class="form-select">
+                                                                                @foreach(\App\Enums\PositionCategory::cases() as $category)
+                                                                                <option value="{{ $category->value }}" {{ $pos->category === $category || $pos->category === $category->value ? 'selected' : '' }}>{{ $category->label() }}</option>
+                                                                                @endforeach
+                                                                            </select>
+                                                                        </div>
+                                                                        <div class="col-4">
+                                                                            <label class="small fw-bold text-muted text-uppercase tracking-wider">Salary Grade</label>
+                                                                            <input type="number" name="salary_grade" class="form-control" min="1" max="33" value="{{ $pos->salary_grade }}" placeholder="SG">
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+                                                                <div class="modal-footer bg-light border-top-0 py-3">
+                                                                    <button type="button" class="btn btn-secondary px-4 fw-bold rounded-pill" data-bs-dismiss="modal">Cancel</button>
+                                                                    <button type="submit" class="btn text-white px-4 fw-bold rounded-pill" style="background-color: #1A3E6F;">Save Changes</button>
+                                                                </div>
+                                                            </form>
+                                                        </div>
+                                                    </div>
+                                                </div>
                                             </td>
                                         </tr>
                                         @empty
@@ -119,6 +172,7 @@
                                         <tr>
                                             <th class="ps-4 text-muted small fw-bold text-uppercase py-3 border-0">ID</th>
                                             <th class="text-muted small fw-bold text-uppercase py-3 border-0">Position Name</th>
+                                            <th class="text-muted small fw-bold text-uppercase py-3 border-0">Salary Grade</th>
                                             <th class="text-muted small fw-bold text-uppercase py-3 border-0">Created At</th>
                                             <th class="text-end pe-4 text-muted small fw-bold text-uppercase py-3 border-0">Action</th>
                                         </tr>
@@ -128,12 +182,58 @@
                                         <tr>
                                             <td class="ps-4 py-3 text-muted border-light">{{ $pos->id }}</td>
                                             <td class="fw-bold text-uppercase py-3 border-light">{{ $pos->position_name }}</td>
+                                            <td class="py-3 border-light"><span class="badge bg-light text-dark border">{{ $pos->salary_grade ? 'SG ' . $pos->salary_grade : 'Not Set' }}</span></td>
                                             <td class="text-muted small py-3 border-light">{{ \Carbon\Carbon::parse($pos->created_at)->format('M d, Y') }}</td>
                                             <td class="text-end pe-4 py-3 border-light">
-                                                <form action="{{ route('hr.positions.destroy', $pos->id) }}" method="POST" onsubmit="return confirm('Delete this position?');">
-                                                    @csrf
-                                                    <button type="submit" class="btn btn-sm btn-outline-danger p-1 shadow-sm rounded-circle" style="width: 32px; height: 32px;" title="Delete Position"><i class="bi bi-trash"></i></button>
-                                                </form>
+                                                <div class="d-flex justify-content-end gap-2">
+                                                    <button type="button" class="btn btn-sm btn-outline-primary p-1 shadow-sm rounded-circle" style="width: 32px; height: 32px;" title="Edit Position" data-bs-toggle="modal" data-bs-target="#editPositionModal{{ $pos->id }}">
+                                                        <i class="bi bi-pencil"></i>
+                                                    </button>
+                                                    <form action="{{ route('hr.positions.destroy', $pos->id) }}" method="POST" onsubmit="return confirm('Delete this position?');">
+                                                        @csrf
+                                                        <button type="submit" class="btn btn-sm btn-outline-danger p-1 shadow-sm rounded-circle" style="width: 32px; height: 32px;" title="Delete Position"><i class="bi bi-trash"></i></button>
+                                                    </form>
+                                                </div>
+
+                                                <!-- Edit Position Modal -->
+                                                <div class="modal fade text-start" id="editPositionModal{{ $pos->id }}" tabindex="-1" aria-hidden="true">
+                                                    <div class="modal-dialog modal-dialog-centered">
+                                                        <div class="modal-content border-0 shadow">
+                                                            <div class="modal-header bg-light">
+                                                                <h5 class="modal-title fw-bold" style="color: #1A3E6F;"><i class="bi bi-pencil-square me-2"></i>Edit Position</h5>
+                                                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                                            </div>
+                                                            <form action="{{ route('hr.positions.update', $pos->id) }}" method="POST">
+                                                                @csrf
+                                                                <input type="hidden" name="active_tab" value="non-teaching">
+                                                                <div class="modal-body p-4">
+                                                                    <div class="mb-3">
+                                                                        <label class="small fw-bold text-muted text-uppercase tracking-wider">Position Name</label>
+                                                                        <input type="text" name="position_name" class="form-control text-uppercase" value="{{ $pos->position_name }}" required>
+                                                                    </div>
+                                                                    <div class="row g-2 mb-3">
+                                                                        <div class="col-8">
+                                                                            <label class="small fw-bold text-muted text-uppercase tracking-wider">Category</label>
+                                                                            <select name="category" class="form-select">
+                                                                                @foreach(\App\Enums\PositionCategory::cases() as $category)
+                                                                                <option value="{{ $category->value }}" {{ $pos->category === $category || $pos->category === $category->value ? 'selected' : '' }}>{{ $category->label() }}</option>
+                                                                                @endforeach
+                                                                            </select>
+                                                                        </div>
+                                                                        <div class="col-4">
+                                                                            <label class="small fw-bold text-muted text-uppercase tracking-wider">Salary Grade</label>
+                                                                            <input type="number" name="salary_grade" class="form-control" min="1" max="33" value="{{ $pos->salary_grade }}" placeholder="SG">
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+                                                                <div class="modal-footer bg-light border-top-0 py-3">
+                                                                    <button type="button" class="btn btn-secondary px-4 fw-bold rounded-pill" data-bs-dismiss="modal">Cancel</button>
+                                                                    <button type="submit" class="btn text-white px-4 fw-bold rounded-pill" style="background-color: #1A3E6F;">Save Changes</button>
+                                                                </div>
+                                                            </form>
+                                                        </div>
+                                                    </div>
+                                                </div>
                                             </td>
                                         </tr>
                                         @empty

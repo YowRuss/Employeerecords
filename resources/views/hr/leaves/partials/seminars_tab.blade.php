@@ -24,7 +24,7 @@
                                     </td>
                                     <td class="py-3 fw-bold">{{ $seminar->title }}</td>
                                     <td class="py-3">
-                                        <div>{{ \Carbon\Carbon::parse($seminar->date)->format('M d, Y') }}</div>
+                                        <div>{{ \Carbon\Carbon::parse($seminar->date_attended)->format('M d, Y') }}</div>
                                         <div class="small text-muted">{{ $seminar->hours }} hrs</div>
                                     </td>
                                     <td class="py-3">

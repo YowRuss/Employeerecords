@@ -6,21 +6,43 @@
     $monthName = \Carbon\Carbon::create()->month((int)$payrollPeriod->period_month)->format('F');
     $status = strtoupper($payrollPeriod->status ?? 'DRAFT');
     $statusBadge = match($status) {
-        'APPROVED', 'COMPLETED' => 'bg-success text-white',
+        'FINALIZED', 'APPROVED', 'COMPLETED' => 'bg-success text-white',
         'PROCESSED', 'SUBMITTED' => 'bg-info text-dark',
         'PENDING' => 'bg-warning text-dark',
         default => 'bg-secondary text-white',
     };
 
-    $records = $payrollPeriod->payrollRecords ?? collect();
-    $totalGross = $records->sum('gross_earned');
-    $totalAbsences = $records->sum('absences_amount');
-    $totalTax = $records->sum('tax_withheld');
-    $totalGsis = $records->sum('gsis_premium');
-    $totalPhilhealth = $records->sum('philhealth_premium');
-    $totalPagibig = $records->sum('pagibig_premium');
-    $totalDeductions = $records->sum('total_deductions');
-    $totalNet = $records->sum('net_amount');
+    $payrollType = $payrollPeriod->payroll_type ?? \App\Enums\PayrollType::Regular;
+    $isBonusPayroll = $payrollType->isBonus();
+
+    // On bonus sheets these columns are always zero — keep them in place for
+    // column structure, but mute them so HR reads past them.
+    $deductionClass = $isBonusPayroll ? 'text-muted opacity-50' : 'text-danger';
+    $formatDeduction = function ($value) use ($isBonusPayroll) {
+        $amount = (float) $value;
+
+        if ($isBonusPayroll) {
+            return '₱' . number_format($amount, 2);
+        }
+
+        return $amount > 0 ? '₱' . number_format($amount, 2) : '—';
+    };
+
+    $records = $records ?? $payrollRecords ?? $payrollPeriod->payrollRecords ?? collect();
+    $currentPosition = $currentPosition ?? strtolower(request('position', request('filter', 'all')));
+    $currentGender = $currentGender ?? strtolower(request('gender', 'all'));
+    $currentFilter = $currentFilter ?? $currentPosition;
+    $totalEmployees = $totalEmployees ?? $records->count();
+    $totalGross = $totalGross ?? $records->sum('gross_earned');
+    $totalAbsences = $totalAbsences ?? $records->sum('absences_amount');
+    $totalLates = $totalLates ?? $records->sum('late_deduction');
+    $totalTax = $totalTax ?? $records->sum('tax_withheld');
+    $totalGsis = $totalGsis ?? $records->sum('gsis_premium');
+    $totalPhilhealth = $totalPhilhealth ?? $records->sum('philhealth_premium');
+    $totalPagibig = $totalPagibig ?? $records->sum('pagibig_premium');
+    $totalLoans = $totalLoans ?? $records->sum('loan_amortization');
+    $totalDeductions = $totalDeductions ?? $records->sum('total_deductions');
+    $totalNet = $totalNet ?? $records->sum('net_amount');
 @endphp
 
 <div class="container-fluid py-4">
@@ -34,12 +56,17 @@
                 <span class="badge rounded-pill {{ $statusBadge }} px-3 py-1 fw-semibold" style="font-size: 0.8rem;">
                     {{ $status }}
                 </span>
+                <span class="badge rounded-pill border {{ $payrollType->badgeClass() }} px-3 py-1 fw-semibold" style="font-size: 0.8rem;">
+                    <i class="bi {{ $isBonusPayroll ? 'bi-gift-fill' : 'bi-calendar-check-fill' }} me-1"></i>{{ $payrollType->value }}
+                </span>
             </div>
-            <h4 class="fw-bold mb-1" style="color: #1A3E6F;">
-                <i class="bi bi-file-earmark-spreadsheet me-2"></i> Payroll for {{ $monthName }} {{ $payrollPeriod->period_year }}
+            <h4 class="text-header-blue fw-bold mb-1">
+                <i class="bi bi-file-earmark-spreadsheet me-2 text-header-blue"></i>
+                {{ $isBonusPayroll ? $payrollType->value : 'Payroll' }} for {{ $monthName }} {{ $payrollPeriod->period_year }}
             </h4>
             <div class="text-muted small d-flex flex-wrap align-items-center gap-3">
                 <span><i class="bi bi-tag me-1 text-secondary"></i><strong>Fund Cluster:</strong> {{ $payrollPeriod->fund_cluster }}</span>
+                <span><i class="bi bi-wallet2 me-1 text-secondary"></i><strong>Type:</strong> {{ $payrollType->value }}</span>
                 <span><i class="bi bi-calendar3 me-1 text-secondary"></i><strong>Period:</strong> {{ $monthName }} {{ $payrollPeriod->period_year }}</span>
                 @if($payrollPeriod->description)
                     <span><i class="bi bi-info-circle me-1 text-secondary"></i>{{ $payrollPeriod->description }}</span>
@@ -48,6 +75,17 @@
         </div>
 
         <div class="d-flex align-items-center gap-2">
+            @if($status === 'DRAFT')
+                <form action="{{ route('hr.payroll.approve', $payrollPeriod->id) }}" method="POST" class="m-0">
+                    @csrf
+                    <button type="submit" class="btn btn-success btn-sm shadow-sm" onclick="return confirm('Are you sure you want to finalize this payroll period? This will lock it for BIR 2316 generation.')">
+                        <i class="bi bi-check-circle me-1"></i> Finalize Payroll
+                    </button>
+                </form>
+            @endif
+            <a href="{{ route('hr.payroll.export', ['id' => $payrollPeriod->id, 'position' => request('position', request('filter')), 'gender' => request('gender')]) }}" class="btn btn-outline-success btn-sm shadow-sm">
+                <i class="bi bi-file-earmark-excel me-1"></i> Export Excel
+            </a>
             <button type="button" class="btn btn-outline-secondary btn-sm shadow-sm" onclick="window.print()">
                 <i class="bi bi-printer me-1"></i> Print Sheet
             </button>
@@ -71,7 +109,7 @@
     </div>
     @endif
 
-    @if($errors->any())
+    @if(isset($errors) && $errors->any())
     <div class="alert alert-danger alert-dismissible fade show shadow-sm border-0 rounded-3 mb-4" role="alert">
         <div class="d-flex align-items-center mb-2">
             <i class="bi bi-exclamation-octagon-fill me-2 fs-5"></i>
@@ -86,31 +124,44 @@
     </div>
     @endif
 
+    {{-- Bonus Computation Notice --}}
+    @if($isBonusPayroll)
+    <div class="alert border-0 shadow-sm rounded-3 mb-4 d-flex align-items-start gap-2" role="alert" style="background-color: rgba(255, 193, 7, 0.12); color: #7a5200;">
+        <i class="bi bi-gift-fill fs-5 mt-1"></i>
+        <div class="small">
+            <strong class="d-block mb-1">{{ $payrollType->value }} sheet — statutory deductions do not apply.</strong>
+            Each employee receives one month of basic salary{{ $payrollType === \App\Enums\PayrollType::YearEndBonus ? ' plus the ₱5,000 cash gift' : '' }}.
+            GSIS, PhilHealth, Pag-IBIG, absences, lates, and loan amortization are all ₱0.00 and shown greyed out below.
+            Withholding tax applies only to the amount above the ₱90,000 TRAIN Law exemption.
+        </div>
+    </div>
+    @endif
+
     {{-- Summary Cards --}}
     <div class="row g-3 mb-4">
         <div class="col-6 col-lg-3">
-            <div class="card shadow-sm border-0 rounded-3 bg-white p-3 h-100 border-start border-4" style="border-left-color: #1A3E6F !important;">
+            <div class="card shadow-sm rounded-3 bg-white p-3 h-100">
                 <span class="text-muted small fw-bold text-uppercase">Total Employees</span>
-                <h4 class="fw-bold mb-0 mt-1" style="color: #1A3E6F;">{{ $records->count() }}</h4>
+                <h4 class="fw-bold mb-0 mt-1 text-header-blue">{{ $totalEmployees }}</h4>
                 <span class="small text-muted">Active in period</span>
             </div>
         </div>
         <div class="col-6 col-lg-3">
-            <div class="card shadow-sm border-0 rounded-3 bg-white p-3 h-100 border-start border-4 border-info">
+            <div class="card shadow-sm rounded-3 bg-white p-3 h-100 border-start border-4 border-info">
                 <span class="text-muted small fw-bold text-uppercase">Total Gross Earned</span>
                 <h4 class="fw-bold mb-0 mt-1 text-info">₱{{ number_format($totalGross, 2) }}</h4>
                 <span class="small text-muted">Gross payroll payout</span>
             </div>
         </div>
         <div class="col-6 col-lg-3">
-            <div class="card shadow-sm border-0 rounded-3 bg-white p-3 h-100 border-start border-4 border-danger">
+            <div class="card shadow-sm rounded-3 bg-white p-3 h-100 border-start border-4 border-danger">
                 <span class="text-muted small fw-bold text-uppercase">Total Deductions</span>
                 <h4 class="fw-bold mb-0 mt-1 text-danger">₱{{ number_format($totalDeductions, 2) }}</h4>
                 <span class="small text-muted">Statutory & other cuts</span>
             </div>
         </div>
         <div class="col-6 col-lg-3">
-            <div class="card shadow-sm border-0 rounded-3 bg-white p-3 h-100 border-start border-4 border-success">
+            <div class="card shadow-sm rounded-3 bg-white p-3 h-100 border-start border-4 border-success">
                 <span class="text-muted small fw-bold text-uppercase">Total Net Amount</span>
                 <h4 class="fw-bold mb-0 mt-1 text-success">₱{{ number_format($totalNet, 2) }}</h4>
                 <span class="small text-muted">Net disbursement</span>
@@ -119,18 +170,103 @@
     </div>
 
     {{-- Master Sheet Table Card --}}
-    <div class="card shadow-sm border-0 rounded-3 bg-white">
-        <div class="card-header bg-white border-bottom py-3 d-flex flex-column flex-sm-row justify-content-between align-items-sm-center gap-2">
-            <div>
-                <h6 class="fw-bold mb-0" style="color: #1A3E6F;">
-                    <i class="bi bi-table me-2"></i> Payroll Master Sheet Records
-                </h6>
-                <p class="text-muted small mb-0">Complete breakdown of earnings, statutory withholdings, and net salaries.</p>
+    <div class="card shadow-sm rounded-3 bg-white">
+        <div class="card-header bg-white border-bottom py-3">
+            <div class="d-flex flex-column flex-sm-row justify-content-between align-items-sm-center gap-2 mb-3">
+                <div>
+                    <h6 class="fw-bold mb-0 text-header-blue">
+                        <i class="bi bi-table me-2"></i> Payroll Master Sheet Records
+                    </h6>
+                    <p class="text-muted small mb-0">Complete breakdown of earnings, statutory withholdings, and net salaries.</p>
+                </div>
+                <div class="d-flex align-items-center gap-2">
+                    <span class="badge bg-light text-dark border px-3 py-2">
+                        <i class="bi bi-people-fill me-1 text-secondary"></i>
+                        @if(method_exists($payrollRecords, 'total'))
+                            {{ $payrollRecords->total() }} Records Found
+                        @else
+                            {{ $records->count() }} Records Shown
+                        @endif
+                    </span>
+                </div>
             </div>
-            <div class="d-flex align-items-center gap-2">
-                <span class="badge bg-light text-dark border px-3 py-2">
-                    <i class="bi bi-people-fill me-1 text-secondary"></i> {{ $records->count() }} Records
-                </span>
+
+            {{-- Filter Bar: Position & Gender --}}
+            @php
+                $isAllPosActive = !in_array($currentPosition, ['teaching', 'non-teaching']);
+                $isTeachingActive = ($currentPosition === 'teaching');
+                $isNonTeachingActive = ($currentPosition === 'non-teaching');
+
+                $isAllGenderActive = !in_array($currentGender, ['male', 'female', '1', '0']);
+                $isMaleActive = in_array($currentGender, ['male', '1']);
+                $isFemaleActive = in_array($currentGender, ['female', '0']);
+            @endphp
+            <div class="d-flex flex-column gap-2 pt-2 border-top">
+                {{-- Position Filter Row --}}
+                <div class="d-flex flex-wrap align-items-center gap-2">
+                    <span class="text-muted small fw-semibold me-1" style="min-width: 60px;">
+                        <i class="bi bi-briefcase me-1 text-secondary"></i>Position:
+                    </span>
+                    <a href="{{ route('hr.payroll.show', ['id' => $payrollPeriod->id, 'position' => 'all', 'gender' => request('gender')]) }}" 
+                       class="btn btn-sm rounded-pill px-3 py-1 text-decoration-none d-inline-flex align-items-center gap-1 {{ $isAllPosActive ? 'bg-accent fw-bold shadow-sm' : 'btn-outline-secondary' }}">
+                        <i class="bi bi-people me-1"></i> All Employees
+                        <span class="badge {{ $isAllPosActive ? 'bg-white text-dark' : 'bg-light text-secondary border' }} ms-1">
+                            {{ $counts['all'] ?? $totalEmployees }}
+                        </span>
+                    </a>
+
+                    <a href="{{ route('hr.payroll.show', ['id' => $payrollPeriod->id, 'position' => 'teaching', 'gender' => request('gender')]) }}" 
+                       class="btn btn-sm rounded-pill px-3 py-1 text-decoration-none d-inline-flex align-items-center gap-1 {{ $isTeachingActive ? 'bg-accent fw-bold shadow-sm' : 'btn-outline-secondary' }}">
+                        <i class="bi bi-book-half me-1"></i> Teaching
+                        <span class="badge {{ $isTeachingActive ? 'bg-white text-dark' : 'bg-light text-secondary border' }} ms-1">
+                            {{ $counts['teaching'] ?? 0 }}
+                        </span>
+                    </a>
+
+                    <a href="{{ route('hr.payroll.show', ['id' => $payrollPeriod->id, 'position' => 'non-teaching', 'gender' => request('gender')]) }}" 
+                       class="btn btn-sm rounded-pill px-3 py-1 text-decoration-none d-inline-flex align-items-center gap-1 {{ $isNonTeachingActive ? 'bg-accent fw-bold shadow-sm' : 'btn-outline-secondary' }}">
+                        <i class="bi bi-buildings me-1"></i> Non-Teaching
+                        <span class="badge {{ $isNonTeachingActive ? 'bg-white text-dark' : 'bg-light text-secondary border' }} ms-1">
+                            {{ $counts['non_teaching'] ?? 0 }}
+                        </span>
+                    </a>
+                </div>
+
+                {{-- Gender Toggle Buttons Row --}}
+                <div class="d-flex flex-wrap align-items-center gap-2 pt-2 border-top">
+                    <span class="text-muted small fw-semibold me-1" style="min-width: 60px;">
+                        <i class="bi bi-gender-ambiguous me-1 text-secondary"></i>Gender:
+                    </span>
+                    <a href="{{ route('hr.payroll.show', ['id' => $payrollPeriod->id, 'gender' => 'all', 'position' => request('position', request('filter'))]) }}" 
+                       class="btn btn-sm rounded-pill px-3 py-1 text-decoration-none d-inline-flex align-items-center gap-1 {{ $isAllGenderActive ? 'bg-accent fw-bold shadow-sm' : 'btn-outline-secondary' }}">
+                        <i class="bi bi-people me-1"></i> All
+                        @if(isset($genderCounts['all']))
+                            <span class="badge {{ $isAllGenderActive ? 'bg-white text-dark' : 'bg-light text-secondary border' }} ms-1">
+                                {{ $genderCounts['all'] }}
+                            </span>
+                        @endif
+                    </a>
+
+                    <a href="{{ route('hr.payroll.show', ['id' => $payrollPeriod->id, 'gender' => 'male', 'position' => request('position', request('filter'))]) }}" 
+                       class="btn btn-sm rounded-pill px-3 py-1 text-decoration-none d-inline-flex align-items-center gap-1 {{ $isMaleActive ? 'bg-accent fw-bold shadow-sm' : 'btn-outline-secondary' }}">
+                        <i class="bi bi-gender-male me-1"></i> Male
+                        @if(isset($genderCounts['male']))
+                            <span class="badge {{ $isMaleActive ? 'bg-white text-dark' : 'bg-light text-secondary border' }} ms-1">
+                                {{ $genderCounts['male'] }}
+                            </span>
+                        @endif
+                    </a>
+
+                    <a href="{{ route('hr.payroll.show', ['id' => $payrollPeriod->id, 'gender' => 'female', 'position' => request('position', request('filter'))]) }}" 
+                       class="btn btn-sm rounded-pill px-3 py-1 text-decoration-none d-inline-flex align-items-center gap-1 {{ $isFemaleActive ? 'bg-accent fw-bold shadow-sm' : 'btn-outline-secondary' }}">
+                        <i class="bi bi-gender-female me-1"></i> Female
+                        @if(isset($genderCounts['female']))
+                            <span class="badge {{ $isFemaleActive ? 'bg-white text-dark' : 'bg-light text-secondary border' }} ms-1">
+                                {{ $genderCounts['female'] }}
+                            </span>
+                        @endif
+                    </a>
+                </div>
             </div>
         </div>
 
@@ -144,13 +280,15 @@
                             <th class="py-3 ps-3 border-bottom text-uppercase" style="min-width: 220px;">Employee Name</th>
                             <th class="py-3 text-end border-bottom text-uppercase" style="min-width: 120px;">Basic Rate</th>
                             <th class="py-3 text-end border-bottom text-uppercase" style="min-width: 130px;">Gross Earned</th>
-                            <th class="py-3 text-end border-bottom text-uppercase text-danger" style="min-width: 110px;">Absences</th>
+                            <th class="py-3 text-end border-bottom text-uppercase {{ $deductionClass }}" style="min-width: 110px;">Absences</th>
+                            <th class="py-3 text-end border-bottom text-uppercase {{ $deductionClass }}" style="min-width: 110px;">Lates</th>
                             <th class="py-3 text-end border-bottom text-uppercase text-danger" style="min-width: 110px;">Tax</th>
-                            <th class="py-3 text-end border-bottom text-uppercase text-danger" style="min-width: 110px;">GSIS</th>
-                            <th class="py-3 text-end border-bottom text-uppercase text-danger" style="min-width: 110px;">PhilHealth</th>
-                            <th class="py-3 text-end border-bottom text-uppercase text-danger" style="min-width: 110px;">Pag-IBIG</th>
+                            <th class="py-3 text-end border-bottom text-uppercase {{ $deductionClass }}" style="min-width: 110px;">GSIS</th>
+                            <th class="py-3 text-end border-bottom text-uppercase {{ $deductionClass }}" style="min-width: 110px;">PhilHealth</th>
+                            <th class="py-3 text-end border-bottom text-uppercase {{ $deductionClass }}" style="min-width: 110px;">Pag-IBIG</th>
+                            <th class="py-3 text-end border-bottom text-uppercase {{ $deductionClass }}" style="min-width: 110px;">Loans</th>
                             <th class="py-3 text-end border-bottom text-uppercase text-danger fw-bold" style="min-width: 140px;">Total Deductions</th>
-                            <th class="py-3 pe-3 text-end border-bottom text-uppercase fw-bold text-primary" style="min-width: 140px; background-color: rgba(26, 62, 111, 0.05); color: #1A3E6F !important;">Net Amount</th>
+                            <th class="py-3 pe-3 text-end border-bottom text-uppercase fw-bold" style="min-width: 140px;">Net Amount</th>
                             <th class="py-3 pe-3 text-center border-bottom text-uppercase" style="min-width: 160px;">Actions</th>
                         </tr>
                     </thead>
@@ -176,9 +314,9 @@
                                     $employeeName = 'Employee #' . $user->id;
                                 }
 
-                                if (!empty($user->employee_type)) {
-                                    $employeeMeta = $user->employee_type;
-                                }
+                                $isTeachingUser = ($user->position && $user->position->category === \App\Enums\PositionCategory::Teaching)
+                                    || ($user->isTeaching());
+                                $employeeMeta = $isTeachingUser ? 'TEACHING' : 'NON_TEACHING';
                             }
 
                             $otherDeductionsList = is_array($record->other_deductions) ? $record->other_deductions : [];
@@ -186,10 +324,13 @@
                         @endphp
                         <tr>
                             <td class="text-center ps-3 text-muted small fw-semibold">
-                                {{ $index + 1 }}
+                                {{ method_exists($payrollRecords, 'firstItem') && $payrollRecords->firstItem() ? ($payrollRecords->firstItem() + $index) : ($index + 1) }}
                             </td>
                             <td class="ps-3 py-2">
-                                <div class="fw-bold" style="color: #1A3E6F;">{{ $employeeName }}</div>
+                                <a href="#" class="text-decoration-none fw-bold text-header-blue" data-bs-toggle="modal" data-bs-target="#profileModal{{ $user->id ?? $record->user_id }}">
+                                    {{ $employeeName }}
+                                    <i class="bi bi-box-arrow-up-right ms-1" style="font-size: 0.65rem; opacity: 0.5;"></i>
+                                </a>
                                 @if($employeeMeta)
                                     <span class="badge bg-light text-secondary border" style="font-size: 0.7rem;">{{ $employeeMeta }}</span>
                                 @elseif($user && $user->username)
@@ -199,23 +340,40 @@
                             <td class="text-end text-muted font-monospace">
                                 ₱{{ number_format((float)$record->basic_rate, 2) }}
                             </td>
+                            @if($record->is_full_lwop)
+                            {{-- Full Month LWOP: span across all financial columns --}}
+                            <td colspan="10" class="text-center py-3" style="background-color: #fff3f3;">
+                                <span class="text-danger fw-bold" style="letter-spacing: 1.5px; font-size: 0.85rem;">
+                                    <i class="bi bi-exclamation-triangle-fill me-1"></i> LEAVE WITHOUT PAY
+                                </span>
+                            </td>
+                            <td class="text-center py-2 pe-3">
+                                <span class="badge bg-danger bg-opacity-10 text-danger border px-2 py-1" style="font-size: 0.72rem;">LWOP</span>
+                            </td>
+                            @else
                             <td class="text-end fw-semibold font-monospace" style="color: #1A3E6F;">
                                 ₱{{ number_format((float)$record->gross_earned, 2) }}
                             </td>
-                            <td class="text-end text-danger font-monospace">
-                                {{ (float)$record->absences_amount > 0 ? '₱' . number_format((float)$record->absences_amount, 2) : '—' }}
+                            <td class="text-end font-monospace {{ $deductionClass }}">
+                                {{ $formatDeduction($record->absences_amount) }}
+                            </td>
+                            <td class="text-end font-monospace {{ $deductionClass }}">
+                                {{ $formatDeduction($record->late_deduction) }}
                             </td>
                             <td class="text-end text-danger font-monospace">
                                 {{ (float)$record->tax_withheld > 0 ? '₱' . number_format((float)$record->tax_withheld, 2) : '—' }}
                             </td>
-                            <td class="text-end text-danger font-monospace">
-                                {{ (float)$record->gsis_premium > 0 ? '₱' . number_format((float)$record->gsis_premium, 2) : '—' }}
+                            <td class="text-end font-monospace {{ $deductionClass }}">
+                                {{ $formatDeduction($record->gsis_premium) }}
                             </td>
-                            <td class="text-end text-danger font-monospace">
-                                {{ (float)$record->philhealth_premium > 0 ? '₱' . number_format((float)$record->philhealth_premium, 2) : '—' }}
+                            <td class="text-end font-monospace {{ $deductionClass }}">
+                                {{ $formatDeduction($record->philhealth_premium) }}
                             </td>
-                            <td class="text-end text-danger font-monospace">
-                                {{ (float)$record->pagibig_premium > 0 ? '₱' . number_format((float)$record->pagibig_premium, 2) : '—' }}
+                            <td class="text-end font-monospace {{ $deductionClass }}">
+                                {{ $formatDeduction($record->pagibig_premium) }}
+                            </td>
+                            <td class="text-end font-monospace {{ $deductionClass }}">
+                                {{ $formatDeduction($record->loan_amortization) }}
                             </td>
                             <td class="text-end text-danger fw-bold font-monospace bg-light bg-opacity-50">
                                 <div>₱{{ number_format((float)$record->total_deductions, 2) }}</div>
@@ -225,13 +383,13 @@
                                     </div>
                                 @endif
                             </td>
-                            <td class="pe-3 text-end fw-bold font-monospace" style="background-color: rgba(26, 62, 111, 0.05); color: #1A3E6F; font-size: 0.95rem;">
+                            <td class="pe-3 text-end fw-bold font-monospace" style="font-size: 0.95rem;">
                                 ₱{{ number_format((float)$record->net_amount, 2) }}
                             </td>
                             <td class="text-center py-2 pe-3">
                                 <button type="button" 
-                                        class="btn btn-sm text-white shadow-sm d-inline-flex align-items-center gap-1" 
-                                        style="background-color: #1A3E6F; font-size: 0.78rem; padding: 0.3rem 0.75rem;"
+                                        class="btn btn-sm btn-accent shadow-sm d-inline-flex align-items-center gap-1" 
+                                        style="font-size: 0.78rem; padding: 0.3rem 0.75rem;"
                                         data-bs-toggle="modal" 
                                         data-bs-target="#deductionsModal{{ $record->id }}"
                                         title="Manage loans and variable deductions">
@@ -239,14 +397,15 @@
                                     <span>Manage Deductions</span>
                                 </button>
                             </td>
+                            @endif
                         </tr>
                         @empty
                         <tr>
-                            <td colspan="12" class="text-center py-5">
+                            <td colspan="14" class="text-center py-5">
                                 <div class="py-4">
                                     <i class="bi bi-person-x text-muted display-4 d-block mb-3 opacity-50"></i>
-                                    <h6 class="fw-bold text-secondary mb-1">No Payroll Records for this Period</h6>
-                                    <p class="text-muted small mb-0">Payroll records have not been generated yet for {{ $monthName }} {{ $payrollPeriod->period_year }}.</p>
+                                    <h6 class="fw-bold text-secondary mb-1">No records found for this filter</h6>
+                                    <p class="text-muted small mb-0">Try adjusting your position or gender filters to view records.</p>
                                 </div>
                             </td>
                         </tr>
@@ -255,32 +414,38 @@
                     @if($records->isNotEmpty())
                     <tfoot class="table-light fw-bold text-dark border-top-2">
                         <tr style="font-size: 0.85rem;">
-                            <td colspan="2" class="ps-3 py-3 text-uppercase" style="color: #1A3E6F;">
-                                Total ({{ $records->count() }} Employees)
+                            <td colspan="2" class="ps-3 py-3 text-uppercase text-header-blue">
+                                Total ({{ $totalEmployees }} Employees)
                             </td>
                             <td class="text-end font-monospace text-muted py-3">—</td>
-                            <td class="text-end font-monospace py-3" style="color: #1A3E6F;">
+                            <td class="text-end font-monospace py-3 text-header-blue">
                                 ₱{{ number_format($totalGross, 2) }}
                             </td>
-                            <td class="text-end font-monospace text-danger py-3">
+                            <td class="text-end font-monospace py-3 {{ $deductionClass }}">
                                 ₱{{ number_format($totalAbsences, 2) }}
+                            </td>
+                            <td class="text-end font-monospace py-3 {{ $deductionClass }}">
+                                ₱{{ number_format($totalLates, 2) }}
                             </td>
                             <td class="text-end font-monospace text-danger py-3">
                                 ₱{{ number_format($totalTax, 2) }}
                             </td>
-                            <td class="text-end font-monospace text-danger py-3">
+                            <td class="text-end font-monospace py-3 {{ $deductionClass }}">
                                 ₱{{ number_format($totalGsis, 2) }}
                             </td>
-                            <td class="text-end font-monospace text-danger py-3">
+                            <td class="text-end font-monospace py-3 {{ $deductionClass }}">
                                 ₱{{ number_format($totalPhilhealth, 2) }}
                             </td>
-                            <td class="text-end font-monospace text-danger py-3">
+                            <td class="text-end font-monospace py-3 {{ $deductionClass }}">
                                 ₱{{ number_format($totalPagibig, 2) }}
+                            </td>
+                            <td class="text-end font-monospace py-3 {{ $deductionClass }}">
+                                ₱{{ number_format($totalLoans, 2) }}
                             </td>
                             <td class="text-end font-monospace text-danger py-3">
                                 ₱{{ number_format($totalDeductions, 2) }}
                             </td>
-                            <td class="pe-3 text-end font-monospace py-3" style="background-color: rgba(26, 62, 111, 0.1); color: #1A3E6F; font-size: 1rem;">
+                            <td class="pe-3 text-end font-monospace py-3 fw-bold" style="font-size: 1rem;">
                                 ₱{{ number_format($totalNet, 2) }}
                             </td>
                             <td class="text-center font-monospace text-muted py-3 pe-3">—</td>
@@ -289,10 +454,25 @@
                     @endif
                 </table>
             </div>
+
+            {{-- Pagination UI --}}
+            <div class="d-flex justify-content-end mt-3 px-3 pb-3">
+                {{ $payrollRecords->links('pagination::bootstrap-5') }}
+            </div>
         </div>
     </div>
 
-    {{-- Modals for Managing Employee Deductions (Rendered outside table to prevent overflow clipping) --}}
+    {{-- Modals for Managing Employee Incomes & Deductions (Rendered outside table to prevent overflow clipping) --}}
+    <style>
+        .deductions-scroll-modal .modal-content > form {
+            max-height: 100%;
+            min-height: 0;
+        }
+        .deductions-scroll-modal .modal-body {
+            overflow-y: auto;
+            min-height: 0;
+        }
+    </style>
     @foreach($records as $record)
     @php
         $modalUser = $record->user;
@@ -313,31 +493,35 @@
         }
 
         $deductions = is_array($record->other_deductions) ? $record->other_deductions : [];
-        $gsisConso = isset($deductions['gsis_conso']) && (float)$deductions['gsis_conso'] > 0 ? number_format((float)$deductions['gsis_conso'], 2, '.', '') : '';
-        $pagibigMpl = isset($deductions['pagibig_mpl']) && (float)$deductions['pagibig_mpl'] > 0 ? number_format((float)$deductions['pagibig_mpl'], 2, '.', '') : '';
-        $landbankLoan = isset($deductions['landbank_loan']) && (float)$deductions['landbank_loan'] > 0 ? number_format((float)$deductions['landbank_loan'], 2, '.', '') : '';
-        $cnhsMulticoop = isset($deductions['cnhs_multicoop']) && (float)$deductions['cnhs_multicoop'] > 0 ? number_format((float)$deductions['cnhs_multicoop'], 2, '.', '') : '';
+        $existingIncomes = $record->payrollIncomes ?? collect();
     @endphp
-    <div class="modal fade" id="deductionsModal{{ $record->id }}" tabindex="-1" aria-labelledby="deductionsModalLabel{{ $record->id }}" aria-hidden="true">
-        <div class="modal-dialog modal-dialog-centered modal-lg">
+    <div class="modal fade deductions-scroll-modal" id="deductionsModal{{ $record->id }}" tabindex="-1" aria-labelledby="deductionsModalLabel{{ $record->id }}" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-lg modal-dialog-scrollable">
             <div class="modal-content border-0 shadow">
-                <form action="{{ route('hr.payroll.update_record', $record->id) }}" method="POST">
+                <form action="{{ route('hr.payroll.update_record', $record->id) }}" method="POST" class="d-flex flex-column overflow-hidden">
                     @csrf
                     @method('PUT')
-                    <div class="modal-header border-bottom py-3" style="background-color: #f8fafc;">
+                    <input type="hidden" name="position" value="{{ request('position', request('filter')) }}">
+                    <input type="hidden" name="gender" value="{{ request('gender') }}">
+                    <input type="hidden" name="page" value="{{ request('page', 1) }}">
+                    <input type="hidden" name="filter" value="{{ request('filter', request('position')) }}">
+                    <div class="modal-header border-bottom py-3 flex-shrink-0" style="background-color: #f8fafc;">
                         <div class="d-flex align-items-center gap-2">
-                            <div class="rounded-circle d-flex align-items-center justify-content-center" style="width: 38px; height: 38px; background-color: rgba(26, 62, 111, 0.1); color: #1A3E6F;">
+                            <div class="rounded-circle d-flex align-items-center justify-content-center bg-accent" style="width: 38px; height: 38px;">
                                 <i class="bi bi-wallet2 fs-5"></i>
                             </div>
                             <div>
-                                <h6 class="modal-title fw-bold mb-0" id="deductionsModalLabel{{ $record->id }}" style="color: #1A3E6F;">
+                                <h6 class="modal-title fw-bold mb-0 text-header-blue" id="deductionsModalLabel{{ $record->id }}">
                                     Manage Deductions & Loans
                                 </h6>
                                 <div class="text-muted small">
                                     <strong>Employee:</strong> {{ $modalEmpName }}
-                                    @if($modalUser && $modalUser->employee_type)
-                                        <span class="badge bg-light text-secondary border ms-1">{{ $modalUser->employee_type }}</span>
-                                    @endif
+                                    @php
+                                        $isTeachingModalUser = ($modalUser && $modalUser->position && $modalUser->position->category === \App\Enums\PositionCategory::Teaching)
+                                            || ($modalUser && $modalUser->isTeaching());
+                                        $modalEmployeeCategory = $isTeachingModalUser ? 'TEACHING' : 'NON_TEACHING';
+                                    @endphp
+                                    <span class="badge bg-light text-secondary border ms-1">{{ $modalEmployeeCategory }}</span>
                                 </div>
                             </div>
                         </div>
@@ -365,6 +549,7 @@
                             </div>
                         </div>
 
+                        {{-- ====== DEDUCTIONS SECTION ====== --}}
                         <div class="alert alert-info py-2 px-3 small d-flex align-items-center mb-3">
                             <i class="bi bi-info-circle-fill me-2 flex-shrink-0 fs-6"></i>
                             <div>
@@ -372,92 +557,45 @@
                             </div>
                         </div>
 
-                        {{-- Custom Loan Input Fields --}}
-                        <div class="row g-3">
-                            {{-- GSIS Consolidated Loan --}}
-                            <div class="col-md-6">
-                                <label for="gsis_conso_{{ $record->id }}" class="form-label small fw-semibold text-secondary mb-1">
-                                    <i class="bi bi-bank2 me-1 text-primary"></i> GSIS Consolidated Loan
-                                </label>
-                                <div class="input-group">
-                                    <span class="input-group-text bg-light text-muted">₱</span>
-                                    <input type="number" 
-                                           step="0.01" 
-                                           min="0" 
-                                           class="form-control font-monospace" 
-                                           id="gsis_conso_{{ $record->id }}" 
-                                           name="other_deductions[gsis_conso]" 
-                                           value="{{ $gsisConso }}" 
-                                           placeholder="0.00">
-                                </div>
-                                <div class="form-text small text-muted" style="font-size: 0.75rem;">GSIS Conso-Loan monthly amortization</div>
+                        {{-- Dynamic Loan Input Fields (from deduction_categories/types) --}}
+                        @foreach($categories as $category)
+                            <h6 class="fw-bold mt-4 mb-3" style="color: #1A3E6F; border-bottom: 2px solid #e2e8f0; padding-bottom: 5px;">
+                                <i class="bi bi-folder2 me-2"></i>{{ $category->name }}
+                            </h6>
+                            <div class="row g-3">
+                                @foreach($category->types as $type)
+                                    @php
+                                        $val = isset($deductions[$type->code]) && (float)$deductions[$type->code] > 0
+                                            ? number_format((float)$deductions[$type->code], 2, '.', '')
+                                            : '';
+                                    @endphp
+                                    <div class="col-md-4 col-sm-6">
+                                        <label for="{{ $type->code }}_{{ $record->id }}" class="form-label small fw-semibold text-secondary mb-1 text-truncate w-100" title="{{ $type->name }}">
+                                            {{ $type->name }}
+                                        </label>
+                                        <div class="input-group input-group-sm">
+                                            <span class="input-group-text bg-light text-muted border-end-0">₱</span>
+                                            <input type="number"
+                                                   step="0.01"
+                                                   min="0"
+                                                   class="form-control font-monospace border-start-0 ps-1"
+                                                   id="{{ $type->code }}_{{ $record->id }}"
+                                                   name="other_deductions[{{ $type->code }}]"
+                                                   value="{{ $val }}"
+                                                   placeholder="0.00">
+                                        </div>
+                                    </div>
+                                @endforeach
                             </div>
-
-                            {{-- Pag-IBIG Multi-Purpose Loan --}}
-                            <div class="col-md-6">
-                                <label for="pagibig_mpl_{{ $record->id }}" class="form-label small fw-semibold text-secondary mb-1">
-                                    <i class="bi bi-houses me-1 text-primary"></i> Pag-IBIG Multi-Purpose Loan
-                                </label>
-                                <div class="input-group">
-                                    <span class="input-group-text bg-light text-muted">₱</span>
-                                    <input type="number" 
-                                           step="0.01" 
-                                           min="0" 
-                                           class="form-control font-monospace" 
-                                           id="pagibig_mpl_{{ $record->id }}" 
-                                           name="other_deductions[pagibig_mpl]" 
-                                           value="{{ $pagibigMpl }}" 
-                                           placeholder="0.00">
-                                </div>
-                                <div class="form-text small text-muted" style="font-size: 0.75rem;">HDMF MPL / Calamity loan monthly amortization</div>
-                            </div>
-
-                            {{-- Landbank Salary Loan --}}
-                            <div class="col-md-6">
-                                <label for="landbank_loan_{{ $record->id }}" class="form-label small fw-semibold text-secondary mb-1">
-                                    <i class="bi bi-cash-coin me-1 text-primary"></i> Landbank Salary Loan
-                                </label>
-                                <div class="input-group">
-                                    <span class="input-group-text bg-light text-muted">₱</span>
-                                    <input type="number" 
-                                           step="0.01" 
-                                           min="0" 
-                                           class="form-control font-monospace" 
-                                           id="landbank_loan_{{ $record->id }}" 
-                                           name="other_deductions[landbank_loan]" 
-                                           value="{{ $landbankLoan }}" 
-                                           placeholder="0.00">
-                                </div>
-                                <div class="form-text small text-muted" style="font-size: 0.75rem;">Landbank (LBP) payroll loan deduction</div>
-                            </div>
-
-                            {{-- CNHS Multi-coop Loan --}}
-                            <div class="col-md-6">
-                                <label for="cnhs_multicoop_{{ $record->id }}" class="form-label small fw-semibold text-secondary mb-1">
-                                    <i class="bi bi-people me-1 text-primary"></i> CNHS Multi-coop Loan
-                                </label>
-                                <div class="input-group">
-                                    <span class="input-group-text bg-light text-muted">₱</span>
-                                    <input type="number" 
-                                           step="0.01" 
-                                           min="0" 
-                                           class="form-control font-monospace" 
-                                           id="cnhs_multicoop_{{ $record->id }}" 
-                                           name="other_deductions[cnhs_multicoop]" 
-                                           value="{{ $cnhsMulticoop }}" 
-                                           placeholder="0.00">
-                                </div>
-                                <div class="form-text small text-muted" style="font-size: 0.75rem;">School faculty cooperative loan deduction</div>
-                            </div>
-                        </div>
+                        @endforeach
                     </div>
 
-                    <div class="modal-footer bg-light py-2 px-4 border-top">
+                    <div class="modal-footer bg-light py-2 px-4 border-top flex-shrink-0">
                         <button type="button" class="btn btn-sm btn-outline-secondary px-3" data-bs-dismiss="modal">
                             Cancel
                         </button>
-                        <button type="submit" class="btn btn-sm text-white px-4 shadow-sm" style="background-color: #1A3E6F;">
-                            <i class="bi bi-check2-circle me-1"></i> Save Deductions
+                        <button type="submit" class="btn btn-sm btn-accent px-4 shadow-sm">
+                            <i class="bi bi-check2-circle me-1"></i> Save Changes
                         </button>
                     </div>
                 </form>
@@ -465,5 +603,276 @@
         </div>
     </div>
     @endforeach
+
+    {{-- Employee Payroll Profile Modals --}}
+    @foreach($records as $record)
+    @php
+        $profileUser = $record->user;
+        if (!$profileUser) continue;
+
+        $profileName = 'Employee #' . $record->user_id;
+        if (!empty($profileUser->last_name) || !empty($profileUser->first_name)) {
+            $profileName = $profileUser->last_name . ', ' . $profileUser->first_name;
+            if (!empty($profileUser->middle_name)) {
+                $profileName .= ' ' . strtoupper(substr($profileUser->middle_name, 0, 1)) . '.';
+            }
+            if (!empty($profileUser->suffix)) {
+                $profileName .= ' ' . $profileUser->suffix;
+            }
+        } elseif (!empty($profileUser->name)) {
+            $profileName = $profileUser->name;
+        }
+
+        $pdsProfile = $profileUser->pdsPersonalInfo ?? null;
+        $employeeId = $pdsProfile->employee_no ?? 'N/A';
+        $positionName = ($profileUser->position) ? $profileUser->position->position_name : 'Unassigned';
+        $salaryGrade = ($profileUser->position) ? $profileUser->position->salary_grade : null;
+        $currentStep = $profileUser->step_increment ?: 1;
+        $currentRate = $profileUser->base_salary;
+        $nextStepRate = $profileUser->next_step_rate;
+        $lastIncrementDate = $profileUser->last_increment_date
+            ? \Carbon\Carbon::parse($profileUser->last_increment_date)->format('M d, Y')
+            : 'N/A';
+        $nextEligibilityDate = $profileUser->next_eligibility_date
+            ? \Carbon\Carbon::parse($profileUser->next_eligibility_date)->format('M d, Y')
+            : 'N/A';
+        $dateHired = $profileUser->date_hired
+            ? \Carbon\Carbon::parse($profileUser->date_hired)->format('M d, Y')
+            : 'N/A';
+        $employmentStatus = $profileUser->employment_status;
+        $incrementLogs = $profileUser->stepIncrementLogs->sortByDesc('effective_date');
+        $isAtMaxStep = $currentStep >= 8;
+    @endphp
+    <div class="modal fade" id="profileModal{{ $profileUser->id }}" tabindex="-1" aria-labelledby="profileModalLabel{{ $profileUser->id }}" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-lg modal-dialog-scrollable">
+            <div class="modal-content border-0 shadow-lg">
+                {{-- Modal Header --}}
+                <div class="modal-header border-0 pb-0 bg-accent">
+                    <div class="d-flex align-items-center gap-3 py-2">
+                        <div class="rounded-circle d-flex align-items-center justify-content-center flex-shrink-0 bg-white" style="width: 48px; height: 48px;">
+                            <i class="bi bi-person-badge fs-4 text-header-blue"></i>
+                        </div>
+                        <div>
+                            <h6 class="modal-title fw-bold mb-0" id="profileModalLabel{{ $profileUser->id }}">
+                                {{ $profileName }}
+                            </h6>
+                            <div class="d-flex flex-wrap align-items-center gap-2 mt-1">
+                                <span class="badge bg-white text-dark" style="font-size: 0.72rem;">
+                                    <i class="bi bi-hash me-1"></i>{{ $employeeId }}
+                                </span>
+                                <span class="badge bg-white text-dark" style="font-size: 0.72rem;">
+                                    <i class="bi bi-briefcase me-1"></i>{{ $positionName }}
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+
+                <div class="modal-body p-4">
+                    {{-- Employment Info Card (derived from service_records) --}}
+                    <div class="row g-3 mb-4">
+                        <div class="col-sm-6">
+                            <div class="p-3 rounded-3 h-100" style="background-color: #f0f4f8;">
+                                <div class="text-muted small text-uppercase fw-bold mb-1" style="font-size: 0.7rem;">
+                                    <i class="bi bi-calendar-event me-1"></i>Date Hired
+                                </div>
+                                <div class="fw-bold" style="color: #1A3E6F;">{{ $dateHired }}</div>
+                            </div>
+                        </div>
+                        <div class="col-sm-6">
+                            <div class="p-3 rounded-3 h-100" style="background-color: #f0f4f8;">
+                                <div class="text-muted small text-uppercase fw-bold mb-1" style="font-size: 0.7rem;">
+                                    <i class="bi bi-shield-check me-1"></i>Employment Status
+                                </div>
+                                <div class="fw-bold" style="color: #1A3E6F;">
+                                    <span class="badge {{ $employmentStatus === 'Permanent' ? 'bg-success' : ($employmentStatus === 'Unassigned' ? 'bg-secondary' : 'bg-info text-dark') }} px-2 py-1">
+                                        {{ $employmentStatus }}
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {{-- Salary Details Card --}}
+                    <div class="card border-0 shadow-sm mb-4">
+                        <div class="card-header bg-white border-bottom py-2">
+                            <h6 class="fw-bold mb-0 small" style="color: #1A3E6F;">
+                                <i class="bi bi-cash-stack me-2"></i>Salary Details
+                            </h6>
+                        </div>
+                        <div class="card-body p-0">
+                            <table class="table table-borderless mb-0 small">
+                                <tbody>
+                                    <tr class="border-bottom">
+                                        <td class="text-muted py-2 ps-3" style="width: 50%;">Current Salary Grade</td>
+                                        <td class="fw-bold text-end pe-3 py-2" style="color: #1A3E6F;">
+                                            {{ $salaryGrade ? 'SG-' . $salaryGrade : 'N/A' }}
+                                        </td>
+                                    </tr>
+                                    <tr class="border-bottom">
+                                        <td class="text-muted py-2 ps-3">Current Step</td>
+                                        <td class="fw-bold text-end pe-3 py-2" style="color: #1A3E6F;">
+                                            Step {{ $currentStep }}
+                                            @if($isAtMaxStep)
+                                                <span class="badge bg-success ms-1" style="font-size: 0.65rem;">MAX</span>
+                                            @endif
+                                        </td>
+                                    </tr>
+                                    <tr class="border-bottom">
+                                        <td class="text-muted py-2 ps-3">Current Rate</td>
+                                        <td class="fw-bold text-end pe-3 py-2 font-monospace" style="color: #1A3E6F;">
+                                            ₱{{ number_format($currentRate, 2) }}
+                                        </td>
+                                    </tr>
+                                    <tr class="border-bottom">
+                                        <td class="text-muted py-2 ps-3">Next Step Rate (Step {{ $currentStep + 1 }})</td>
+                                        <td class="fw-bold text-end pe-3 py-2 font-monospace {{ $nextStepRate ? 'text-success' : 'text-muted' }}">
+                                            {{ $nextStepRate ? '₱' . number_format($nextStepRate, 2) : ($isAtMaxStep ? 'At Maximum' : 'N/A') }}
+                                        </td>
+                                    </tr>
+                                    <tr class="border-bottom">
+                                        <td class="text-muted py-2 ps-3">Last Increment Date</td>
+                                        <td class="fw-bold text-end pe-3 py-2" style="color: #1A3E6F;">{{ $lastIncrementDate }}</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="text-muted py-2 ps-3">Next Eligibility Date</td>
+                                        <td class="fw-bold text-end pe-3 py-2">
+                                            @if($profileUser->next_eligibility_date && \Carbon\Carbon::parse($profileUser->next_eligibility_date)->isPast())
+                                                <span class="text-success">
+                                                    <i class="bi bi-check-circle-fill me-1"></i>{{ $nextEligibilityDate }}
+                                                    <span class="badge bg-success ms-1" style="font-size: 0.65rem;">ELIGIBLE</span>
+                                                </span>
+                                            @else
+                                                <span style="color: #1A3E6F;">{{ $nextEligibilityDate }}</span>
+                                            @endif
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    {{-- Step Increment Action (HR/Admin only) --}}
+                    @if(in_array((int)session('role_id'), [2, 3]))
+                    <div class="card border-0 shadow-sm mb-4 {{ $isAtMaxStep ? 'opacity-75' : '' }}">
+                        <div class="card-header bg-white border-bottom py-2">
+                            <h6 class="fw-bold mb-0 small" style="color: #1A3E6F;">
+                                <i class="bi bi-arrow-up-circle me-2"></i>Process Step Increment (NOSI)
+                            </h6>
+                        </div>
+                        <div class="card-body">
+                            @if($isAtMaxStep)
+                                <div class="alert alert-success py-2 px-3 mb-0 small d-flex align-items-center">
+                                    <i class="bi bi-check-circle-fill me-2"></i>
+                                    This employee is already at the maximum salary step (Step 8). No further increments are available.
+                                </div>
+                            @else
+                                <form action="{{ route('hr.payroll.step_increment.process', $profileUser->id) }}" method="POST" class="d-flex flex-column flex-sm-row align-items-sm-end gap-3">
+                                    @csrf
+                                    <div class="flex-grow-1">
+                                        <label for="effective_date_{{ $profileUser->id }}" class="form-label small fw-semibold text-muted mb-1">
+                                            Effective Date
+                                        </label>
+                                        <input type="date"
+                                               class="form-control form-control-sm"
+                                               id="effective_date_{{ $profileUser->id }}"
+                                               name="effective_date"
+                                               value="{{ now()->toDateString() }}">
+                                    </div>
+                                    <div class="flex-shrink-0">
+                                        <button type="submit" class="btn btn-sm btn-accent px-4 shadow-sm"
+                                                onclick="return confirm('Process step increment from Step {{ $currentStep }} to Step {{ $currentStep + 1 }} for {{ $profileName }}?')">
+                                            <i class="bi bi-arrow-up-circle me-1"></i> Process Increment
+                                        </button>
+                                    </div>
+                                </form>
+                                <div class="mt-2 small text-muted">
+                                    <i class="bi bi-info-circle me-1"></i>
+                                    This will advance from <strong>Step {{ $currentStep }}</strong> (₱{{ number_format($currentRate, 2) }}) to <strong>Step {{ $currentStep + 1 }}</strong>
+                                    @if($nextStepRate)
+                                        (₱{{ number_format($nextStepRate, 2) }})
+                                    @endif
+                                    and will be reflected in future payroll calculations.
+                                </div>
+                            @endif
+                        </div>
+                    </div>
+                    @endif
+
+                    {{-- Increment History / Audit Trail --}}
+                    <div class="card border-0 shadow-sm">
+                        <div class="card-header bg-white border-bottom py-2 d-flex justify-content-between align-items-center">
+                            <h6 class="fw-bold mb-0 small" style="color: #1A3E6F;">
+                                <i class="bi bi-clock-history me-2"></i>Increment History
+                            </h6>
+                            @if($incrementLogs->count() > 0)
+                                <span class="badge bg-light text-secondary border" style="font-size: 0.7rem;">
+                                    {{ $incrementLogs->count() }} {{ Str::plural('record', $incrementLogs->count()) }}
+                                </span>
+                            @endif
+                        </div>
+                        <div class="card-body p-0">
+                            @if($incrementLogs->isEmpty())
+                                <div class="text-center py-4 text-muted small">
+                                    <i class="bi bi-inbox d-block mb-2" style="font-size: 1.5rem; opacity: 0.4;"></i>
+                                    No increment history recorded yet.
+                                </div>
+                            @else
+                                <div class="table-responsive">
+                                    <table class="table table-hover table-sm mb-0 small align-middle">
+                                        <thead class="bg-light text-secondary" style="font-size: 0.72rem;">
+                                            <tr>
+                                                <th class="py-2 ps-3">Effective Date</th>
+                                                <th class="py-2 text-center">Step Change</th>
+                                                <th class="py-2 text-end">Old Rate</th>
+                                                <th class="py-2 text-end">New Rate</th>
+                                                <th class="py-2 pe-3">Approved By</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            @foreach($incrementLogs as $log)
+                                            <tr>
+                                                <td class="ps-3 py-2">
+                                                    {{ $log->effective_date ? \Carbon\Carbon::parse($log->effective_date)->format('M d, Y') : '—' }}
+                                                </td>
+                                                <td class="text-center py-2">
+                                                    <span class="badge bg-light text-dark border font-monospace">
+                                                        {{ $log->old_step }} <i class="bi bi-arrow-right mx-1 text-muted"></i> {{ $log->new_step }}
+                                                    </span>
+                                                </td>
+                                                <td class="text-end py-2 font-monospace text-muted">
+                                                    ₱{{ number_format((float)$log->old_rate, 2) }}
+                                                </td>
+                                                <td class="text-end py-2 font-monospace fw-semibold text-success">
+                                                    ₱{{ number_format((float)$log->new_rate, 2) }}
+                                                </td>
+                                                <td class="pe-3 py-2 text-muted">
+                                                    @if($log->approver)
+                                                        {{ $log->approver->last_name }}, {{ $log->approver->first_name }}
+                                                    @else
+                                                        <span class="text-muted fst-italic">System</span>
+                                                    @endif
+                                                </td>
+                                            </tr>
+                                            @endforeach
+                                        </tbody>
+                                    </table>
+                                </div>
+                            @endif
+                        </div>
+                    </div>
+                </div>
+
+                <div class="modal-footer bg-light border-top py-2">
+                    <button type="button" class="btn btn-sm btn-outline-secondary px-3" data-bs-dismiss="modal">
+                        Close
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    @endforeach
+
 </div>
 @endsection

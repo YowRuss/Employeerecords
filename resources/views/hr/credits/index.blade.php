@@ -4,7 +4,7 @@
 <div class="container-fluid py-4">
     <div class="row mb-4 align-items-center">
         <div class="col-md-6">
-            <h4 class="fw-bold mb-0" style="color: #1A3E6F;">Leave Credit Management</h4>
+            <h4 class="text-header-blue fw-bold mb-0">Leave Credit Management</h4>
             <p class="text-muted small mb-0">Manage employee leave balances and system settings.</p>
         </div>
         <div class="col-md-6 text-md-end mt-3 mt-md-0 d-flex gap-2 justify-content-md-start justify-content-lg-end">
@@ -38,7 +38,7 @@
                                 <div class="small text-muted">{{ $emp->email }}</div>
                             </td>
                             <td class="py-3">
-                                <span class="badge bg-secondary">{{ $emp->employee_type ?? 'N/A' }}</span>
+                                <span class="badge bg-secondary">{{ $emp->employee_type_label ?? 'N/A' }}</span>
                             </td>
                             <td class="py-3 fw-bold" style="color: #1A3E6F;">
                                 {{ number_format($emp->creditBalance->balance ?? 0, 2) }}

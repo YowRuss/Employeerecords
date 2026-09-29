@@ -3,7 +3,6 @@
 namespace App\Http\Controllers;
 
 use App\Models\JobApplication;
-use App\Models\JobPosting;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Session;
@@ -15,9 +14,7 @@ class JobApplicationController extends Controller
     // ==========================================
     public function index()
     {
-        $jobPostings = JobPosting::with('position')->where('is_active', 1)->latest()->get();
-
-        return view('welcome', compact('jobPostings'));
+        return redirect('/#open-positions');
     }
 
     public function showForm(Request $request)

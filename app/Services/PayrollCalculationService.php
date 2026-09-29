@@ -16,6 +16,12 @@ class PayrollCalculationService
     /** Standard Pag-IBIG employee monthly contribution. */
     private const PAGIBIG_FIXED = 200.00;
 
+    /** TRAIN Law exemption ceiling for 13th month pay and other benefits (₱90,000). */
+    private const BONUS_TAX_EXEMPT_CEILING = 90_000.00;
+
+    /** Placeholder flat rate applied to the taxable excess of a bonus. */
+    private const BONUS_TAX_RATE = 0.20;
+
     /**
      * Calculate mandatory Philippine government deductions for an employee.
      *
@@ -28,6 +34,20 @@ class PayrollCalculationService
             'philhealth_premium' => $this->computePhilHealth($basicSalary),
             'pagibig_premium' => $this->computePagibig(),
         ];
+    }
+
+    /**
+     * Withholding tax on a Mid-Year or Year-End Bonus.
+     *
+     * Under the TRAIN Law the first ₱90,000 of 13th month pay and other
+     * benefits is exempt; only the excess is taxable. The ceiling is applied
+     * per payout here rather than against the employee's running annual total.
+     */
+    public function calculateBonusTax(float $grossBonus): float
+    {
+        $taxableAmount = max(0, $grossBonus - self::BONUS_TAX_EXEMPT_CEILING);
+
+        return round($taxableAmount * self::BONUS_TAX_RATE, 2);
     }
 
     /**

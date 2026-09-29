@@ -6,7 +6,7 @@
 
 <div class="container-fluid">
     <div class="d-flex flex-column flex-sm-row justify-content-between align-items-sm-center mb-4 gap-2">
-        <h4 class="text-accent fw-bold m-0"><i class="bi bi-file-earmark-bar-graph me-2"></i> {{ $employee->first_name }} {{ $employee->last_name }}'s SALN</h4>
+        <h4 class="text-header-blue fw-bold m-0"><i class="bi bi-file-earmark-bar-graph me-2 text-header-blue"></i> {{ $employee->first_name }} {{ $employee->last_name }}'s SALN</h4>
         <a href="{{ route('hr.view_profile', $employee->id) }}" class="btn btn-outline-secondary btn-sm"><i class="bi bi-arrow-left"></i> Back to Profile</a>
     </div>
 

@@ -9,8 +9,8 @@
 </head>
 <body>
     <div class="card">
-        <h2 class="text-accent">Welcome, {{ $details['name'] }}!</h2>
-        <p>Your official employee account for the <strong>CNHS-JHS HR System</strong> has been successfully created by the HR Department.</p>
+        <h2 class="text-header-blue">Welcome, {{ $details['name'] }}!</h2>
+        <p>Your official employee account for the <strong>CNHS-JHS Employee Records System</strong> has been successfully created by the HR Department.</p>
         
         <p>Here are your secure login credentials:</p>
         <div style="background-color: #f8f9fa; padding: 15px; border-radius: 5px; margin: 20px 0;">

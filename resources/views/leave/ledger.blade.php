@@ -4,7 +4,7 @@
 <div class="container-fluid py-4">
     <div class="row mb-4">
         <div class="col-12">
-            <h4 class="fw-bold mb-0" style="color: #1A3E6F;">My Leave Credits</h4>
+            <h4 class="text-header-blue fw-bold mb-0">My Leave Credits</h4>
         </div>
     </div>
 

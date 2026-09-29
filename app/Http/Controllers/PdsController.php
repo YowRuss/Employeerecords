@@ -15,7 +15,8 @@ use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Session;
 use PhpOffice\PhpSpreadsheet\Cell\DataType;
 use PhpOffice\PhpSpreadsheet\IOFactory;
-use Symfony\Component\HttpFoundation\StreamedResponse;
+use PhpOffice\PhpSpreadsheet\RichText\RichText;
+use ZipArchive;
 
 class PdsController extends Controller
 {
@@ -59,25 +60,46 @@ class PdsController extends Controller
     ];
 
     /**
-     * Sheet C4, items 34-40: [answer cell, "If YES, give details" cell].
-     * The YES/NO tick boxes are Excel form controls, which PhpSpreadsheet cannot
-     * read or write and drops on save — so the answer is written as text into the
-     * cell the pair was anchored to.
+     * Sheet C4, items 34-40: "If YES, give details" cell only.
+     * YES/NO is ticked on the form-control checkboxes, not written as cell text.
      */
-    private const QUESTIONNAIRE_CELLS = [
-        'q34_a' => ['G5', null],
-        'q34_b' => ['G7', 'G10'],
-        'q35_a' => ['G13', 'G14'],
-        'q35_b' => ['G17', 'G19'],
-        'q36' => ['G23', 'G24'],
-        'q37' => ['G27', 'G28'],
-        'q38_a' => ['G31', 'G32'],
-        'q38_b' => ['G33', 'G35'],
-        'q39' => ['G37', 'G38'],
-        'q40_a' => ['G43', 'G44'],
-        'q40_b' => ['G45', 'G46'],
-        'q40_c' => ['G47', 'G48'],
+    private const QUESTIONNAIRE_DETAIL_CELLS = [
+        'q34_b' => 'G10',
+        'q35_a' => 'G14',
+        'q35_b' => 'G19',
+        'q36' => 'G24',
+        'q37' => 'G28',
+        'q38_a' => 'G32',
+        'q38_b' => 'G35',
+        'q39' => 'G38',
+        'q40_a' => 'G44',
+        'q40_b' => 'G46',
+        'q40_c' => 'G48',
     ];
+
+    /** C4 YES/NO checkbox Excel row (1-based) => questionnaire field. */
+    private const C4_QUESTION_BY_ROW = [
+        5 => 'q34_a',
+        7 => 'q34_b',
+        8 => 'q34_b',
+        9 => 'q34_b',
+        13 => 'q35_a',
+        17 => 'q35_b',
+        18 => 'q35_b',
+        23 => 'q36',
+        27 => 'q37',
+        31 => 'q38_a',
+        33 => 'q38_b',
+        34 => 'q38_b',
+        37 => 'q39',
+        43 => 'q40_a',
+        45 => 'q40_b',
+        47 => 'q40_c',
+    ];
+
+    private const CIVIL_STATUS_BOXES = ['Single', 'Married', 'Widowed', 'Separated'];
+
+    private const CITIZENSHIP_COUNTRY_CELL = 'L16';
 
     /** 23. NAME of CHILDREN occupies rows 37-48 on sheet C1. */
     private const CHILD_ROW_START = 37;
@@ -258,14 +280,12 @@ class PdsController extends Controller
         $references = DB::table('pds_references')->where('user_id', $user_id)->get();
         $page4_details = DB::table('pds_page4_details')->where('user_id', $user_id)->first();
 
-        $countries = DB::table('countries')->orderBy('name', 'asc')->get();
-        $regions = DB::table('ref_regions')->orderBy('region_name', 'asc')->get();
-        $schools = School::orderBy('school_name')->get();
+        $countries = DB::table('countries')->orderBy('name', 'asc')->get(['id', 'name']);
+        $regions = DB::table('ref_regions')->orderBy('region_name', 'asc')->get(['id', 'region_name', 'region_code']);
 
         return view('employee.pds', compact(
             'countries',
             'regions',
-            'schools',
             'personal_info',
             'spouse',
             'father',
@@ -1164,16 +1184,26 @@ class PdsController extends Controller
             $text($c1, 'D13', $this->dmy($personal_info->date_of_birth));
             $text($c1, 'D15', $personal_info->place_of_birth);
 
-            $sexText = 'N/A';
+            $sexLabel = null;
             if (isset($personal_info->sex)) {
                 if ($personal_info->sex == 1 || $personal_info->sex === 'Male') {
-                    $sexText = 'Male';
+                    $sexLabel = 'Male';
                 } elseif ($personal_info->sex == 0 || $personal_info->sex === 'Female') {
-                    $sexText = 'Female';
+                    $sexLabel = 'Female';
                 }
             }
-            $text($c1, 'D16', $sexText);
-            $text($c1, 'D17', $personal_info->civil_status);
+
+            $isDualCitizen = isset($personal_info->citizenship) && (int) $personal_info->citizenship === 1;
+            $countryName = $isDualCitizen ? trim((string) ($personal_info->country->name ?? '')) : '';
+            $countryIndex = $this->pdsCountryDropdownIndex($c1, $countryName);
+            $this->markPdsChoiceBoxes(
+                $c1,
+                $sexLabel,
+                trim((string) ($personal_info->civil_status ?? '')),
+                $isDualCitizen,
+                $countryName,
+                trim((string) ($personal_info->citizenship_type ?? ''))
+            );
 
             // FIX: rows 19/20/21 in the old mapping were blank spacer rows. Height,
             // weight and blood type actually sit at D22/D24/D25 on the 2025 form.
@@ -1189,13 +1219,6 @@ class PdsController extends Controller
             $text($c1, 'D32', $personal_info->psn_no);           // 13. PhilSys Number
             $text($c1, 'D33', $personal_info->tin_no);           // 14. TIN NO.
             $text($c1, 'D34', $personal_info->agency_employee_no); // 15. AGENCY EMPLOYEE NO.
-
-            // 16. CITIZENSHIP
-            $citizenship = 'Filipino';
-            if (isset($personal_info->citizenship) && (int) $personal_info->citizenship === 1) {
-                $citizenship = trim('Dual Citizenship - '.($personal_info->country->name ?? ''));
-            }
-            $text($c1, 'J13', $citizenship);
 
             // 17. RESIDENTIAL ADDRESS — reference IDs resolved to names
             $text($c1, 'I17', $personal_info->res_house_no);
@@ -1384,17 +1407,16 @@ class PdsController extends Controller
             // ==========================================================
             // C4 — 34-40 QUESTIONNAIRE
             // ==========================================================
+            $questionnaireAnswers = [];
             if ($questionnaire) {
-                foreach (self::QUESTIONNAIRE_CELLS as $field => [$answerCell, $detailCell]) {
-                    $write($c4, $answerCell, mb_strtoupper(trim((string) ($questionnaire->$field ?? '')), 'UTF-8'));
-
-                    if ($detailCell !== null) {
-                        $detailField = $field.'_details';
-                        $append($c4, $detailCell, $questionnaire->$detailField ?? '');
-                    }
+                foreach (array_unique(array_values(self::C4_QUESTION_BY_ROW)) as $field) {
+                    $questionnaireAnswers[$field] = mb_strtoupper(trim((string) ($questionnaire->$field ?? '')), 'UTF-8');
                 }
 
-                // 35.b carries two extra fields of its own
+                foreach (self::QUESTIONNAIRE_DETAIL_CELLS as $field => $detailCell) {
+                    $append($c4, $detailCell, $questionnaire->{$field.'_details'} ?? '');
+                }
+
                 $append($c4, 'H20', $this->dmyOrBlank($questionnaire->q35_b_date ?? ''));
                 $append($c4, 'G21', $questionnaire->q35_b_status ?? '');
             }
@@ -1421,21 +1443,21 @@ class PdsController extends Controller
             $safeLast = preg_replace('/[^A-Za-z0-9]+/', '_', (string) $personal_info->last_name) ?: 'EMPLOYEE';
             $fileName = 'PDS_'.$this->upper(trim($safeLast, '_')).'_'.date('Ymd').'.xlsx';
 
-            /**
-             * FIX: the old version wrote raw header() calls, saved to php://output and
-             * called exit — that skips Laravel's response pipeline entirely (session
-             * writes, middleware, terminable handlers) and any stray output before it
-             * corrupts the file. Stream it as a proper response instead.
-             */
-            $writer = IOFactory::createWriter($spreadsheet, 'Xlsx');
+            $tempFilled = tempnam(sys_get_temp_dir(), 'pds_');
+            IOFactory::createWriter($spreadsheet, 'Xlsx')->save($tempFilled);
 
-            return new StreamedResponse(function () use ($writer) {
-                $writer->save('php://output');
-            }, 200, [
-                'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-                'Content-Disposition' => 'attachment; filename="'.$fileName.'"',
-                'Cache-Control' => 'private, no-store, max-age=0',
+            $this->applyPdsFormInputs($tempFilled, $templatePath, [
+                'sex' => $sexLabel,
+                'civil_status' => trim((string) ($personal_info->civil_status ?? '')),
+                'dual' => $isDualCitizen,
+                'country_index' => $countryIndex,
+                'answers' => $questionnaireAnswers,
             ]);
+
+            return response()->download($tempFilled, $fileName, [
+                'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                'Cache-Control' => 'private, no-store, max-age=0',
+            ])->deleteFileAfterSend(true);
         } catch (\Throwable $e) {
             Log::error('PDS export failed for user '.$user_id.': '.$e->getMessage());
 
@@ -1498,6 +1520,308 @@ class PdsController extends Controller
         }
     }
 
+    private function checkPdsBoxByText($sheet, string $targetText, string $replacementText): void
+    {
+        if (! $sheet || $targetText === '') {
+            return;
+        }
+
+        $needles = array_values(array_unique([
+            $targetText,
+            str_replace('☐ ', '☐', $targetText),
+        ]));
+
+        foreach ($sheet->getRowIterator(12, 20) as $row) {
+            $cellIterator = $row->getCellIterator('C', 'O');
+            $cellIterator->setIterateOnlyExistingCells(true);
+
+            foreach ($cellIterator as $cell) {
+                $currentValue = $cell->getValue();
+
+                if ($currentValue instanceof RichText) {
+                    $currentValue = $currentValue->getPlainText();
+                }
+
+                $currentValue = (string) $currentValue;
+
+                foreach ($needles as $needle) {
+                    if ($needle === '' || ! str_contains($currentValue, $needle)) {
+                        continue;
+                    }
+
+                    $sheet->setCellValue($cell->getCoordinate(), str_replace($needle, $replacementText, $currentValue));
+                    $sheet->getStyle($cell->getCoordinate())->getFont()->setName('Arial');
+
+                    return;
+                }
+            }
+        }
+    }
+
+    private function markPdsChoiceBoxes($sheet, ?string $sex, string $civilStatus, bool $dualCitizen, string $countryName, string $citizenshipType = ''): void
+    {
+        if (! $sheet) {
+            return;
+        }
+
+        if ($sex === 'Male') {
+            $this->checkPdsBoxByText($sheet, '☐ Male', '☑ Male');
+        } elseif ($sex === 'Female') {
+            $this->checkPdsBoxByText($sheet, '☐ Female', '☑ Female');
+        }
+
+        if ($civilStatus === 'Single') {
+            $this->checkPdsBoxByText($sheet, '☐ Single', '☑ Single');
+        } elseif ($civilStatus === 'Married') {
+            $this->checkPdsBoxByText($sheet, '☐ Married', '☑ Married');
+        } elseif ($civilStatus === 'Widowed') {
+            $this->checkPdsBoxByText($sheet, '☐ Widowed', '☑ Widowed');
+        } elseif ($civilStatus === 'Separated') {
+            $this->checkPdsBoxByText($sheet, '☐ Separated', '☑ Separated');
+        } elseif ($civilStatus !== '') {
+            $this->checkPdsBoxByText($sheet, '☐ Other/s:', '☑ Other/s:');
+        }
+
+        if ($dualCitizen) {
+            $this->checkPdsBoxByText($sheet, '☐ Dual Citizenship', '☑ Dual Citizenship');
+
+            $type = mb_strtolower($citizenshipType);
+            if (str_contains($type, 'natural')) {
+                $this->checkPdsBoxByText($sheet, '☐ by naturalization', '☑ by naturalization');
+            } else {
+                $this->checkPdsBoxByText($sheet, '☐ by birth', '☑ by birth');
+            }
+
+            if ($countryName !== '') {
+                $sheet->setCellValueExplicit(self::CITIZENSHIP_COUNTRY_CELL, $countryName, DataType::TYPE_STRING);
+            }
+        } else {
+            $this->checkPdsBoxByText($sheet, '☐ Filipino', '☑ Filipino');
+        }
+    }
+
+    /**
+     * PhpSpreadsheet drops the CSC form-control checkboxes and country dropdown
+     * on save. Copy them back from the official template and tick the matching inputs.
+     */
+    private function applyPdsFormInputs(string $filledPath, string $templatePath, array $inputs): void
+    {
+        $out = new ZipArchive;
+        $tpl = new ZipArchive;
+
+        if ($out->open($filledPath) !== true || $tpl->open($templatePath) !== true) {
+            $out->close();
+            $tpl->close();
+            Log::warning('PDS export: could not reopen the workbook to restore form inputs.');
+
+            return;
+        }
+
+        $parts = [
+            'xl/drawings/drawing1.xml',
+            'xl/drawings/drawing2.xml',
+            'xl/drawings/vmlDrawing1.vml',
+            'xl/drawings/vmlDrawing2.vml',
+            'xl/worksheets/_rels/sheet1.xml.rels',
+            'xl/worksheets/_rels/sheet4.xml.rels',
+        ];
+
+        for ($i = 1; $i <= 37; $i++) {
+            $parts[] = 'xl/ctrlProps/ctrlProp'.$i.'.xml';
+        }
+
+        foreach ($parts as $name) {
+            $data = $tpl->getFromName($name);
+            if ($data !== false) {
+                $out->addFromString($name, $data);
+            }
+        }
+
+        $vml1 = $out->getFromName('xl/drawings/vmlDrawing1.vml');
+        if ($vml1 !== false) {
+            $out->addFromString('xl/drawings/vmlDrawing1.vml', $this->tickC1FormInputs($vml1, $inputs));
+        }
+
+        $vml2 = $out->getFromName('xl/drawings/vmlDrawing2.vml');
+        if ($vml2 !== false) {
+            $out->addFromString('xl/drawings/vmlDrawing2.vml', $this->tickC4FormInputs($vml2, $inputs['answers'] ?? []));
+        }
+
+        $countryIndex = (int) ($inputs['country_index'] ?? 0);
+        $ctrl1 = $out->getFromName('xl/ctrlProps/ctrlProp1.xml');
+        if ($ctrl1 !== false) {
+            $ctrl1 = preg_replace('/\bval="\d+"/', 'val="'.$countryIndex.'"', $ctrl1);
+            $ctrl1 = preg_replace('/\bsel="\d+"/', 'sel="'.($countryIndex + 1).'"', $ctrl1);
+            $out->addFromString('xl/ctrlProps/ctrlProp1.xml', $ctrl1);
+        }
+
+        foreach (['sheet1', 'sheet4'] as $sheet) {
+            $filledXml = $out->getFromName('xl/worksheets/'.$sheet.'.xml');
+            $templateXml = $tpl->getFromName('xl/worksheets/'.$sheet.'.xml');
+            if ($filledXml !== false && $templateXml !== false) {
+                $out->addFromString('xl/worksheets/'.$sheet.'.xml', $this->restoreWorksheetControls($filledXml, $templateXml));
+            }
+        }
+
+        $filledTypes = $out->getFromName('[Content_Types].xml');
+        $templateTypes = $tpl->getFromName('[Content_Types].xml');
+        if ($filledTypes !== false && $templateTypes !== false) {
+            $out->addFromString('[Content_Types].xml', $this->mergeContentTypes($filledTypes, $templateTypes));
+        }
+
+        $tpl->close();
+        $out->close();
+    }
+
+    private function pdsCountryDropdownIndex($sheet, string $countryName): int
+    {
+        if ($countryName === '' || ! $sheet) {
+            return 0;
+        }
+
+        for ($row = 11; $row <= 216; $row++) {
+            $label = trim((string) $sheet->getCell('Q'.$row)->getValue());
+            if ($label === '' || str_starts_with(mb_strtolower($label), 'please indicate')) {
+                continue;
+            }
+            if ($this->countryMatches($label, $countryName)) {
+                return $row - 11;
+            }
+        }
+
+        return 0;
+    }
+
+    private function countryMatches(string $listLabel, string $name): bool
+    {
+        $normalize = static fn (string $value): string => preg_replace('/[^A-Z0-9]/', '', mb_strtoupper($value, 'UTF-8')) ?? '';
+        $left = $normalize($listLabel);
+        $right = $normalize($name);
+
+        if ($left === '' || $right === '') {
+            return false;
+        }
+
+        return $left === $right || str_contains($left, $right) || str_contains($right, $left);
+    }
+
+    private function tickC1FormInputs(string $vml, array $inputs): string
+    {
+        $sex = $inputs['sex'] ?? null;
+        $civil = $inputs['civil_status'] ?? '';
+        $dual = (bool) ($inputs['dual'] ?? false);
+        $countryIndex = (int) ($inputs['country_index'] ?? 0);
+        $knownCivil = in_array($civil, self::CIVIL_STATUS_BOXES, true);
+
+        $vml = $this->mapVmlShapes($vml, function (string $shape, string $type, string $caption) use ($sex, $civil, $dual, $knownCivil) {
+            if ($type !== 'Checkbox') {
+                return $shape;
+            }
+
+            $check = match ($caption) {
+                'Male', 'Female' => $caption === $sex,
+                'Filipino' => ! $dual,
+                'Dual Citizenship' => $dual,
+                'Single', 'Married', 'Widowed', 'Separated' => $caption === $civil,
+                'Other/s:' => $civil !== '' && ! $knownCivil,
+                default => null,
+            };
+
+            return $check === null ? $shape : $this->setVmlChecked($shape, $check);
+        });
+
+        return $this->mapVmlShapes($vml, function (string $shape, string $type) use ($countryIndex) {
+            if ($type !== 'Drop') {
+                return $shape;
+            }
+
+            $shape = preg_replace('/<x:Val>\d+<\/x:Val>/', '<x:Val>'.$countryIndex.'</x:Val>', $shape) ?? $shape;
+
+            return preg_replace('/<x:Sel>\d+<\/x:Sel>/', '<x:Sel>'.($countryIndex + 1).'</x:Sel>', $shape) ?? $shape;
+        });
+    }
+
+    private function tickC4FormInputs(string $vml, array $answers): string
+    {
+        return $this->mapVmlShapes($vml, function (string $shape, string $type, string $caption, int $row) use ($answers) {
+            if ($type !== 'Checkbox' || ! in_array($caption, ['YES', 'NO'], true)) {
+                return $shape;
+            }
+
+            $field = self::C4_QUESTION_BY_ROW[$row + 1] ?? null;
+            if ($field === null || ! isset($answers[$field]) || $answers[$field] === '') {
+                return $shape;
+            }
+
+            return $this->setVmlChecked($shape, $answers[$field] === $caption);
+        });
+    }
+
+    private function mapVmlShapes(string $vml, callable $callback): string
+    {
+        return preg_replace_callback('/<v:shape\b[^>]*>.*?<\/v:shape>/s', function (array $match) use ($callback) {
+            $shape = $match[0];
+            preg_match('/ObjectType="([^"]+)"/', $shape, $type);
+            preg_match('/<x:Anchor>\s*([^<]+)/', $shape, $anchor);
+            preg_match('/>([^<]{0,80})<\/font>/', $shape, $text);
+            $parts = array_map('intval', array_map('trim', explode(',', $anchor[1] ?? '')));
+            $caption = trim(html_entity_decode(preg_replace('/\s+/', ' ', strip_tags($text[1] ?? '')), ENT_QUOTES | ENT_HTML5));
+            $caption = ltrim($caption, "\xC2\xA0 \t");
+
+            return $callback($shape, $type[1] ?? '', $caption, $parts[2] ?? 0);
+        }, $vml) ?? $vml;
+    }
+
+    private function setVmlChecked(string $shape, bool $checked): string
+    {
+        $shape = preg_replace('/<x:Checked\s*\/>/', '', $shape) ?? $shape;
+
+        if (! $checked) {
+            return $shape;
+        }
+
+        return preg_replace('/(<x:ClientData\b[^>]*>)/', '$1<x:Checked/>', $shape, 1) ?? $shape;
+    }
+
+    private function restoreWorksheetControls(string $filledXml, string $templateXml): string
+    {
+        if (! preg_match('/(<drawing\b.*)$/s', $templateXml, $match) && ! preg_match('/(<legacyDrawing\b.*)$/s', $templateXml, $match)) {
+            return $filledXml;
+        }
+
+        $filledXml = preg_replace('/<(drawing|legacyDrawing)\b[^>]*\/>\s*/', '', $filledXml) ?? $filledXml;
+        $filledXml = preg_replace('/<\/worksheet>\s*$/', '', $filledXml) ?? $filledXml;
+
+        return $filledXml.$match[1];
+    }
+
+    private function mergeContentTypes(string $filled, string $template): string
+    {
+        if (preg_match_all('/<Default\b[^>]*\/>/', $template, $defaults)) {
+            foreach ($defaults[0] as $default) {
+                if (! preg_match('/Extension="([^"]+)"/', $default, $ext)) {
+                    continue;
+                }
+                if (! str_contains($filled, 'Extension="'.$ext[1].'"')) {
+                    $filled = str_replace('</Types>', $default.'</Types>', $filled);
+                }
+            }
+        }
+
+        if (preg_match_all('/<Override\b[^>]*\/>/', $template, $overrides)) {
+            foreach ($overrides[0] as $override) {
+                if (! preg_match('/PartName="([^"]+)"/', $override, $part)) {
+                    continue;
+                }
+                if (! str_contains($filled, 'PartName="'.$part[1].'"')) {
+                    $filled = str_replace('</Types>', $override.'</Types>', $filled);
+                }
+            }
+        }
+
+        return $filled;
+    }
+
     // =========================================================
     // API METHODS FOR LOCATION HIERARCHY
     // =========================================================
@@ -1520,5 +1844,34 @@ class PdsController extends Controller
         $barangays = DB::table('ref_barangays')->where('city_code', $city_code)->orderBy('brgy_name', 'asc')->get();
 
         return response()->json($barangays);
+    }
+
+    /**
+     * School names for the education dropdown. The full list is thousands of rows,
+     * so the page searches instead of rendering every option up front.
+     */
+    public function searchSchools(Request $request)
+    {
+        if ($redirect = $this->requireAuth()) {
+            return $redirect;
+        }
+
+        $term = trim((string) $request->query('q', ''));
+        if (mb_strlen($term) < 2) {
+            return response()->json([]);
+        }
+
+        $like = '%'.addcslashes($term, '%_\\').'%';
+
+        $schools = School::query()
+            ->where('school_name', 'like', $like)
+            ->orderBy('school_name')
+            ->limit(20)
+            ->get(['school_id', 'school_name']);
+
+        return response()->json($schools->map(fn (School $school) => [
+            'id' => $school->school_id,
+            'text' => $school->school_name,
+        ])->values());
     }
 }

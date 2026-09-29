@@ -21,6 +21,8 @@ class LeaveApplication extends Model
         'commutation',
         'status',
         'pay_status',
+        'service_credits_used',
+        'seminar_credits_used',
         'credits_deducted',
         'hr_remarks',
         'principal_comment',

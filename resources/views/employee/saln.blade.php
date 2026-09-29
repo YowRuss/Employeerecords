@@ -32,7 +32,7 @@
 
 <div class="container-fluid py-4">
     <div class="d-flex justify-content-between align-items-center mb-4 border-bottom pb-3">
-        <h4 class="fw-bold m-0" style="color: #B45309;"><i class="bi bi-file-earmark-bar-graph me-2"></i> Statement of Assets, Liabilities and Net Worth (SALN)</h4>
+        <h4 class="text-header-blue fw-bold m-0"><i class="bi bi-file-earmark-bar-graph me-2 text-header-blue"></i> Statement of Assets, Liabilities and Net Worth (SALN)</h4>
         <a href="{{ route('saln.export') }}" class="btn btn-theme-primary rounded shadow-sm px-4"><i class="bi bi-printer me-2"></i>Print SALN</a>
     </div>
 

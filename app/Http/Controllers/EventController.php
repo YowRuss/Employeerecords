@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Announcement;
 use App\Models\Event;
 use App\Models\EventAttendee;
+use App\Models\EventType;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -22,8 +23,10 @@ class EventController extends Controller
             return redirect()->route('dashboard')->with('error', 'Unauthorized access.');
         }
 
-        // Fetch events with their assigned advisers
-        $events = Event::with('adviser')->orderBy('event_date', 'asc')->orderBy('event_time', 'asc')->get();
+        // Fetch events with their assigned advisers and event type
+        $events = Event::with(['adviser', 'eventType'])->orderBy('event_date', 'asc')->orderBy('event_time', 'asc')->get();
+
+        $eventTypes = EventType::all();
 
         // Fetch employees to populate the Adviser dropdown
         $employees = DB::table('users')
@@ -32,16 +35,44 @@ class EventController extends Controller
             ->select('id', 'first_name', 'last_name')
             ->get();
 
-        return view('hr.events.index', compact('events', 'employees'));
+        return view('hr.events.index', compact('events', 'employees', 'eventTypes'));
     }
 
     public function store(Request $request)
     {
         $request->validate([
             'title' => 'required|string|max:255',
-            'type' => 'required|string',
-            'event_date' => 'required|date',
-            'event_time' => 'required',
+            'event_type_id' => 'required|exists:event_types,id',
+            'event_date' => ['required', 'date', function (string $attribute, mixed $value, \Closure $fail): void {
+                try {
+                    $date = Carbon::parse($value, 'Asia/Manila')->startOfDay();
+                } catch (\Throwable) {
+                    return;
+                }
+
+                $today = now()->timezone('Asia/Manila')->startOfDay();
+
+                if ($date->lt($today)) {
+                    $fail('The event date must be today or a future date.');
+                }
+            }],
+            'event_time' => ['required', function (string $attribute, mixed $value, \Closure $fail) use ($request): void {
+                if (! $request->filled('event_date')) {
+                    return;
+                }
+
+                try {
+                    $scheduled = Carbon::parse($request->input('event_date').' '.$value, 'Asia/Manila');
+                } catch (\Throwable) {
+                    $fail('The event time must be a valid time.');
+
+                    return;
+                }
+
+                if ($scheduled->lt(now()->timezone('Asia/Manila'))) {
+                    $fail('The event time must be the current time or a later time.');
+                }
+            }],
             'venue' => 'required|string|max:255',
             'max_attendees' => 'nullable|integer|min:1',
             'adviser_id' => 'nullable|exists:users,id',
@@ -58,9 +89,9 @@ class EventController extends Controller
             }
         }
 
-        Event::create([
+        $event = Event::create([
             'title' => $request->title,
-            'type' => $request->type,
+            'event_type_id' => $request->event_type_id,
             'description' => $request->description,
             'event_date' => $request->event_date,
             'event_time' => $request->event_time,
@@ -77,6 +108,7 @@ class EventController extends Controller
                 'type' => 'Assignment',
                 'content' => 'Attention '.$adviser->first_name.' '.$adviser->last_name.': You have been designated by HR as the official event adviser for '.$event->title.' scheduled on '.Carbon::parse($event->event_date)->format('M d, Y').'.',
                 'is_pinned' => 1,
+                'created_by' => Session::get('user_id'),
             ]);
         }
 

@@ -10,22 +10,34 @@
                 </div>
                 <div class="modal-body p-4">
                     <div class="mb-3">
-                        <label class="form-label fw-bold text-muted small">Seminar Title</label>
-                        <input type="text" name="title" class="form-control" required>
+                        <label class="form-label fw-bold text-muted small" for="seminar_title">Seminar Title</label>
+                        <input type="text" name="title" id="seminar_title" class="form-control @error('title') is-invalid @enderror" value="{{ old('title') }}" required>
+                        @error('title')
+                            <div class="invalid-feedback">{{ $message }}</div>
+                        @enderror
                     </div>
                     <div class="row mb-3">
                         <div class="col-md-6">
-                            <label class="form-label fw-bold text-muted small">Date Attended</label>
-                            <input type="date" name="date" class="form-control" required>
+                            <label class="form-label fw-bold text-muted small" for="seminar_date">Date Attended</label>
+                            <input type="date" name="date_attended" id="seminar_date" class="form-control @error('date_attended') is-invalid @enderror" value="{{ old('date_attended') }}" required>
+                            @error('date_attended')
+                                <div class="invalid-feedback">{{ $message }}</div>
+                            @enderror
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label fw-bold text-muted small">Total Hours</label>
-                            <input type="number" name="hours" step="0.5" class="form-control" required>
+                            <label class="form-label fw-bold text-muted small" for="seminar_hours">Total Hours</label>
+                            <input type="number" name="hours" id="seminar_hours" step="0.5" min="0.5" class="form-control @error('hours') is-invalid @enderror" value="{{ old('hours') }}" required>
+                            @error('hours')
+                                <div class="invalid-feedback">{{ $message }}</div>
+                            @enderror
                         </div>
                     </div>
                     <div class="mb-3">
-                        <label class="form-label fw-bold text-muted small">Certificate (PDF/Image)</label>
-                        <input type="file" name="certificate" class="form-control" required>
+                        <label class="form-label fw-bold text-muted small" for="seminar_certificate">Certificate (PDF/Image)</label>
+                        <input type="file" name="certificate" id="seminar_certificate" class="form-control @error('certificate') is-invalid @enderror" accept=".pdf,.jpg,.jpeg,.png" required>
+                        @error('certificate')
+                            <div class="invalid-feedback">{{ $message }}</div>
+                        @enderror
                     </div>
                 </div>
                 <div class="modal-footer bg-light">

@@ -4,7 +4,7 @@
 <div class="container-fluid py-4">
     <div class="d-flex flex-column flex-sm-row justify-content-between align-items-sm-center mb-4 gap-3">
         <div>
-            <h4 class="text-accent fw-bold m-0"><i class="bi bi-megaphone-fill me-2 text-accent"></i> Manage Job Postings</h4>
+            <h4 class="text-header-blue fw-bold m-0"><i class="bi bi-megaphone-fill me-2 text-header-blue"></i> Manage Job Postings</h4>
             <p class="text-muted small mt-1 mb-0">Create and edit job openings shown on the public careers page.</p>
         </div>
         <button type="button" class="btn btn-accent shadow-sm rounded-pill px-4 fw-bold" data-bs-toggle="modal" data-bs-target="#addPostingModal">

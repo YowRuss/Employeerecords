@@ -1,95 +1,106 @@
 @extends('layouts.app')
 
 @section('content')
-<link rel="stylesheet" href="{{ asset('build/assets/css/employee-form.css') }}">
-
-<div class="row justify-content-center py-4">
-    <div class="col-md-9 col-lg-7">
-
-        <div class="d-flex justify-content-between align-items-center mb-4">
-            <div>
-                <h4 class="text-brand fw-bold m-0"><i class="bi bi-person-plus-fill me-2"></i> Employee Onboarding</h4>
-                <p class="text-muted small m-0">Create a new account and initialize their official PDS.</p>
-            </div>
-            <a href="{{ route('dashboard') }}" class="btn btn-light border shadow-sm btn-sm fw-bold text-muted px-3">
-                <i class="bi bi-arrow-left me-1"></i> Dashboard
-            </a>
+<div class="container-fluid py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h4 class="text-header-blue fw-bold m-0"><i class="bi bi-person-plus-fill me-2 text-header-blue"></i> Employee Onboarding</h4>
+            <p class="text-muted small m-0">Create a new account and initialize their official PDS.</p>
         </div>
+        <a href="{{ route('requisitions.index') }}" class="btn btn-light border shadow-sm btn-sm fw-bold text-muted px-3">
+            <i class="bi bi-arrow-left me-1"></i> Personnel Requisitions
+        </a>
+    </div>
 
-        <div class="card clean-card overflow-hidden">
-            <div class="bg-brand" style="height: 6px; width: 100%;"></div>
+    <div class="card shadow-sm">
+        <div class="card-body p-4">
 
-            <div class="card-body p-4 p-md-5">
+            @if($errors->any())
+            <div class="alert alert-danger rounded-3 shadow-sm">
+                <ul class="small fw-bold mb-0">
+                    @foreach($errors->all() as $error)
+                    <li>{{ $error }}</li>
+                    @endforeach
+                </ul>
+            </div>
+            @endif
 
-                @if($errors->any())
-                <div class="alert alert-danger rounded-3 pb-0 border-0 shadow-sm">
-                    <ul class="small fw-bold">
-                        @foreach($errors->all() as $error)
-                        <li>{{ $error }}</li>
-                        @endforeach
-                    </ul>
-                </div>
-                @endif
+            <form action="{{ route('employees.store') }}" method="POST">
+                @csrf
 
-                <form action="{{ route('employees.store') }}" method="POST">
-                    @csrf
-
-                    <div class="mb-4">
-                        <label class="form-label small fw-bold text-brand text-uppercase tracking-wide">1. Official Name</label>
-                        <div class="row g-2 mb-2">
-                            <div class="col-md-5">
-                                <input type="text" name="first_name" id="first_name" class="form-control form-control-lg text-uppercase fs-6" placeholder="First Name (e.g., JUAN)" value="{{ old('first_name') }}" required>
-                            </div>
-                            <div class="col-md-2">
-                                <input type="text" name="middle_initial" class="form-control form-control-lg text-uppercase fs-6 text-center" placeholder="M.I." value="{{ old('middle_initial') }}" maxlength="2">
-                            </div>
-                            <div class="col-md-5">
-                                <input type="text" name="last_name" id="last_name" class="form-control form-control-lg text-uppercase fs-6" placeholder="Last Name (e.g., DELA CRUZ)" value="{{ old('last_name') }}" required>
-                            </div>
-                            <div class="col-md-2">
-                                <input type="text" name="suffix" id="suffix" class="form-control form-control-lg text-uppercase fs-6 text-center" placeholder="Suffix (JR)" value="{{ old('suffix') }}">
-                            </div>
+                <div class="mb-4">
+                    <h6 class="text-accent fw-bold text-uppercase small mb-3">1. Official Name</h6>
+                    <div class="row g-3">
+                        <div class="col-md-4">
+                            <label for="first_name" class="form-label small fw-bold text-muted">First Name <span class="text-danger">*</span></label>
+                            <input type="text" name="first_name" id="first_name" class="form-control text-uppercase" placeholder="JUAN" value="{{ old('first_name') }}" required>
                         </div>
-                        <div class="d-flex align-items-center text-success small fw-bold bg-success bg-opacity-10 p-2 rounded">
-                            <i class="bi bi-check-circle-fill me-2"></i> Names will automatically cross-populate into the employee's Form 212 (PDS).
+                        <div class="col-md-2">
+                            <label for="middle_initial" class="form-label small fw-bold text-muted">M.I.</label>
+                            <input type="text" name="middle_initial" id="middle_initial" class="form-control text-uppercase text-center" placeholder="M" value="{{ old('middle_initial') }}" maxlength="2">
+                        </div>
+                        <div class="col-md-4">
+                            <label for="last_name" class="form-label small fw-bold text-muted">Last Name <span class="text-danger">*</span></label>
+                            <input type="text" name="last_name" id="last_name" class="form-control text-uppercase" placeholder="DELA CRUZ" value="{{ old('last_name') }}" required>
+                        </div>
+                        <div class="col-md-2">
+                            <label for="suffix" class="form-label small fw-bold text-muted">Suffix</label>
+                            <input type="text" name="suffix" id="suffix" class="form-control text-uppercase text-center" placeholder="JR" value="{{ old('suffix') }}">
                         </div>
                     </div>
+                    <div class="d-flex align-items-center small mt-3 px-3 py-2 rounded-3 border" style="background-color: #fef9c3;">
+                        <i class="bi bi-check-circle-fill text-accent me-2"></i>
+                        Names will automatically cross-populate into the employee's Form 212 (PDS).
+                    </div>
+                </div>
 
-                    <hr class="text-muted opacity-25 my-4">
+                <hr class="text-muted opacity-25 my-4">
 
-                    <div class="mb-4">
-                        <div class="mb-3">
-                            <label class="form-label small fw-bold text-brand text-uppercase tracking-wide">2. Employee Email / Username</label>
-                            <div class="input-group input-group-lg shadow-sm rounded-3">
-                                <span class="input-group-text bg-white"><i class="bi bi-envelope-at-fill"></i></span>
-                                <!-- Changed type to text, updated name and placeholder -->
-                                <input type="text" name="username" id="username" class="form-control with-icon fs-6" placeholder="employee@gmail.com or username" value="{{ old('username') }}" required>
+                <div class="mb-4">
+                    <h6 class="text-accent fw-bold text-uppercase small mb-3">2. Employee Email / Username</h6>
+                    <div class="row g-3">
+                        <div class="col-md-7">
+                            <label for="username" class="form-label small fw-bold text-muted">Username <span class="text-danger">*</span></label>
+                            <div class="input-group">
+                                <span class="input-group-text bg-white"><i class="bi bi-envelope-at-fill text-accent"></i></span>
+                                <input type="text" name="username" id="username" class="form-control" placeholder="juan.delacruz@gmail.com" value="{{ old('username') }}" required>
                             </div>
                         </div>
-
-                        <div class="mb-3">
-                            <div class="input-group input-group-lg shadow-sm rounded-3">
-                                <span class="input-group-text bg-white"><i class="bi bi-shield-lock"></i></span>
-                                <input type="text" name="password" id="password" class="form-control with-icon bg-white fs-6" placeholder="Click generate or type manually" required>
-                                <button class="btn btn-light border fw-bold text-brand px-4" type="button" onclick="generateRandomPassword()">
+                        <div class="col-md-5">
+                            <label for="password" class="form-label small fw-bold text-muted">Temporary Password <span class="text-danger">*</span></label>
+                            <div class="input-group">
+                                <span class="input-group-text bg-white"><i class="bi bi-shield-lock text-accent"></i></span>
+                                <input type="text" name="password" id="password" class="form-control" placeholder="Temporary password" required>
+                                <button class="btn btn-accent fw-bold" type="button" onclick="generateRandomPassword()">
                                     <i class="bi bi-key-fill me-1"></i> Generate
                                 </button>
                             </div>
                             <div class="form-text small mt-2 text-muted">
-                                <i class="bi bi-info-circle me-1"></i> Provide this temporary password to the employee for their first login.
+                                <i class="bi bi-info-circle me-1"></i> Give this password to the employee for their first login.
                             </div>
                         </div>
                     </div>
+                </div>
 
-                    <div class="mt-5">
-                        <button type="submit" class="btn btn-brand btn-lg w-100 fw-bold shadow-sm rounded-3 py-3">
-                            <i class="bi bi-cloud-arrow-up-fill me-2"></i> Register Account & Initialize Records
-                        </button>
+                <hr class="text-muted opacity-25 my-4">
+
+                <div class="mb-4">
+                    <h6 class="text-accent fw-bold text-uppercase small mb-3">3. Employee Type</h6>
+                    <div class="col-md-6 px-0">
+                        <label for="employee_type" class="form-label small fw-bold text-muted">Classification <span class="text-danger">*</span></label>
+                        <select name="employee_type" id="employee_type" class="form-select" required>
+                            <option value="" disabled {{ old('employee_type') === null ? 'selected' : '' }}>Select Employee Type</option>
+                            <option value="1" {{ old('employee_type') == '1' ? 'selected' : '' }}>TEACHING</option>
+                            <option value="0" {{ old('employee_type') == '0' ? 'selected' : '' }}>NON-TEACHING</option>
+                        </select>
                     </div>
-                </form>
-            </div>
-        </div>
+                </div>
 
+                <button type="submit" class="btn btn-accent w-100 fw-bold shadow-sm py-2 mt-2">
+                    <i class="bi bi-cloud-arrow-up-fill me-2"></i> Register Account & Initialize Records
+                </button>
+            </form>
+        </div>
     </div>
 </div>
 
@@ -125,7 +136,7 @@
         }
         const passField = document.getElementById('password');
         passField.value = password;
-        passField.style.backgroundColor = '#f0f4f8';
+        passField.style.backgroundColor = '#fef9c3';
         setTimeout(() => { passField.style.backgroundColor = '#ffffff'; }, 300);
     }
 </script>

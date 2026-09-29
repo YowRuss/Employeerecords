@@ -30,20 +30,54 @@ class HrMessageController extends Controller
     public function sendMessage(Request $request)
     {
         $request->validate([
-            'message' => 'required|string',
+            'message' => ['nullable', 'string', 'max:5000', 'required_without_all:attachment,voice_message'],
+            'attachment' => ['nullable', 'file', 'max:10240', 'mimes:jpg,jpeg,png,gif,webp,pdf,doc,docx'],
+            'voice_message' => ['nullable', 'file', 'max:10240', 'mimetypes:audio/webm,video/webm,audio/ogg,audio/mp4,audio/mpeg,audio/wav'],
         ]);
+
+        if ($request->hasFile('attachment') && $request->hasFile('voice_message')) {
+            return back()
+                ->withErrors(['attachment' => 'Send a file or a voice message, not both at once.'])
+                ->withInput();
+        }
 
         $userId = Session::get('user_id');
+        $media = $this->storedHelpdeskMedia($request);
 
-        // Save the new message to the database
         HrMessage::create([
-            'employee_id' => $userId, // This chat room belongs to the employee
-            'sender_id' => $userId,   // The employee is the one sending this specific message
-            'message' => $request->message,
+            'employee_id' => $userId,
+            'sender_id' => $userId,
+            'message' => $request->filled('message') ? $request->string('message')->toString() : null,
             'is_read' => 0,
+            'attachment_path' => $media['path'],
+            'attachment_type' => $media['type'],
         ]);
 
-        return back(); // Refresh the page to show the new message
+        return back();
+    }
+
+    /**
+     * @return array{path: ?string, type: ?string}
+     */
+    private function storedHelpdeskMedia(Request $request): array
+    {
+        if ($request->hasFile('voice_message')) {
+            return [
+                'path' => $request->file('voice_message')->store('helpdesk/audio', 'public'),
+                'type' => 'audio',
+            ];
+        }
+
+        if ($request->hasFile('attachment')) {
+            $file = $request->file('attachment');
+
+            return [
+                'path' => $file->store('helpdesk', 'public'),
+                'type' => str_starts_with((string) $file->getMimeType(), 'image/') ? 'image' : 'document',
+            ];
+        }
+
+        return ['path' => null, 'type' => null];
     }
     // ==========================================
     // HR OFFICER ROUTES (Role 2)

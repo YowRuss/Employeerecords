@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Middleware\CheckEmployeeSession;
 use App\Http\Middleware\EnsureIsTeachingEmployee;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
@@ -14,6 +15,11 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->alias([
             'teaching.only' => EnsureIsTeachingEmployee::class,
+            'auth.session' => CheckEmployeeSession::class,
+        ]);
+
+        $middleware->validateCsrfTokens(except: [
+            'logout',
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

@@ -13,11 +13,15 @@ class AuthController extends Controller
 {
     public function showLogin()
     {
-        if (Session::has('user_id')) {
+        if (Session::has('user_id') || Auth::check()) {
             return redirect()->route('dashboard');
         }
 
-        return view('auth.login');
+        return response()
+            ->view('auth.login')
+            ->header('Cache-Control', 'no-cache, no-store, max-age=0, must-revalidate')
+            ->header('Pragma', 'no-cache')
+            ->header('Expires', 'Sat, 01 Jan 2000 00:00:00 GMT');
     }
 
     public function processLogin(Request $request)
@@ -95,11 +99,18 @@ class AuthController extends Controller
         return back()->with('error', 'Invalid ID Number or password.');
     }
 
-    public function logout()
+    public function logout(Request $request)
     {
-        Session::flush();
+        Auth::logout();
 
-        return redirect('/');
+        $request->session()->invalidate();
+
+        $request->session()->regenerateToken();
+
+        return redirect('/')
+            ->header('Cache-Control', 'no-cache, no-store, max-age=0, must-revalidate')
+            ->header('Pragma', 'no-cache')
+            ->header('Expires', 'Sat, 01 Jan 2000 00:00:00 GMT');
     }
 
     public function showChangePassword()

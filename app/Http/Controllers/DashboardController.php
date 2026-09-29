@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers;
 
-use App\Enums\PositionCategory;
 use App\Models\Announcement;
 use App\Models\Event;
 use Carbon\Carbon;
@@ -42,6 +41,18 @@ class DashboardController extends Controller
                 ->exists();
         }
         $data['activeAnnouncements'] = $activeAnnouncements;
+
+        // Fetch top 3 active announcements for employee dashboard widget
+        $data['announcements'] = Announcement::where(function ($query) {
+            $query->whereNull('scheduled_at')->orWhere('scheduled_at', '<=', Carbon::now());
+        })
+            ->where(function ($query) {
+                $query->whereNull('expires_at')->orWhere('expires_at', '>', Carbon::now());
+            })
+            ->latest()
+            ->take(3)
+            ->get();
+
         $upcomingEvents = Event::where('event_date', '>=', Carbon::today())
             ->orderBy('event_date', 'asc')
             ->orderBy('event_time', 'asc')
@@ -61,6 +72,13 @@ class DashboardController extends Controller
         }
         $data['upcomingEvents'] = $upcomingEvents;
 
+        // Fetch top 3 upcoming events for employee dashboard widget
+        $data['events'] = Event::where('event_date', '>=', Carbon::today())
+            ->orderBy('event_date', 'asc')
+            ->orderBy('event_time', 'asc')
+            ->take(3)
+            ->get();
+
         // Admin (3) and HR (2) need to see the employee list
         if ($role_id == 3 || $role_id == 2) {
             $data['employees'] = DB::table('users')
@@ -71,7 +89,10 @@ class DashboardController extends Controller
                     DB::raw("CONCAT(users.first_name, ' ', COALESCE(users.middle_name, ''), ' ', users.last_name) as full_name")
                 )
                 ->where('role_id', 1)
-                ->get();
+                ->orderBy('users.last_name')
+                ->orderBy('users.first_name')
+                ->paginate(5)
+                ->withQueryString();
 
             // HR dashboard analytics
             $data['totalActiveStaff'] = DB::table('users')->where('role_id', 1)->where(function ($query) {
@@ -80,27 +101,40 @@ class DashboardController extends Controller
 
             // Active Teaching / Non-Teaching staff
             $data['teachingCount'] = DB::table('users')
-                ->join('positions', 'users.position_id', '=', 'positions.id')
                 ->where('users.role_id', 1)
                 ->where(function ($query) {
                     $query->whereNull('users.status')->orWhere('users.status', '!=', 'Inactive');
                 })
-                ->where('positions.category', PositionCategory::Teaching->value)
+                ->where('users.employee_type', 1)
                 ->count();
 
             $data['nonTeachingCount'] = DB::table('users')
-                ->join('positions', 'users.position_id', '=', 'positions.id')
                 ->where('users.role_id', 1)
                 ->where(function ($query) {
                     $query->whereNull('users.status')->orWhere('users.status', '!=', 'Inactive');
                 })
-                ->where('positions.category', PositionCategory::NonTeaching->value)
+                ->where('users.employee_type', 0)
                 ->count();
 
             $data['pendingLeaves'] = DB::table('leave_applications')->where('status', 'PENDING')->count();
 
             // Dummy open requisitions metric for now since there's no open/closed state
             $data['openRequisitions'] = 2;
+
+            $staffTotal = $data['teachingCount'] + $data['nonTeachingCount'];
+            $data['teachingShare'] = $staffTotal > 0
+                ? (int) round(($data['teachingCount'] / $staffTotal) * 100)
+                : 0;
+
+            $attendance = DB::table('late_deductions')
+                ->where('payroll_period', now()->format('Y-m'))
+                ->selectRaw('COUNT(*) as records, COALESCE(SUM(unexcused_absences), 0) as absence_days, COALESCE(SUM(minutes_late), 0) as late_minutes')
+                ->first();
+
+            $data['attendancePeriodLabel'] = now()->format('F Y');
+            $data['attendanceRecords'] = (int) ($attendance->records ?? 0);
+            $data['monthAbsenceDays'] = (float) ($attendance->absence_days ?? 0);
+            $data['monthLateMinutes'] = (int) ($attendance->late_minutes ?? 0);
         }
 
         return view('dashboard', $data);
@@ -156,6 +190,7 @@ class DashboardController extends Controller
             'last_name' => 'required|string|max:100',
             'username' => 'required|string|max:50|unique:users,username',
             'password' => 'required|string|min:4',
+            'employee_type' => ['required', 'in:0,1'],
         ]);
 
         // 2. Format names perfectly (All Caps)
@@ -174,6 +209,7 @@ class DashboardController extends Controller
                 'username' => strtolower($request->username),
                 'password' => Hash::make($request->password), // Secure encryption
                 'role_id' => 1, // Automatically assign Role 1 (Employee)
+                'employee_type' => (int) $request->employee_type,
                 'must_change_password' => true,
                 'created_at' => now(),
                 'updated_at' => now(),
@@ -196,7 +232,7 @@ class DashboardController extends Controller
             ]);
         });
 
-        return redirect()->route('dashboard')->with('success', 'Employee created and PDS initialized successfully!');
+        return redirect()->route('requisitions.index')->with('success', 'Employee created and PDS initialized successfully!');
     }
 
     // --- EMPLOYEE DEDICATED PAGES ---

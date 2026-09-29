@@ -13,7 +13,7 @@
 
 <div class="container-fluid py-3">
     <div class="d-flex flex-column flex-sm-row justify-content-between align-items-sm-center mb-4 gap-2">
-        <h4 class="text-accent fw-bold m-0"><i class="bi bi-person-vcard me-2"></i> Personal Data Sheet</h4>
+        <h4 class="text-header-blue fw-bold m-0"><i class="bi bi-person-vcard me-2 text-header-blue"></i> Personal Data Sheet</h4>
         <a href="{{ route('pds.print') }}" class="btn btn-outline-secondary shadow-sm fw-bold">
             <i class="bi bi-printer me-1"></i> Print / Export PDS
         </a>
@@ -501,7 +501,7 @@
                                             <td class="text-center">{{ $edu->year_graduated ?? 'N/A' }}</td>
                                             <td>{{ $edu->scholarship_honors ?? 'N/A' }}</td>
                                             <td class="text-center text-nowrap">
-                                                <button type="button" class="btn btn-sm btn-outline-primary p-1 me-1" data-bs-toggle="modal" data-bs-target="#editEducationModal" data-id="{{ $edu->id }}" data-school="{{ $edu->school_id }}" data-degree="{{ $edu->degree_course }}" data-from="{{ $edu->period_from }}" data-to="{{ $edu->period_to }}" data-level="{{ $edu->highest_level_earned }}" data-year="{{ $edu->year_graduated }}" data-honors="{{ $edu->scholarship_honors }}" title="Edit">
+                                                <button type="button" class="btn btn-sm btn-outline-primary p-1 me-1" data-bs-toggle="modal" data-bs-target="#editEducationModal" data-id="{{ $edu->id }}" data-school="{{ $edu->school_id }}" data-school-name="{{ $edu->school_name }}" data-degree="{{ $edu->degree_course }}" data-from="{{ $edu->period_from }}" data-to="{{ $edu->period_to }}" data-level="{{ $edu->highest_level_earned }}" data-year="{{ $edu->year_graduated }}" data-honors="{{ $edu->scholarship_honors }}" title="Edit">
                                                     <i class="bi bi-pencil"></i>
                                                 </button>
                                                 <button type="button" class="btn btn-sm btn-outline-danger p-1" data-bs-toggle="modal" data-bs-target="#deleteConfirmModal" data-url="{{ route('pds.delete_record', ['table' => 'pds_education', 'id' => $edu->id]) }}" title="Delete"><i class="bi bi-trash"></i></button>
@@ -521,9 +521,6 @@
                                         <label class="form-label fw-bold">Name of School <span class="text-danger">*</span></label>
                                         <select name="school_id" class="form-select select2-school text-uppercase" required>
                                             <option value="" disabled selected>-- Select School --</option>
-                                            @foreach($schools as $school)
-                                                <option value="{{ $school->school_id }}">{{ $school->school_name }}</option>
-                                            @endforeach
                                         </select>
                                     </div>
                                     <div class="col-md-4">
@@ -1404,9 +1401,6 @@
                             <label class="form-label fw-bold">School Name</label>
                             <select name="school_id" id="edit_edu_school" class="form-select select2-school text-uppercase" required>
                                 <option value="" disabled selected>-- Select School --</option>
-                                @foreach($schools as $school)
-                                    <option value="{{ $school->school_id }}">{{ $school->school_name }}</option>
-                                @endforeach
                             </select>
                         </div>
                         <div class="col-md-6">
@@ -1730,9 +1724,14 @@ document.addEventListener('DOMContentLoaded', function () {
             document.getElementById('edit_edu_year').value = button.getAttribute('data-year') || '';
             document.getElementById('edit_edu_honors').value = button.getAttribute('data-honors') || '';
             document.getElementById('editEducationForm').action = '/my-pds/education/update/' + id;
-            // Use Select2 API to set the school dropdown value
             var schoolId = button.getAttribute('data-school');
-            $('#edit_edu_school').val(schoolId).trigger('change');
+            var schoolName = button.getAttribute('data-school-name') || 'Selected school';
+            var schoolSelect = $('#edit_edu_school');
+            schoolSelect.find('option[value!=""]').remove();
+            if (schoolId) {
+                schoolSelect.append(new Option(schoolName, schoolId, true, true));
+            }
+            schoolSelect.trigger('change');
         });
     }
 
@@ -1829,9 +1828,26 @@ document.addEventListener('DOMContentLoaded', function () {
     $('#res_city, #perm_city').select2({ theme: 'bootstrap-5', width: '100%', placeholder: 'Search City/Municipality...' });
     $('#res_barangay, #perm_barangay').select2({ theme: 'bootstrap-5', width: '100%', placeholder: 'Search Barangay...' });
     $('#dualCountry').select2({ theme: 'bootstrap-5', width: '100%', placeholder: 'Select Country...' });
-    $('.select2-school').not('#edit_edu_school').select2({ theme: 'bootstrap-5', width: '100%', placeholder: '-- Select School --' });
-    // Initialize Select2 for the edit education modal with dropdownParent to fix rendering inside modal
-    $('#edit_edu_school').select2({ theme: 'bootstrap-5', width: '100%', placeholder: '-- Select School --', dropdownParent: $('#editEducationModal') });
+
+    var schoolSelectOptions = {
+        theme: 'bootstrap-5',
+        width: '100%',
+        placeholder: 'Type a school name...',
+        minimumInputLength: 2,
+        ajax: {
+            url: @json(route('api.schools.search')),
+            dataType: 'json',
+            delay: 250,
+            data: function (params) {
+                return { q: params.term };
+            },
+            processResults: function (data) {
+                return { results: data };
+            }
+        }
+    };
+    $('.select2-school').not('#edit_edu_school').select2(schoolSelectOptions);
+    $('#edit_edu_school').select2($.extend({}, schoolSelectOptions, { dropdownParent: $('#editEducationModal') }));
 
     // Location Cascading Dropdowns
     function setupLocationCascade(prefix) {

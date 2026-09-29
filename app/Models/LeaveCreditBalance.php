@@ -11,6 +11,7 @@ class LeaveCreditBalance extends Model
         'vl_balance',
         'sl_balance',
         'service_credits',
+        'seminar_credits',
         'last_updated_at',
     ];
 

@@ -25,13 +25,13 @@
                             @forelse($mySeminars ?? [] as $seminar)
                             <tr>
                                 <td class="align-middle text-start ps-3 fw-bold" style="color: #1A3E6F;">{{ $seminar->title }}</td>
-                                <td class="align-middle">{{ \Carbon\Carbon::parse($seminar->date)->format('M d, Y') }}</td>
+                                <td class="align-middle">{{ \Carbon\Carbon::parse($seminar->date_attended)->format('M d, Y') }}</td>
                                 <td class="align-middle">{{ $seminar->hours }} hrs</td>
                                 <td class="align-middle d-none d-md-table-cell fw-bold text-success">{{ $seminar->credits_earned ? '+'.number_format($seminar->credits_earned, 2) : '-' }}</td>
                                 <td class="align-middle">
-                                    @if($seminar->status == 'Approved')
+                                    @if(strtoupper((string) $seminar->status) === 'APPROVED')
                                         <span class="badge bg-success">Approved</span>
-                                    @elseif($seminar->status == 'Rejected')
+                                    @elseif(strtoupper((string) $seminar->status) === 'REJECTED')
                                         <span class="badge bg-danger">Rejected</span>
                                     @else
                                         <span class="badge bg-warning text-dark">Pending</span>

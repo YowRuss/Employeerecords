@@ -4,7 +4,7 @@
 <div class="container-fluid py-4">
     <div class="d-flex justify-content-between align-items-center mb-4">
         <div>
-            <h4 class="text-brand fw-bold m-0"><i class="bi bi-check-circle-fill me-2"></i> HR Leave Approvals</h4>
+            <h4 class="text-header-blue fw-bold m-0"><i class="bi bi-check-circle-fill me-2 text-header-blue"></i> HR Leave Approvals</h4>
             <p class="text-muted small m-0">Review, approve, or deny employee leave applications, and manage leave credits.</p>
         </div>
         <div class="d-flex gap-2">
@@ -20,6 +20,16 @@
     @if(session('success'))
     <div class="alert alert-success shadow-sm border-0 rounded-3">
         <i class="bi bi-check-circle-fill me-2"></i> {{ session('success') }}
+    </div>
+    @endif
+
+    @if($errors->any())
+    <div class="alert alert-danger shadow-sm border-0 rounded-3">
+        <ul class="mb-0">
+            @foreach($errors->all() as $error)
+                <li>{{ $error }}</li>
+            @endforeach
+        </ul>
     </div>
     @endif
 
@@ -50,4 +60,26 @@
 </div>
 
 @include('hr.leaves.partials.settings_modal')
+
+@if($errors->any() || session('active_tab') === 'balances' || request()->hasAny(['teaching_page', 'non_teaching_page', 'unassigned_page', 'balance_tab']))
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        var balancesTab = document.getElementById('balances-tab');
+        if (balancesTab && window.bootstrap) {
+            window.bootstrap.Tab.getOrCreateInstance(balancesTab).show();
+        }
+
+        var balanceTabs = {
+            'teaching': 'pills-teaching-tab',
+            'non-teaching': 'pills-non-teaching-tab',
+            'unassigned': 'pills-unassigned-tab'
+        };
+        var subTabId = balanceTabs[@json(request('balance_tab'))];
+        var subTab = subTabId ? document.getElementById(subTabId) : null;
+        if (subTab && window.bootstrap) {
+            window.bootstrap.Tab.getOrCreateInstance(subTab).show();
+        }
+    });
+</script>
+@endif
 @endsection

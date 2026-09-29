@@ -120,12 +120,41 @@
         font-weight: 700;
         box-shadow: 0 2px 5px rgba(253, 224, 71, 0.45);
     }
+
+    /* Select2 Bootstrap 5 Theme for Staff Profiling */
+    .select2-container--bootstrap-5 .select2-selection {
+        border-color: #dee2e6;
+        font-size: 0.875rem;
+        border-radius: 0.375rem;
+        min-height: calc(1.5em + 0.5rem + 2px);
+        padding: 0.25rem 0.5rem;
+        transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+    }
+    .select2-container--bootstrap-5.select2-container--focus .select2-selection,
+    .select2-container--bootstrap-5.select2-container--open .select2-selection {
+        border-color: #86b7fe;
+        box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
+    }
+    .select2-container--bootstrap-5 .select2-dropdown {
+        border-color: #dee2e6;
+        border-radius: 0.375rem;
+        box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+        font-size: 0.875rem;
+        z-index: 1056;
+    }
+    .select2-container--bootstrap-5 .select2-results__option--highlighted[aria-selected] {
+        background-color: #1A3E6F;
+        color: #ffffff;
+    }
+    .select2-container--bootstrap-5 .select2-results__option[aria-disabled="true"] {
+        display: none !important;
+    }
 </style>
 
 <div class="container-fluid py-2">
     <div class="d-flex flex-column flex-sm-row justify-content-between align-items-sm-center mb-4 gap-3">
         <div>
-            <h4 class="text-accent fw-bold m-0"><i class="bi bi-people-fill me-2"></i> Staff Profiling</h4>
+            <h4 class="text-header-blue fw-bold m-0"><i class="bi bi-people-fill me-2 text-header-blue"></i> Staff Profiling</h4>
             <p class="text-muted small mt-1 mb-0">Manage and oversee all employee profiles and records.</p>
         </div>
     </div>
@@ -207,7 +236,7 @@
             <!-- Tabbed Navigation -->
             <ul class="nav nav-tabs staff-tabs border-bottom-0" id="staffTabs" role="tablist">
                 <li class="nav-item" role="presentation">
-                    <button class="nav-link {{ !in_array(request('category'), ['teaching', 'non-teaching', 'incomplete', 'inactive']) ? 'active' : '' }}" id="all-employees-tab" data-bs-toggle="tab" data-bs-target="#all-employees" type="button" role="tab" aria-controls="all-employees" aria-selected="{{ !in_array(request('category'), ['teaching', 'non-teaching', 'incomplete', 'inactive']) ? 'true' : 'false' }}">
+                    <button class="nav-link {{ !in_array(request('category'), ['teaching', 'non-teaching', 'unassigned', 'incomplete', 'inactive']) ? 'active' : '' }}" id="all-employees-tab" data-bs-toggle="tab" data-bs-target="#all-employees" type="button" role="tab" aria-controls="all-employees" aria-selected="{{ !in_array(request('category'), ['teaching', 'non-teaching', 'unassigned', 'incomplete', 'inactive']) ? 'true' : 'false' }}">
                         All Employees <span class="badge bg-white text-dark ms-1">{{ $totalActiveCount }}</span>
                     </button>
                 </li>
@@ -219,6 +248,11 @@
                 <li class="nav-item" role="presentation">
                     <button class="nav-link {{ request('category') == 'non-teaching' ? 'active' : '' }}" id="non-teaching-tab" data-bs-toggle="tab" data-bs-target="#non-teaching" type="button" role="tab" aria-controls="non-teaching" aria-selected="{{ request('category') == 'non-teaching' ? 'true' : 'false' }}">
                         Non-Teaching Positions <span class="badge bg-white text-dark ms-1">{{ $nonTeachingCount }}</span>
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link text-warning {{ request('category') == 'unassigned' ? 'active' : '' }}" id="unassigned-tab" data-bs-toggle="tab" data-bs-target="#unassigned" type="button" role="tab" aria-controls="unassigned" aria-selected="{{ request('category') == 'unassigned' ? 'true' : 'false' }}">
+                        Unassigned Positions <span class="badge bg-warning text-dark ms-1">{{ $unassignedCount }}</span>
                     </button>
                 </li>
                 <li class="nav-item" role="presentation">
@@ -271,33 +305,41 @@
                 <!-- Position & Learning Area Filters -->
                 <div class="d-flex flex-wrap align-items-center justify-content-lg-end gap-3">
                     <div class="d-flex align-items-center">
-                        <label class="fw-bold me-2 small text-nowrap" style="color: #1A3E6F;">Filter by Position:</label>
-                        <select name="position_id" id="positionSelect" class="form-select form-select-sm shadow-sm" onchange="this.form.submit()" style="background-color: white; color: #1A3E6F; border-color: #1A3E6F; min-width: 200px;">
-                            <option value="">All Positions</option>
-                            
-                            <!-- Always render both optgroups, JavaScript will dynamically hide/disable them based on the active tab -->
-                            <optgroup label="Teaching Positions" id="optgroup-teaching">
-                                @foreach($filterPositions->where('category', \App\Enums\PositionCategory::Teaching) as $pos)
-                                    <option value="{{ $pos->id }}" {{ request('position_id') == $pos->id ? 'selected' : '' }}>{{ $pos->position_name }}</option>
-                                @endforeach
-                            </optgroup>
-                            
-                            <optgroup label="Non-Teaching Positions" id="optgroup-non-teaching">
-                                @foreach($filterPositions->where('category', \App\Enums\PositionCategory::NonTeaching) as $pos)
-                                    <option value="{{ $pos->id }}" {{ request('position_id') == $pos->id ? 'selected' : '' }}>{{ $pos->position_name }}</option>
-                                @endforeach
-                            </optgroup>
-                        </select>
+                        <label for="positionSelect" class="form-label mb-0 me-2 fw-semibold small text-nowrap text-secondary">
+                            <i class="bi bi-briefcase me-1 text-primary"></i> Filter by Position:
+                        </label>
+                        <div style="min-width: 220px; max-width: 320px;">
+                            <select name="position_id" id="positionSelect" class="form-select form-select-sm shadow-sm" onchange="this.form.submit()" style="width: 100%;">
+                                <option value="">All Positions</option>
+                                
+                                <!-- Always render both optgroups, JavaScript will dynamically hide/disable them based on the active tab -->
+                                <optgroup label="Teaching Positions" id="optgroup-teaching">
+                                    @foreach($filterPositions->where('category', \App\Enums\PositionCategory::Teaching) as $pos)
+                                        <option value="{{ $pos->id }}" {{ request('position_id') == $pos->id ? 'selected' : '' }}>{{ $pos->position_name }}</option>
+                                    @endforeach
+                                </optgroup>
+                                
+                                <optgroup label="Non-Teaching Positions" id="optgroup-non-teaching">
+                                    @foreach($filterPositions->where('category', \App\Enums\PositionCategory::NonTeaching) as $pos)
+                                        <option value="{{ $pos->id }}" {{ request('position_id') == $pos->id ? 'selected' : '' }}>{{ $pos->position_name }}</option>
+                                    @endforeach
+                                </optgroup>
+                            </select>
+                        </div>
                     </div>
                     
                     <div id="learningAreaFilterWrapper" class="align-items-center {{ request('category') == 'teaching' ? 'd-flex' : 'd-none' }}">
-                        <label for="teaching-learning-area-filter" class="form-label mb-0 me-2 fw-bold text-nowrap" style="color: #1A3E6F;">Filter by Learning Area:</label>
-                        <select name="learning_area_id" id="teaching-learning-area-filter" class="form-select form-select-sm shadow-sm" onchange="this.form.submit()" style="background-color: white; color: #1A3E6F; border-color: #1A3E6F; min-width: 200px;">
-                            <option value="">All Learning Areas</option>
-                            @foreach($learningAreas as $area)
-                                <option value="{{ $area->id }}" {{ request('learning_area_id') == $area->id ? 'selected' : '' }}>{{ $area->name }}</option>
-                            @endforeach
-                        </select>
+                        <label for="teaching-learning-area-filter" class="form-label mb-0 me-2 fw-semibold small text-nowrap text-secondary">
+                            <i class="bi bi-book me-1 text-primary"></i> Filter by Learning Area:
+                        </label>
+                        <div style="min-width: 220px; max-width: 320px;">
+                            <select name="learning_area_id" id="teaching-learning-area-filter" class="form-select form-select-sm shadow-sm" onchange="this.form.submit()" style="width: 100%;">
+                                <option value="">All Learning Areas</option>
+                                @foreach($learningAreas as $area)
+                                    <option value="{{ $area->id }}" {{ request('learning_area_id') == $area->id ? 'selected' : '' }}>{{ $area->name }}</option>
+                                @endforeach
+                            </select>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -318,6 +360,53 @@
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+    let select2PositionReady = false;
+    let select2LearningAreaReady = false;
+    
+    // Initialize Select2 with Bootstrap 5 Theme
+    function initFiltersSelect2() {
+        if (typeof $ !== 'undefined' && $.fn.select2) {
+            if (!$('#positionSelect').hasClass('select2-hidden-accessible')) {
+                $('#positionSelect').select2({
+                    theme: 'bootstrap-5',
+                    width: '100%',
+                    placeholder: 'All Positions',
+                    allowClear: false
+                });
+                select2PositionReady = true;
+
+                $('#positionSelect').on('select2:select', function() {
+                    document.getElementById('staff-filter-form').submit();
+                });
+
+                $('#positionSelect').on('change', function() {
+                    if (select2PositionReady) {
+                        document.getElementById('staff-filter-form').submit();
+                    }
+                });
+            }
+
+            if (!$('#teaching-learning-area-filter').hasClass('select2-hidden-accessible')) {
+                $('#teaching-learning-area-filter').select2({
+                    theme: 'bootstrap-5',
+                    width: '100%',
+                    placeholder: 'All Learning Areas',
+                    allowClear: false
+                });
+                select2LearningAreaReady = true;
+
+                $('#teaching-learning-area-filter').on('select2:select', function() {
+                    document.getElementById('staff-filter-form').submit();
+                });
+
+                $('#teaching-learning-area-filter').on('change', function() {
+                    if (select2LearningAreaReady) {
+                        document.getElementById('staff-filter-form').submit();
+                    }
+                });
+            }
+        }
+    }
     
     // Core Dynamic Form Sync Logic
     function syncEmployeeForm() {
@@ -343,7 +432,12 @@ document.addEventListener('DOMContentLoaded', function() {
             if (learningAreaWrapper) { 
                 learningAreaWrapper.classList.remove('d-flex');
                 learningAreaWrapper.classList.add('d-none'); 
-                if(learningAreaSelect) learningAreaSelect.value = ''; // clear value if hidden
+                if (learningAreaSelect) {
+                    learningAreaSelect.value = '';
+                    if (typeof $ !== 'undefined' && $.fn.select2 && $(learningAreaSelect).hasClass('select2-hidden-accessible')) {
+                        $(learningAreaSelect).val('').trigger('change.select2');
+                    }
+                }
             }
             
         } else {
@@ -353,7 +447,12 @@ document.addEventListener('DOMContentLoaded', function() {
             if (learningAreaWrapper) { 
                 learningAreaWrapper.classList.remove('d-flex');
                 learningAreaWrapper.classList.add('d-none'); 
-                if(learningAreaSelect) learningAreaSelect.value = ''; 
+                if (learningAreaSelect) {
+                    learningAreaSelect.value = '';
+                    if (typeof $ !== 'undefined' && $.fn.select2 && $(learningAreaSelect).hasClass('select2-hidden-accessible')) {
+                        $(learningAreaSelect).val('').trigger('change.select2');
+                    }
+                }
             }
         }
 
@@ -361,11 +460,16 @@ document.addEventListener('DOMContentLoaded', function() {
         const selectedOption = positionSelect.options[positionSelect.selectedIndex];
         if (selectedOption && selectedOption.parentNode.disabled) {
             positionSelect.value = '';
+            if (typeof $ !== 'undefined' && $.fn.select2 && $(positionSelect).hasClass('select2-hidden-accessible')) {
+                $(positionSelect).val('').trigger('change.select2');
+            }
         }
     }
 
     // Execute immediately on page load to set the correct visual state
     syncEmployeeForm();
+    initFiltersSelect2();
+    window.addEventListener('load', initFiltersSelect2);
 
     // Tab Change Listener
     const tabButtons = document.querySelectorAll('#staffTabs button[data-bs-toggle="tab"]');

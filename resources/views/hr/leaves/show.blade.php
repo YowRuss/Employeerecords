@@ -5,7 +5,7 @@
     <div class="col-lg-8">
         
         <div class="d-flex justify-content-between align-items-center mb-4">
-            <h4 class="text-accent fw-bold m-0">Review Leave Application</h4>
+            <h4 class="text-header-blue fw-bold m-0">Review Leave Application</h4>
             <a href="{{ route('leaves.monitor') }}" class="btn btn-outline-secondary btn-sm">
                 <i class="bi bi-arrow-left"></i> Back to List
             </a>

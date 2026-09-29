@@ -4,7 +4,7 @@
 <div class="container-fluid py-4">
     <div class="d-flex justify-content-between align-items-center mb-4">
         <div>
-            <h4 class="text-accent fw-bold m-0"><i class="bi bi-inbox-fill me-2"></i> Helpdesk Inbox</h4>
+            <h4 class="text-header-blue fw-bold m-0"><i class="bi bi-inbox-fill me-2 text-header-blue"></i> Helpdesk Inbox</h4>
             <p class="text-muted small m-0">Manage employee requests, PDS updates, and inquiries.</p>
         </div>
     </div>
@@ -23,7 +23,7 @@
                                     @if($emp->latest_message->sender_id != $emp->id)
                                         <i class="bi bi-reply-fill text-muted me-1"></i>
                                     @endif
-                                    {{ $emp->latest_message->message }}
+                                    {{ $emp->latest_message->previewText() }}
                                 </p>
                             </div>
                             <div class="text-end">

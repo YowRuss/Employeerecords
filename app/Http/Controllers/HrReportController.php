@@ -16,24 +16,35 @@ class HrReportController extends Controller
 
         // 1. Employee Statistics
         $totalEmployees = DB::table('users')->where('role_id', 1)->count();
-        $totalHR = DB::table('users')->where('role_id', 2)->count();
 
-        // Employees by Position (if positions table is linked)
         $employeesByPosition = DB::table('users')
-            ->join('positions', 'users.id', '=', 'positions.id') // Adjust join condition if your foreign key is different
-            ->select('positions.position_name', DB::raw('count(users.id) as total'))
+            ->leftJoin('positions', 'users.position_id', '=', 'positions.id')
             ->where('users.role_id', 1)
-            ->groupBy('positions.position_name')
+            ->selectRaw("COALESCE(positions.position_name, 'Unassigned') as position_name, count(users.id) as total")
+            ->groupByRaw("COALESCE(positions.position_name, 'Unassigned')")
+            ->orderByDesc('total')
+            ->orderBy('position_name')
             ->get();
 
         // 2. Leave Statistics
-        $leaveStats = DB::table('leave_applications')
+        $leaveCounts = DB::table('leave_applications')
             ->select('status', DB::raw('count(*) as total'))
             ->groupBy('status')
-            ->pluck('total', 'status')
-            ->toArray();
+            ->pluck('total', 'status');
 
-        $totalLeaves = array_sum($leaveStats);
+        $leaveStats = ['Pending' => 0, 'Approved' => 0, 'Denied' => 0];
+
+        foreach ($leaveCounts as $status => $total) {
+            $key = strtoupper((string) $status);
+
+            if ($key === 'PENDING') {
+                $leaveStats['Pending'] += $total;
+            } elseif ($key === 'APPROVED') {
+                $leaveStats['Approved'] += $total;
+            } elseif (in_array($key, ['DISAPPROVED', 'DENIED', 'REJECTED'], true)) {
+                $leaveStats['Denied'] += $total;
+            }
+        }
 
         // 3. Event Statistics
         $totalEvents = DB::table('events')->count();
@@ -46,10 +57,8 @@ class HrReportController extends Controller
 
         return view('hr.reports.index', compact(
             'totalEmployees',
-            'totalHR',
             'employeesByPosition',
             'leaveStats',
-            'totalLeaves',
             'totalEvents',
             'totalRegistrations',
             'totalAttended',

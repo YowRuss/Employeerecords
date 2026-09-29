@@ -3,11 +3,18 @@
 @section('content')
 <div class="container-fluid py-4">
     <div class="d-flex justify-content-between align-items-center mb-4">
-        <h4 class="fw-bold text-accent m-0">Employee Profile</h4>
+        <h4 class="fw-bold text-header-blue m-0">Employee Profile</h4>
         <a href="{{ route('hr.staff_profiling') }}" class="btn btn-outline-secondary btn-sm">
             <i class="bi bi-arrow-left"></i> Back to Directory
         </a>
     </div>
+
+    @if(session('success'))
+    <div class="alert alert-success alert-dismissible fade show shadow-sm" role="alert">
+        <i class="bi bi-check-circle-fill me-2"></i> {{ session('success') }}
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+    @endif
     
     <div class="row">
         <div class="col-xl-4 col-lg-5 mb-4">
@@ -60,7 +67,7 @@
                             <a href="{{ route('hr.view_saln', $employee->id) }}" class="btn btn-outline-warning fw-bold text-dark rounded-pill">
                                 <i class="bi bi-cash-coin me-1"></i> View SALN
                             </a>
-                            <a href="{{ route('hr.service_record.index', $employee->id) }}" class="btn btn-outline-secondary rounded-pill">
+                            <a href="{{ route('hr.service_record.show', $employee->id) }}" class="btn btn-outline-secondary rounded-pill">
                                 <i class="bi bi-card-list me-1"></i> Service Record
                             </a>
                         </div>
@@ -76,22 +83,28 @@
                     <h5 class="fw-bold mb-0"><i class="bi bi-info-circle text-accent me-2"></i> Information Overview</h5>
                 </div>
                 <div class="card-body p-4">
+                    @php $profileTab = session('active_tab', 'account'); @endphp
                     <ul class="nav nav-tabs mb-4" id="profileTabs" role="tablist">
                         <li class="nav-item" role="presentation">
-                            <button class="nav-link active fw-semibold" id="account-tab" data-bs-toggle="tab" data-bs-target="#account" type="button" role="tab" aria-controls="account" aria-selected="true">
+                            <button class="nav-link {{ $profileTab === 'account' ? 'active' : '' }} fw-semibold" id="account-tab" data-bs-toggle="tab" data-bs-target="#account" type="button" role="tab" aria-controls="account" aria-selected="{{ $profileTab === 'account' ? 'true' : 'false' }}">
                                 Account Details
                             </button>
                         </li>
                         <li class="nav-item" role="presentation">
-                            <button class="nav-link fw-semibold" id="contact-tab" data-bs-toggle="tab" data-bs-target="#contact" type="button" role="tab" aria-controls="contact" aria-selected="false">
+                            <button class="nav-link {{ $profileTab === 'contact' ? 'active' : '' }} fw-semibold" id="contact-tab" data-bs-toggle="tab" data-bs-target="#contact" type="button" role="tab" aria-controls="contact" aria-selected="{{ $profileTab === 'contact' ? 'true' : 'false' }}">
                                 Emergency Contact
+                            </button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link {{ $profileTab === 'credits' ? 'active' : '' }} fw-semibold" id="credits-tab" data-bs-toggle="tab" data-bs-target="#credits" type="button" role="tab" aria-controls="credits" aria-selected="{{ $profileTab === 'credits' ? 'true' : 'false' }}">
+                                Service Credits &amp; CTO
                             </button>
                         </li>
                     </ul>
                     
                     <div class="tab-content" id="profileTabsContent">
                         <!-- Account Details Tab -->
-                        <div class="tab-pane fade show active" id="account" role="tabpanel" aria-labelledby="account-tab">
+                        <div class="tab-pane fade {{ $profileTab === 'account' ? 'show active' : '' }}" id="account" role="tabpanel" aria-labelledby="account-tab">
                             <div class="row g-4">
                                 <div class="col-md-6">
                                     <div class="p-3 bg-light rounded-3 h-100">
@@ -129,7 +142,7 @@
                         </div>
                         
                         <!-- Emergency Contact Tab -->
-                        <div class="tab-pane fade" id="contact" role="tabpanel" aria-labelledby="contact-tab">
+                        <div class="tab-pane fade {{ $profileTab === 'contact' ? 'show active' : '' }}" id="contact" role="tabpanel" aria-labelledby="contact-tab">
                             @if($employee->emergency_contact_person)
                             <div class="row g-4">
                                 <div class="col-md-6">
@@ -153,12 +166,100 @@
                             </div>
                             @endif
                         </div>
+
+                        <div class="tab-pane fade {{ $profileTab === 'credits' ? 'show active' : '' }}" id="credits" role="tabpanel" aria-labelledby="credits-tab">
+                            <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
+                                <div class="rounded-4 px-4 py-3 text-white" style="background: #1A3E6F; min-width: 220px;">
+                                    <div class="small text-uppercase" style="letter-spacing: 0.04em; opacity: 0.8;">Current Balance</div>
+                                    <div class="fs-2 fw-bolder mb-0">{{ number_format($employee->available_credits, 1) }} <span class="fs-6 fw-semibold">days</span></div>
+                                </div>
+                                <button type="button" class="btn fw-bold rounded-pill px-4" style="background: #ffc107; color: #1A3E6F;" data-bs-toggle="modal" data-bs-target="#grantCreditsModal">
+                                    <i class="bi bi-plus-circle me-1"></i> Grant Credits
+                                </button>
+                            </div>
+
+                            <input type="search" id="serviceCreditSearch" class="form-control form-control-sm mb-3" placeholder="Search ledger..." style="max-width: 280px;">
+
+                            <div class="table-responsive">
+                                <table class="table table-hover align-middle mb-0" id="serviceCreditTable">
+                                    <thead class="bg-light">
+                                        <tr>
+                                            <th class="small text-muted text-uppercase">Date</th>
+                                            <th class="small text-muted text-uppercase">Description</th>
+                                            <th class="small text-muted text-uppercase">Type</th>
+                                            <th class="small text-muted text-uppercase text-end">Days</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @forelse($employee->serviceCredits as $credit)
+                                        <tr data-search="{{ strtolower($credit->description.' '.$credit->type) }}">
+                                            <td>{{ $credit->transaction_date?->format('M d, Y') }}</td>
+                                            <td>{{ $credit->description }}</td>
+                                            <td>
+                                                @if($credit->type === 'earned')
+                                                    <span class="badge rounded-pill text-bg-success">Earned</span>
+                                                @else
+                                                    <span class="badge rounded-pill text-bg-warning">Used</span>
+                                                @endif
+                                            </td>
+                                            <td class="text-end fw-semibold">{{ $credit->type === 'earned' ? '+' : '-' }}{{ number_format((float) $credit->days, 1) }}</td>
+                                        </tr>
+                                        @empty
+                                        <tr>
+                                            <td colspan="4" class="text-center text-muted py-4">No service credit transactions yet.</td>
+                                        </tr>
+                                        @endforelse
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
         </div>
     </div>
 </div>
+
+<div class="modal fade" id="grantCreditsModal" tabindex="-1" aria-labelledby="grantCreditsModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg rounded-4">
+            <div class="modal-header border-0" style="background: #ffc107;">
+                <h5 class="modal-title fw-bold" id="grantCreditsModalLabel" style="color: #1A3E6F;">Grant Service Credits</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form action="{{ route('hr.service_credits.store', $employee->id) }}" method="POST">
+                @csrf
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold" for="transaction_date">Transaction Date</label>
+                        <input type="date" class="form-control" id="transaction_date" name="transaction_date" value="{{ old('transaction_date', now()->toDateString()) }}" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold" for="credit_description">Description</label>
+                        <input type="text" class="form-control" id="credit_description" name="description" value="{{ old('description') }}" placeholder="Brigada Eskwela" maxlength="255" required>
+                    </div>
+                    <div class="mb-0">
+                        <label class="form-label fw-semibold" for="credit_days">Days</label>
+                        <input type="number" class="form-control" id="credit_days" name="days" value="{{ old('days', '1.0') }}" min="0.5" max="30" step="0.5" required>
+                    </div>
+                </div>
+                <div class="modal-footer border-0">
+                    <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn fw-bold" style="background: #ffc107; color: #1A3E6F;">Save Credits</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+    document.getElementById('serviceCreditSearch')?.addEventListener('input', function () {
+        const query = this.value.toLowerCase();
+        document.querySelectorAll('#serviceCreditTable tbody tr[data-search]').forEach(function (row) {
+            row.hidden = !row.dataset.search.includes(query);
+        });
+    });
+</script>
 
 <!-- Edit Official Name Modal -->
 <div class="modal fade text-start" id="editNameModal" tabindex="-1" aria-hidden="true">
@@ -283,6 +384,15 @@
                                     {{ $position->position_name }}
                                 </option>
                             @endforeach
+                        </select>
+                    </div>
+
+                    <div class="mb-4">
+                        <label class="form-label small fw-bold text-uppercase tracking-wider" style="color: #1A3E6F;">Step Increment (1-8)</label>
+                        <select name="step_increment" class="form-select p-3 bg-light border-0" required style="border-radius: 8px;">
+                            @for ($i = 1; $i <= 8; $i++)
+                                <option value="{{ $i }}" {{ ($employee->step_increment ?? 1) == $i ? 'selected' : '' }}>Step {{ $i }}</option>
+                            @endfor
                         </select>
                     </div>
 

@@ -25,7 +25,7 @@
     <div class="col-md-8 col-lg-6">
         
         <div class="d-flex justify-content-between align-items-center mb-4">
-            <h4 class="text-accent fw-bold m-0">Account Profile</h4>
+            <h4 class="text-header-blue fw-bold m-0">Account Profile</h4>
             <a href="{{ route('dashboard') }}" class="btn btn-outline-secondary btn-sm">← Back to Dashboard</a>
         </div>
 
@@ -56,8 +56,9 @@
                 </li>
             </ul>
 
-            <form action="{{ route('profile.update') }}" method="POST" enctype="multipart/form-data">
+            <form action="{{ route('hr.profile.update') }}" method="POST" enctype="multipart/form-data">
                 @csrf
+                @method('PUT')
                 
                 <div class="tab-content" id="profileTabsContent">
                     <div class="tab-pane fade show active" id="details" role="tabpanel" aria-labelledby="details-tab">
@@ -81,24 +82,55 @@
 
                 <hr class="my-4 text-muted opacity-25">
 
-                <!-- NAME WITH SUFFIX ADDED -->
+                @php $canEditIdentity = in_array((int) $user->role_id, [2, 3], true); @endphp
+
                 <div class="mb-3">
                     <label class="form-label small fw-bold text-muted">Full Name</label>
-                    <input type="text" class="form-control bg-light text-uppercase fw-bold" value="{{ trim($user->first_name . ' ' . $user->middle_name . ' ' . $user->last_name . ' ' . ($user->suffix ?? '')) }}" readonly>
-                    <div class="form-text small">Contact HR to change your official name.</div>
+                    @if($canEditIdentity)
+                        <div class="row g-2">
+                            <div class="col-md-6">
+                                <input type="text" name="first_name" class="form-control text-uppercase fw-bold" value="{{ old('first_name', $user->first_name) }}" placeholder="First Name" required>
+                            </div>
+                            <div class="col-md-6">
+                                <input type="text" name="last_name" class="form-control text-uppercase fw-bold" value="{{ old('last_name', $user->last_name) }}" placeholder="Last Name" required>
+                            </div>
+                            <div class="col-md-6">
+                                <input type="text" name="middle_name" class="form-control text-uppercase fw-bold" value="{{ old('middle_name', $user->middle_name) }}" placeholder="Middle Name">
+                            </div>
+                            <div class="col-md-6">
+                                <input type="text" name="suffix" class="form-control text-uppercase fw-bold" value="{{ old('suffix', $user->suffix) }}" placeholder="Suffix (Jr, Sr)">
+                            </div>
+                        </div>
+                    @else
+                        <input type="text" class="form-control bg-light text-uppercase fw-bold" value="{{ trim($user->first_name . ' ' . $user->middle_name . ' ' . $user->last_name . ' ' . ($user->suffix ?? '')) }}" readonly>
+                        <div class="form-text small">Contact HR to change your official name.</div>
+                    @endif
                 </div>
 
-                <!-- SHOW USERNAME -->
                 <div class="mb-4">
                     <label class="form-label small fw-bold text-muted">Username</label>
-                    <input type="text" name="username" class="form-control" value="{{ $user->username ?? '' }}" placeholder="Enter username">
-                    <div class="form-text small">Contact HR to change your official username.</div>
+                    @if($canEditIdentity)
+                        <input type="text" name="username" class="form-control" value="{{ old('username', $user->username) }}" placeholder="Enter username" required>
+                    @else
+                        <input type="text" class="form-control bg-light" value="{{ $user->username ?? '' }}" readonly>
+                        <div class="form-text small">Contact HR to change your official username.</div>
+                    @endif
                 </div>
-                
-                <!-- ADD OFFICIAL POSITION -->
+
                 <div class="mb-4">
                     <label class="form-label small fw-bold text-muted">Official Position</label>
-                    <input type="text" class="form-control bg-light" value="{{ $user->position->name ?? $user->position->position_name ?? 'No Position Assigned' }}" readonly>
+                    @if($canEditIdentity)
+                        <select name="position_id" class="form-select">
+                            <option value="">No Position Assigned</option>
+                            @foreach($positions as $position)
+                                <option value="{{ $position->id }}" {{ (string) old('position_id', $user->position_id) === (string) $position->id ? 'selected' : '' }}>
+                                    {{ $position->position_name }}
+                                </option>
+                            @endforeach
+                        </select>
+                    @else
+                        <input type="text" class="form-control bg-light" value="{{ $user->position->position_name ?? 'No Position Assigned' }}" readonly>
+                    @endif
                 </div>
 
                 <!-- CONDITIONAL LEARNING AREA -->
@@ -121,11 +153,11 @@
                     <div class="row g-2">
                         <div class="col-md-6">
                             <label class="form-label small fw-bold text-muted mb-1">Contact Person</label>
-                            <input type="text" name="emergency_contact_person" class="form-control form-control-sm text-uppercase" value="{{ $user->emergency_contact_person ?? '' }}" placeholder="Full Name">
+                            <input type="text" name="emergency_contact_person" class="form-control form-control-sm text-uppercase" value="{{ old('emergency_contact_person', $user->emergency_contact_person) }}" placeholder="Full Name">
                         </div>
                         <div class="col-md-6">
                             <label class="form-label small fw-bold text-muted mb-1">Contact Number</label>
-                            <input type="text" name="emergency_contact_number" class="form-control form-control-sm" value="{{ $user->emergency_contact_number ?? '' }}" placeholder="Mobile or Telephone">
+                            <input type="text" name="emergency_contact_number" class="form-control form-control-sm" value="{{ old('emergency_contact_number', $user->emergency_contact_number) }}" placeholder="Mobile or Telephone">
                         </div>
                     </div>
                 </div>
@@ -167,8 +199,8 @@
             </div> <!-- End Security Tab -->
         </div> <!-- End Tab Content -->
 
-                <div class="d-grid mt-4">
-                    <button type="submit" class="btn btn-accent py-2 fw-bold shadow-sm">Update Account Profile</button>
+                <div class="d-grid mt-3">
+                    <button type="submit" class="btn btn-primary mt-3 py-2 fw-bold shadow-sm">Save Changes</button>
                 </div>
             </form>
         </div>

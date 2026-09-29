@@ -10,7 +10,7 @@
                     <a href="{{ route('hr.chat.inbox') }}" class="btn btn-sm btn-light border mb-2 shadow-sm fw-bold">
                         <i class="bi bi-arrow-left me-1"></i> Back to Inbox
                     </a>
-                    <h4 class="text-accent fw-bold m-0"><i class="bi bi-person-circle me-2"></i> {{ $employee->first_name }} {{ $employee->last_name }}</h4>
+                    <h4 class="text-header-blue fw-bold m-0"><i class="bi bi-person-circle me-2 text-header-blue"></i> {{ $employee->first_name }} {{ $employee->last_name }}</h4>
                     <p class="text-muted small m-0">Employee Helpdesk Thread</p>
                 </div>
             </div>
@@ -25,7 +25,7 @@
                             <!-- HR Message (Right Side) -->
                             <div class="d-flex justify-content-end mb-3">
                                 <div class="bg-accent text-dark p-3 rounded-4 shadow-sm" style="max-width: 75%; border-bottom-right-radius: 4px !important;">
-                                    <p class="mb-1 fs-6">{{ $msg->message }}</p>
+                                    @include('partials.helpdesk_attachment')
                                     <div class="text-black-50 text-end" style="font-size: 0.7rem;">
                                         {{ \Carbon\Carbon::parse($msg->created_at)->format('M d, h:i A') }}
                                     </div>
@@ -35,7 +35,7 @@
                             <!-- Employee Message (Left Side) -->
                             <div class="d-flex justify-content-start mb-3">
                                 <div class="bg-white text-dark border p-3 rounded-4 shadow-sm" style="max-width: 75%; border-bottom-left-radius: 4px !important;">
-                                    <p class="mb-1 fs-6">{{ $msg->message }}</p>
+                                    @include('partials.helpdesk_attachment')
                                     <div class="text-muted text-start" style="font-size: 0.7rem;">
                                         {{ \Carbon\Carbon::parse($msg->created_at)->format('M d, h:i A') }}
                                     </div>

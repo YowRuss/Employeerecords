@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class PayrollRecord extends Model
 {
@@ -15,13 +16,16 @@ class PayrollRecord extends Model
         'pera_amount',
         'gross_earned',
         'absences_amount',
+        'late_deduction',
         'tax_withheld',
         'gsis_premium',
         'philhealth_premium',
         'pagibig_premium',
+        'loan_amortization',
         'other_deductions',
         'total_deductions',
         'net_amount',
+        'is_full_lwop',
     ];
 
     /**
@@ -31,6 +35,7 @@ class PayrollRecord extends Model
     {
         return [
             'other_deductions' => 'array',
+            'is_full_lwop' => 'boolean',
         ];
     }
 
@@ -48,5 +53,25 @@ class PayrollRecord extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    /**
+     * Alias for user relation representing the employee.
+     *
+     * @return BelongsTo<User, $this>
+     */
+    public function employee(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'user_id');
+    }
+
+    /**
+     * Additional income/allowance line items attached to this record.
+     *
+     * @return HasMany<PayrollIncome, $this>
+     */
+    public function payrollIncomes(): HasMany
+    {
+        return $this->hasMany(PayrollIncome::class);
     }
 }

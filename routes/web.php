@@ -1,28 +1,46 @@
 <?php
 
+use App\Http\Controllers\AllowanceController;
 use App\Http\Controllers\AnnouncementController;
+use App\Http\Controllers\AnnouncementTypeController;
+use App\Http\Controllers\AttendanceController;
 use App\Http\Controllers\Auth\ForgotPasswordController;
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\Bir2316Controller;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\EmployeeAttendanceController;
 use App\Http\Controllers\EmployeeController;
+use App\Http\Controllers\EmployeeLoanController;
+use App\Http\Controllers\EmployeePayrollController;
+use App\Http\Controllers\EmployeeTaxController;
 use App\Http\Controllers\EventController;
+use App\Http\Controllers\EventTypeController;
+use App\Http\Controllers\HolidayController;
 use App\Http\Controllers\HrController;
 use App\Http\Controllers\HrMessageController;
 use App\Http\Controllers\HrReportController;
 use App\Http\Controllers\HrSettingsController;
 use App\Http\Controllers\JobApplicationController;
 use App\Http\Controllers\JobPostingController;
+use App\Http\Controllers\LandingController;
 use App\Http\Controllers\LeaveController;
 use App\Http\Controllers\LeaveCreditController;
+use App\Http\Controllers\LoanController;
 use App\Http\Controllers\LocationController;
 use App\Http\Controllers\PayrollController;
 use App\Http\Controllers\PdsController;
 use App\Http\Controllers\PositionController;
 use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\RemittanceController;
 use App\Http\Controllers\RequisitionController;
+use App\Http\Controllers\SalaryGradeController;
 use App\Http\Controllers\SalnController;
 use App\Http\Controllers\SeminarController;
+use App\Http\Controllers\ServiceCreditController;
 use App\Http\Controllers\ServiceRecordController;
+use App\Http\Controllers\Settings\DeductionController;
+use App\Http\Controllers\Settings\IncomeTypeController;
+use App\Http\Controllers\StepIncrementController;
 use App\Models\PdsFather;
 use App\Models\PdsMother;
 use App\Models\PdsSpouse;
@@ -34,11 +52,13 @@ Route::get('/locations/provinces/{regionId}', [LocationController::class, 'getPr
 Route::get('/locations/cities/{provinceId}', [LocationController::class, 'getCities'])->name('locations.cities');
 Route::get('/locations/barangays/{cityId}', [LocationController::class, 'getBarangays'])->name('locations.barangays');
 
+// Landing Page (Public Homepage)
+Route::get('/', [LandingController::class, 'index'])->name('home');
+
 // Authentication Routes
-Route::get('/', [AuthController::class, 'showLogin'])->name('login');
-Route::get('/login', [AuthController::class, 'showLogin']);
+Route::get('/login', [AuthController::class, 'showLogin'])->name('login');
 Route::post('/login', [AuthController::class, 'processLogin'])->name('login.post');
-Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
+Route::match(['get', 'post'], '/logout', [AuthController::class, 'logout'])->name('logout');
 Route::get('/change-password', [AuthController::class, 'showChangePassword'])->name('password.change');
 Route::post('/change-password', [AuthController::class, 'updatePassword'])->name('password.change.post');
 
@@ -64,6 +84,14 @@ Route::prefix('hr/announcements')->group(function () {
     Route::get('/track/{id}', [AnnouncementController::class, 'tracking'])->name('announcements.track');
 });
 
+// HR Announcement Settings Routes
+Route::prefix('hr/announcements/settings')->name('announcements.settings.')->group(function () {
+    Route::get('/', [AnnouncementTypeController::class, 'index'])->name('index');
+    Route::post('/store', [AnnouncementTypeController::class, 'store'])->name('store');
+    Route::post('/update/{id}', [AnnouncementTypeController::class, 'update'])->name('update');
+    Route::post('/delete/{id}', [AnnouncementTypeController::class, 'destroy'])->name('destroy');
+});
+
 // HR Event Routes
 Route::prefix('hr/events')->group(function () {
     Route::get('/', [EventController::class, 'index'])->name('events.index');
@@ -71,6 +99,14 @@ Route::prefix('hr/events')->group(function () {
     Route::post('/delete/{id}', [EventController::class, 'destroy'])->name('events.destroy');
     Route::get('/track/{id}', [EventController::class, 'tracking'])->name('events.track');
     Route::post('/attendance/{id}', [EventController::class, 'markAttendance'])->name('events.attendance');
+});
+
+// HR Event Settings Routes
+Route::prefix('hr/events/settings')->name('events.settings.')->group(function () {
+    Route::get('/', [EventTypeController::class, 'index'])->name('index');
+    Route::post('/store', [EventTypeController::class, 'store'])->name('store');
+    Route::post('/update/{id}', [EventTypeController::class, 'update'])->name('update');
+    Route::post('/delete/{id}', [EventTypeController::class, 'destroy'])->name('destroy');
 });
 
 // HR Reports Route
@@ -141,6 +177,10 @@ Route::prefix('hr/job-postings')->group(function () {
     Route::post('/{id}/delete', [JobPostingController::class, 'destroy'])->name('hr.job_postings.destroy');
 });
 
+// Payroll Settings
+Route::get('/payroll/salary-settings', [SalaryGradeController::class, 'index'])->name('payroll.salary_settings');
+Route::post('/payroll/salary-settings/{id}/update', [SalaryGradeController::class, 'update'])->name('payroll.salary_settings.update');
+
 // Employee HR Helpdesk
 Route::get('/my-hr-chat', [HrMessageController::class, 'employeeChat'])->name('employee.chat');
 Route::post('/my-hr-chat/send', [HrMessageController::class, 'sendMessage'])->name('employee.chat.send');
@@ -176,6 +216,7 @@ Route::middleware(['teaching.only'])->group(function () {
 // User Profile Routes
 Route::get('/my-profile', [ProfileController::class, 'editProfile'])->name('profile.edit');
 Route::post('/my-profile', [ProfileController::class, 'updateProfile'])->name('profile.update');
+Route::put('/hr/profile/update', [ProfileController::class, 'update'])->name('hr.profile.update');
 
 // Leave Monitoring & Approvals (HR & Principal)
 Route::get('/manage-leaves', [LeaveController::class, 'monitorLeaves'])->name('leaves.monitor');
@@ -189,19 +230,17 @@ Route::post('/manage-leaves/{id}', [LeaveController::class, 'updateLeaveStatus']
 Route::get('/hr/leave-monitoring', [LeaveController::class, 'hrIndex'])->name('hr.leave.index');
 Route::post('/hr/leave/{id}/status', [LeaveController::class, 'hrUpdateStatus'])->name('hr.leave.update_status');
 Route::get('/hr/leave/{id}/print', [LeaveController::class, 'exportLeavePDF'])->name('hr.leave.print');
+Route::post('/hr/leave-monitoring/balances/update/{id}', [LeaveCreditController::class, 'updateBalances'])->name('hr.leaves.updateBalances');
 Route::post('/hr/credits/adjust/{user_id}', [LeaveCreditController::class, 'adjust'])->name('hr.credits.adjust');
 Route::put('/hr/credits/settings', [LeaveCreditController::class, 'updateSettings'])->name('hr.credits.settings.update');
 Route::post('/hr/seminars/{id}/approve', [SeminarController::class, 'approve'])->name('hr.seminars.approve');
 Route::post('/hr/seminars/{id}/reject', [SeminarController::class, 'reject'])->name('hr.seminars.reject');
 
 // HR Routes (Service Records)
-Route::get('/hr/service-record/{user_id}', [ServiceRecordController::class, 'hrIndex'])->name('hr.service_record.index');
+Route::get('/hr/service-record/{user_id}', [ServiceRecordController::class, 'hrIndex'])->name('hr.service_record.show');
 Route::post('/hr/service-record/store/{user_id}', [ServiceRecordController::class, 'hrStore'])->name('hr.service_record.store');
 Route::post('/hr/service-record/delete/{id}', [ServiceRecordController::class, 'hrDestroy'])->name('hr.service_record.destroy');
-// Route::get('/hr/employee/{id}/service-record', [App\Http\Controllers\HrController::class, 'viewServiceRecord'])->name('hr.view_service_record');
-// Route::post('/hr/service-record/store', [App\Http\Controllers\HrController::class, 'storeServiceRecord'])->name('hr.store_service_record');
-// HR Service Records Directory (Shows list of employees)
-Route::get('/hr/service-records-directory', [ServiceRecordController::class, 'hrDirectory'])->name('hr.service_record.directory');
+Route::redirect('/hr/service-records-directory', '/hr/staff-profiling');
 
 Route::get('/hr/service-records/{user_id}/print', [ServiceRecordController::class, 'printToExcel'])
     ->name('hr.service_records.print');
@@ -211,6 +250,7 @@ Route::post('/hr/employee/{id}/update-position', [HrController::class, 'updatePo
 Route::post('/hr/employee/{id}/update-name', [HrController::class, 'updateOfficialName'])->name('hr.update_official_name');
 // HR view employee profile route
 Route::get('/hr/employee/{id}/profile', [HrController::class, 'viewProfile'])->name('hr.view_profile');
+Route::post('/hr/employee/{id}/service-credits', [ServiceCreditController::class, 'store'])->name('hr.service_credits.store');
 Route::post('/hr/employee/{id}/learning-area', [HrController::class, 'updateLearningArea'])->name('hr.update_learning_area');
 Route::post('/hr/employees/promote', [HrController::class, 'promoteEmployee'])->name('hr.promote_employee');
 Route::post('/hr/employees/offboard', [HrController::class, 'offboardEmployee'])->name('hr.offboard_employee');
@@ -224,6 +264,32 @@ Route::get('/hr/settings/positions-areas', [HrSettingsController::class, 'positi
 Route::post('/hr/settings/learning-areas/store', [HrSettingsController::class, 'storeLearningArea'])->name('hr.learning_areas.store');
 Route::post('/hr/settings/learning-areas/update/{id}', [HrSettingsController::class, 'updateLearningArea'])->name('hr.learning_areas.update');
 Route::post('/hr/settings/learning-areas/delete/{id}', [HrSettingsController::class, 'destroyLearningArea'])->name('hr.learning_areas.destroy');
+
+// HR Settings: Deduction Categories & Types
+Route::prefix('hr/settings/deductions')->name('hr.settings.deductions.')->group(function () {
+    Route::get('/', [DeductionController::class, 'index'])->name('index');
+    Route::post('/category', [DeductionController::class, 'storeCategory'])->name('category.store');
+    Route::post('/category/{id}/update', [DeductionController::class, 'updateCategory'])->name('category.update');
+    Route::post('/category/{id}/delete', [DeductionController::class, 'destroyCategory'])->name('category.destroy');
+    Route::post('/category/{id}/toggle', [DeductionController::class, 'toggleCategory'])->name('category.toggle');
+    Route::post('/type', [DeductionController::class, 'storeType'])->name('type.store');
+    Route::post('/type/{id}/update', [DeductionController::class, 'updateType'])->name('type.update');
+    Route::post('/type/{id}/toggle', [DeductionController::class, 'toggleType'])->name('type.toggle');
+    Route::delete('/types/{id}', [DeductionController::class, 'destroyType'])->name('type.destroy');
+});
+
+// HR Settings: Income Types & Allowances
+Route::prefix('hr/settings/incomes')->name('hr.settings.incomes.')->group(function () {
+    Route::get('/', [IncomeTypeController::class, 'index'])->name('index');
+    Route::post('/', [IncomeTypeController::class, 'store'])->name('store');
+    Route::post('/{id}/update', [IncomeTypeController::class, 'update'])->name('update');
+    Route::post('/{id}/toggle', [IncomeTypeController::class, 'toggle'])->name('toggle');
+    Route::delete('/{id}', [IncomeTypeController::class, 'destroy'])->name('destroy');
+});
+
+// API: Income types for dynamic dropdown
+Route::get('/api/income-types', [IncomeTypeController::class, 'apiList'])->name('api.income_types');
+
 // Employee Routes (Service Record)
 Route::get('/my-service-record', [EmployeeController::class, 'myServiceRecord'])->name('employee.service_record');
 // Service Record Routes
@@ -239,7 +305,72 @@ Route::prefix('hr/payroll')->name('hr.payroll.')->group(function () {
     Route::get('/', [PayrollController::class, 'index'])->name('index');
     Route::post('/', [PayrollController::class, 'store'])->name('store'); // To generate a new period
     Route::put('/record/{id}', [PayrollController::class, 'updateRecord'])->name('update_record');
+    Route::post('/{id}/approve', [PayrollController::class, 'approve'])->name('approve');
+    Route::get('/{id}/export', [PayrollController::class, 'exportExcel'])->name('export');
+    Route::post('/step-increment/{user}', [StepIncrementController::class, 'processIncrement'])->name('step_increment.process');
+    Route::get('/employees', [PayrollController::class, 'employees'])->name('employees');
     Route::get('/{id}', [PayrollController::class, 'show'])->name('show');
+});
+
+// Loan Management & Amortization
+Route::prefix('payroll/loans')->name('payroll.loans.')->group(function () {
+    Route::get('/', [LoanController::class, 'index'])->name('index');
+    Route::post('/', [LoanController::class, 'store'])->name('store');
+    Route::put('/{loan}', [LoanController::class, 'update'])->name('update');
+    Route::delete('/{loan}', [LoanController::class, 'destroy'])->name('destroy');
+});
+
+// Statutory Remittance Reporting (GSIS, PhilHealth, Pag-IBIG, BIR)
+Route::prefix('payroll/remittances')->name('payroll.remittances.')->group(function () {
+    Route::get('/', [RemittanceController::class, 'index'])->name('index');
+    Route::get('/report', [RemittanceController::class, 'generateReport'])->name('report');
+    Route::get('/export', [RemittanceController::class, 'exportCsv'])->name('export');
+});
+
+// Allowances & Other Incomes Management
+Route::prefix('payroll/allowances')->name('payroll.allowances.')->group(function () {
+    Route::get('/', [AllowanceController::class, 'index'])->name('index');
+    Route::post('/{user}/update', [AllowanceController::class, 'update'])->name('update');
+});
+
+// Attendance & Lates Management
+Route::prefix('payroll/attendance')->name('payroll.attendance.')->group(function () {
+    Route::get('/', [AttendanceController::class, 'index'])->name('index');
+    Route::post('/save', [AttendanceController::class, 'saveLates'])->name('save');
+});
+
+// Holiday & School Calendar
+Route::prefix('payroll/holidays')->name('payroll.holidays.')->group(function () {
+    Route::get('/', [HolidayController::class, 'index'])->name('index');
+    Route::get('/api', [HolidayController::class, 'getCalendarEvents'])->name('events');
+    Route::post('/', [HolidayController::class, 'store'])->name('store');
+    Route::put('/{holiday}', [HolidayController::class, 'update'])->name('update');
+    Route::delete('/{holiday}', [HolidayController::class, 'destroy'])->name('destroy');
+});
+
+// BIR 2316 Year-End Certificate
+Route::prefix('hr/bir-2316')->name('hr.bir2316.')->group(function () {
+    Route::get('/', [Bir2316Controller::class, 'index'])->name('index');
+    Route::get('/generate/{user_id}/{year}', [Bir2316Controller::class, 'generatePdf'])->name('generate');
+});
+
+// Employee Payroll (My Payslips)
+Route::prefix('employee/payroll')->name('employee.payroll.')->group(function () {
+    Route::get('/', [EmployeePayrollController::class, 'index'])->name('index');
+    Route::get('/{id}', [EmployeePayrollController::class, 'show'])->name('show');
+});
+
+// Employee self-service: loans, attendance, tax documents
+Route::prefix('employee/loans')->name('employee.loans.')->group(function () {
+    Route::get('/', [EmployeeLoanController::class, 'index'])->name('index');
+});
+
+Route::prefix('employee/attendance')->name('employee.attendance.')->group(function () {
+    Route::get('/', [EmployeeAttendanceController::class, 'index'])->name('index');
+});
+
+Route::prefix('employee/tax')->name('employee.tax.')->group(function () {
+    Route::get('/', [EmployeeTaxController::class, 'index'])->name('index');
 });
 
 Route::get('/dev/cleanup-family-data', function () {
@@ -268,3 +399,4 @@ Route::get('/dev/cleanup-family-data', function () {
 Route::get('/api/locations/provinces/{region_code}', [PdsController::class, 'getProvinces'])->name('api.locations.provinces');
 Route::get('/api/locations/cities/{province_code}', [PdsController::class, 'getCities'])->name('api.locations.cities');
 Route::get('/api/locations/barangays/{city_code}', [PdsController::class, 'getBarangays'])->name('api.locations.barangays');
+Route::get('/api/schools/search', [PdsController::class, 'searchSchools'])->name('api.schools.search');

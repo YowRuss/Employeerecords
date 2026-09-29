@@ -18,10 +18,19 @@ class HrSettingsController extends Controller
         }
 
         $positions = Position::orderBy('position_name', 'asc')->get();
-        $teachingPositions = Position::where('category', PositionCategory::Teaching->value)->orderBy('position_name', 'asc')->paginate(10, ['*'], 'teaching_page')->withQueryString();
-        $nonTeachingPositions = Position::where('category', PositionCategory::NonTeaching->value)->orderBy('position_name', 'asc')->paginate(10, ['*'], 'non_teaching_page')->withQueryString();
+        $teachingPositions = Position::where('category', PositionCategory::Teaching->value)
+            ->orderBy('position_name', 'asc')
+            ->paginate(10, ['*'], 'teaching_page')
+            ->fragment('pane-teaching');
+        $nonTeachingPositions = Position::where('category', PositionCategory::NonTeaching->value)
+            ->orderBy('position_name', 'asc')
+            ->paginate(10, ['*'], 'non_teaching_page')
+            ->fragment('pane-non-teaching');
 
-        $learningAreas = DB::table('learning_areas')->orderBy('name', 'asc')->paginate(10, ['*'], 'learning_areas_page')->withQueryString();
+        $learningAreas = DB::table('learning_areas')
+            ->orderBy('name', 'asc')
+            ->paginate(10, ['*'], 'learning_areas_page')
+            ->fragment('pane-learning-areas');
 
         return view('hr.settings.positions_areas', compact('positions', 'teachingPositions', 'nonTeachingPositions', 'learningAreas'));
     }
@@ -42,7 +51,7 @@ class HrSettingsController extends Controller
             'updated_at' => now(),
         ]);
 
-        return redirect()->route('hr.settings.positions_areas')->with('success', 'Learning Area added successfully.');
+        return redirect()->route('hr.settings.positions_areas')->with('success', 'Learning Area added successfully.')->with('active_tab', 'learning-areas');
     }
 
     public function destroyLearningArea($id)
@@ -53,7 +62,7 @@ class HrSettingsController extends Controller
 
         DB::table('learning_areas')->where('id', $id)->delete();
 
-        return redirect()->route('hr.settings.positions_areas')->with('success', 'Learning Area deleted successfully.');
+        return redirect()->route('hr.settings.positions_areas')->with('success', 'Learning Area deleted successfully.')->with('active_tab', 'learning-areas');
     }
 
     public function updateLearningArea(Request $request, $id)
@@ -71,6 +80,6 @@ class HrSettingsController extends Controller
             'updated_at' => now(),
         ]);
 
-        return redirect()->route('hr.settings.positions_areas')->with('success', 'Learning Area updated successfully.');
+        return redirect()->route('hr.settings.positions_areas')->with('success', 'Learning Area updated successfully.')->with('active_tab', 'learning-areas');
     }
 }

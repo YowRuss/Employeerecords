@@ -6,7 +6,7 @@
 
 <div class="container-fluid">
     <div class="d-flex flex-column flex-sm-row justify-content-between align-items-sm-center mb-4 gap-2">
-        <h4 class="text-accent fw-bold m-0"><i class="bi bi-megaphone-fill me-2"></i> My Announcements</h4>
+        <h4 class="text-header-blue fw-bold m-0"><i class="bi bi-megaphone-fill me-2 text-header-blue"></i> My Announcements</h4>
     </div>
 
     @if(session('success'))

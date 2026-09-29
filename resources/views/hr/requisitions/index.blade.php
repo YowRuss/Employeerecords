@@ -121,7 +121,7 @@
     {{-- Page Header --}}
     <div class="d-flex flex-column flex-sm-row justify-content-between align-items-sm-center mb-4 gap-3">
         <div>
-            <h4 class="fw-bold m-0" style="color: #1A3E6F;"><i class="bi bi-clipboard-data me-2"></i> Personnel Requisitions</h4>
+            <h4 class="text-header-blue fw-bold m-0"><i class="bi bi-clipboard-data me-2 text-header-blue"></i> Personnel Requisitions</h4>
             <p class="text-muted small mt-1 mb-0">Manage employee lifecycle — hiring, promotions, transfers, and separations.</p>
         </div>
     </div>

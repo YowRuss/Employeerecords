@@ -3,6 +3,8 @@
 namespace App\Http\Controllers;
 
 use App\Enums\PositionCategory;
+use App\Models\Announcement;
+use App\Models\Event;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -23,6 +25,12 @@ class EmployeeController extends Controller
 
         $userId = Session::get('user_id');
 
+        $announcements = Announcement::latest()->take(3)->get();
+        $events = Event::where('event_date', '>=', now()->toDateString())
+            ->orderBy('event_date', 'asc')
+            ->take(3)
+            ->get();
+
         // You can fetch recent leaves or notifications here to display on their dashboard
         $recentLeaves = DB::table('leaves')
             ->where('user_id', $userId)
@@ -30,7 +38,7 @@ class EmployeeController extends Controller
             ->limit(5)
             ->get();
 
-        return view('employee.dashboard', compact('recentLeaves'));
+        return view('dashboard', compact('announcements', 'events', 'recentLeaves'));
     }
 
     /**
@@ -47,16 +55,19 @@ class EmployeeController extends Controller
 
         // Fetch user details and PDS (for the birth date/place in the header)
         $employee = DB::table('users')->where('id', $userId)->first();
-        $pds = DB::table('pds')->where('user_id', $userId)->first();
+        $user = $employee;
+        $personal_info = DB::table('pds_personal_info')->where('user_id', $userId)->first();
+        $pds = $personal_info;
 
         // Fetch only THEIR service records, sorted chronologically by start date
         $records = DB::table('service_records')
             ->where('user_id', $userId)
-            ->orderBy('start_date', 'asc')
+            ->orderBy('date_from', 'asc')
             ->get();
+        $serviceRecords = $records;
 
-        // Send all this data to the Blade view we created earlier
-        return view('employee.service_record', compact('employee', 'pds', 'records'));
+        // Send all this data to the Blade view
+        return view('employee.service_record', compact('employee', 'user', 'pds', 'personal_info', 'records', 'serviceRecords'));
     }
 
     /**

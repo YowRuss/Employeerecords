@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Forgot Password - CNHS-JHS HR System</title>
+    <title>Forgot Password - CNHS-JHS Employee Records System</title>
     
     <!-- Google Fonts: Plus Jakarta Sans -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -38,7 +38,7 @@
                     </div>
 
                     <h4 class="fw-bold mb-2 text-dark">Employee Records System</h4>
-                    <p class="text-secondary small mb-4">Cavite National High School - Junior High School Human Resources Management Portal</p>
+                    <p class="text-secondary small mb-4">Cagayan National High School - Junior High School Employee Records Management System</p>
                 </div>
 
                 <div class="feature-list mt-3">

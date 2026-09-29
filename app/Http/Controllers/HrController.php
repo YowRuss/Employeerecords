@@ -70,6 +70,15 @@ class HrController extends Controller
         $search = trim($request->query('search', ''));
         $category = $request->query('category', '');
 
+        // Self-heal: ensure active employees' employee_type matches their position category
+        User::whereNotNull('position_id')
+            ->where(function ($q) {
+                $q->whereNull('users.status')->orWhere('users.status', '!=', 'Inactive');
+            })
+            ->each(function (User $user) {
+                $user->syncEmployeeType();
+            });
+
         // 1. Independent Statistics (Standalone queries for absolute tab counts)
         $baseCountQuery = User::where('role_id', 1);
 
@@ -81,14 +90,18 @@ class HrController extends Controller
 
         $teachingCount = (clone $baseCountQuery)->where(function ($q) {
             $q->whereNull('users.status')->orWhere('users.status', '!=', 'Inactive');
-        })->whereHas('position', function ($q) {
-            $q->where('category', PositionCategory::Teaching->value);
+        })->where(function ($q) {
+            $q->where('users.employee_type', 1)
+                ->orWhereHas('position', fn ($pos) => $pos->where('category', PositionCategory::Teaching->value));
         })->count();
 
         $nonTeachingCount = (clone $baseCountQuery)->where(function ($q) {
             $q->whereNull('users.status')->orWhere('users.status', '!=', 'Inactive');
-        })->whereHas('position', function ($q) {
-            $q->where('category', PositionCategory::NonTeaching->value);
+        })->where(function ($q) {
+            $q->where(function ($sub) {
+                $sub->where('users.employee_type', 0)
+                    ->whereDoesntHave('position', fn ($pos) => $pos->where('category', PositionCategory::Teaching->value));
+            })->orWhereHas('position', fn ($pos) => $pos->where('category', PositionCategory::NonTeaching->value));
         })->count();
 
         $incompleteCount = (clone $baseCountQuery)->where(function ($q) {
@@ -96,6 +109,10 @@ class HrController extends Controller
         })->leftJoin('pds_personal_info', 'users.id', '=', 'pds_personal_info.user_id')
             ->whereNull('pds_personal_info.id')
             ->count('users.id');
+
+        $unassignedCount = (clone $baseCountQuery)->where(function ($q) {
+            $q->whereNull('users.status')->orWhere('users.status', '!=', 'Inactive');
+        })->whereNull('position_id')->count();
 
         // Gender stats for dashboard widget
         $genderStats = DB::table('users')
@@ -135,6 +152,11 @@ class HrController extends Controller
                 ->where(function ($q) {
                     $q->whereNull('users.status')->orWhere('users.status', '!=', 'Inactive');
                 });
+        } elseif ($category === 'unassigned') {
+            $query->whereNull('position_id')
+                ->where(function ($q) {
+                    $q->whereNull('users.status')->orWhere('users.status', '!=', 'Inactive');
+                });
         } else {
             $query->where(function ($q) {
                 $q->whereNull('users.status')->orWhere('users.status', '!=', 'Inactive');
@@ -171,12 +193,19 @@ class HrController extends Controller
 
         // Apply Tab Category Position Filter
         $query->when($request->filled('category') && in_array($category, ['teaching', 'non-teaching']), function ($q) use ($category) {
-            $categoryValue = $category === 'teaching'
-                ? PositionCategory::Teaching->value
-                : PositionCategory::NonTeaching->value;
-            $q->whereHas('position', function ($posQ) use ($categoryValue) {
-                $posQ->where('category', $categoryValue);
-            });
+            if ($category === 'teaching') {
+                $q->where(function ($sub) {
+                    $sub->where('users.employee_type', 1)
+                        ->orWhereHas('position', fn ($pos) => $pos->where('category', PositionCategory::Teaching->value));
+                });
+            } else {
+                $q->where(function ($sub) {
+                    $sub->where(function ($inner) {
+                        $inner->where('users.employee_type', 0)
+                            ->whereDoesntHave('position', fn ($pos) => $pos->where('category', PositionCategory::Teaching->value));
+                    })->orWhereHas('position', fn ($pos) => $pos->where('category', PositionCategory::NonTeaching->value));
+                });
+            }
         });
 
         $employees = $query->orderBy('users.last_name', 'asc')->paginate(10)->withQueryString();
@@ -191,6 +220,7 @@ class HrController extends Controller
             'inactiveCount',
             'teachingCount',
             'nonTeachingCount',
+            'unassignedCount',
             'incompleteCount',
             'search',
             'genderStats',
@@ -207,7 +237,11 @@ class HrController extends Controller
             return $redirect;
         }
 
-        $employee = User::with(['position', 'learningArea'])->where('id', $id)->first();
+        $employee = User::with([
+            'position',
+            'learningArea',
+            'serviceCredits' => fn ($query) => $query->orderByDesc('transaction_date')->orderByDesc('id'),
+        ])->where('id', $id)->first();
 
         if (! $employee) {
             return redirect()->route('hr.staff_profiling')->with('error', 'Employee not found.');
@@ -327,6 +361,8 @@ class HrController extends Controller
 
         $request->validate([
             'position_id' => 'required|exists:positions,id',
+            'step_increment' => 'nullable|integer|min:1|max:8',
+            'learning_area_id' => 'nullable|exists:learning_areas,id',
         ]);
 
         $employee = User::find($id);
@@ -335,7 +371,14 @@ class HrController extends Controller
         }
 
         $employee->position_id = $request->position_id;
+        if ($request->filled('step_increment')) {
+            $employee->step_increment = (int) $request->step_increment;
+        }
+        if ($request->has('learning_area_id')) {
+            $employee->learning_area_id = $request->learning_area_id ?: null;
+        }
         $employee->save();
+        $employee->syncEmployeeType();
 
         return redirect()->back()->with('success', 'Official position updated successfully.');
     }
@@ -367,6 +410,7 @@ class HrController extends Controller
                 if ($position) {
                     $user->position_id = $position->id;
                     $user->save();
+                    $user->syncEmployeeType();
                 }
 
                 $effectiveDate = Carbon::parse($request->date_from);
@@ -495,6 +539,7 @@ class HrController extends Controller
                     $user->learning_area_id = $learningArea->id;
                 }
                 $user->save();
+                $user->syncEmployeeType();
 
                 $effectiveDate = Carbon::parse($request->date_from);
                 $endDate = $effectiveDate->copy()->subDay()->toDateString();

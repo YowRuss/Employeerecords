@@ -4,7 +4,7 @@
 <div class="container-fluid py-4">
     <div class="d-flex justify-content-between align-items-center mb-4">
         <div>
-            <h4 class="text-brand fw-bold m-0"><i class="bi bi-people-fill me-2"></i> Event Attendance</h4>
+            <h4 class="text-header-blue fw-bold m-0"><i class="bi bi-people-fill me-2 text-header-blue"></i> Event Attendance</h4>
             <p class="text-muted small m-0">Manage registrations and mark attendance for this event.</p>
         </div>
         <a href="{{ route('events.index') }}" class="btn btn-light border shadow-sm btn-sm fw-bold text-muted px-3">
@@ -21,7 +21,7 @@
     <div class="row g-4">
         <!-- Event Details -->
         <div class="col-lg-4">
-            <div class="card shadow-sm border-0 border-top border-4 border-success h-100">
+            <div class="card shadow-sm h-100">
                 <div class="card-body">
                     <span class="badge bg-success bg-opacity-10 text-success border mb-2">{{ $event->type }}</span>
                     <h5 class="fw-bold text-dark">{{ $event->title }}</h5>
@@ -61,7 +61,7 @@
 
         <!-- Attendee List -->
         <div class="col-lg-8">
-            <div class="card shadow-sm border-0 h-100">
+            <div class="card shadow-sm h-100">
                 <div class="card-header bg-white border-bottom py-3">
                     <h6 class="fw-bold text-dark m-0">Guest List</h6>
                 </div>
@@ -100,7 +100,7 @@
                                                     Undo
                                                 </button>
                                             @else
-                                                <button type="submit" class="btn btn-sm btn-success fw-bold shadow-sm">
+                                                <button type="submit" class="btn btn-sm btn-accent fw-bold shadow-sm">
                                                     Mark Attended
                                                 </button>
                                             @endif

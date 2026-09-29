@@ -2,6 +2,9 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\LeaveCreditBalance;
+use App\Models\LeaveCreditLog;
+use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Session;
@@ -95,6 +98,63 @@ class LeaveCreditController extends Controller
         });
 
         return back()->with('success', 'Leave credits adjusted successfully.');
+    }
+
+    public function updateBalances(Request $request, $id)
+    {
+        if ($redirect = $this->requireAuth()) {
+            return $redirect;
+        }
+        if (! $this->isManagement()) {
+            return back()->with('error', 'Unauthorized action.');
+        }
+
+        $validated = $request->validate([
+            'vl_balance' => ['required', 'numeric', 'min:0', 'max:9999.99'],
+            'sl_balance' => ['required', 'numeric', 'min:0', 'max:9999.99'],
+        ]);
+
+        $user = User::query()->where('role_id', 1)->findOrFail($id);
+        $newVl = round((float) $validated['vl_balance'], 2);
+        $newSl = round((float) $validated['sl_balance'], 2);
+
+        DB::transaction(function () use ($user, $newVl, $newSl) {
+            $balance = LeaveCreditBalance::firstOrCreate(
+                ['user_id' => $user->id],
+                ['vl_balance' => 0, 'sl_balance' => 0, 'service_credits' => 0, 'seminar_credits' => 0]
+            );
+
+            $oldVl = round((float) $balance->vl_balance, 2);
+            $oldSl = round((float) $balance->sl_balance, 2);
+
+            $balance->vl_balance = $newVl;
+            $balance->sl_balance = $newSl;
+            $balance->last_updated_at = now();
+            $balance->save();
+
+            $this->logBalanceSet($user->id, 'VL', $oldVl, $newVl);
+            $this->logBalanceSet($user->id, 'SL', $oldSl, $newSl);
+        });
+
+        $name = trim($user->first_name.' '.$user->last_name);
+
+        return redirect()->back()->with('success', 'Leave balances updated successfully for '.$name)->with('active_tab', 'balances');
+    }
+
+    private function logBalanceSet(int $userId, string $bucket, float $oldBalance, float $newBalance): void
+    {
+        if ($oldBalance === $newBalance) {
+            return;
+        }
+
+        LeaveCreditLog::create([
+            'user_id' => $userId,
+            'source' => 'manual_adjustment',
+            'leave_bucket' => $bucket,
+            'amount' => round($newBalance - $oldBalance, 2),
+            'balance_after' => $newBalance,
+            'remarks' => 'Manual balance set from Employee Balances.',
+        ]);
     }
 
     public function updateSettings(Request $request)

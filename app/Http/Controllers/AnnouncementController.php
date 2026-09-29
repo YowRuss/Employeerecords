@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Announcement;
 use App\Models\AnnouncementAcknowledgment;
+use App\Models\AnnouncementType;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -22,11 +23,13 @@ class AnnouncementController extends Controller
             return redirect()->route('dashboard')->with('error', 'Unauthorized access.');
         }
 
-        $announcements = Announcement::orderBy('is_pinned', 'desc')
+        $announcements = Announcement::with('announcementType')->orderBy('is_pinned', 'desc')
             ->orderBy('created_at', 'desc')
             ->get();
 
-        return view('hr.announcements.index', compact('announcements'));
+        $announcementTypes = AnnouncementType::all();
+
+        return view('hr.announcements.index', compact('announcements', 'announcementTypes'));
     }
 
     public function store(Request $request)
@@ -34,15 +37,18 @@ class AnnouncementController extends Controller
         $request->validate([
             'title' => 'required|string|max:255',
             'content' => 'required|string',
-            'type' => 'required|string',
-            'scheduled_at' => 'nullable|date',
-            'expires_at' => 'nullable|date|after_or_equal:scheduled_at',
+            'announcement_type_id' => 'required|exists:announcement_types,id',
+            'scheduled_at' => 'nullable|date|after_or_equal:now',
+            'expires_at' => 'nullable|date|after:scheduled_at',
+        ], [
+            'scheduled_at.after_or_equal' => 'The scheduled time cannot be in the past.',
+            'expires_at.after' => 'The expiration time must be after the scheduled time.',
         ]);
 
         Announcement::create([
             'title' => $request->title,
             'content' => $request->content,
-            'type' => $request->type,
+            'announcement_type_id' => $request->announcement_type_id,
             'is_pinned' => $request->has('is_pinned'),
             'scheduled_at' => $request->scheduled_at,
             'expires_at' => $request->expires_at,

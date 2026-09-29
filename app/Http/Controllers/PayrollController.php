@@ -2,14 +2,28 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\PayrollType;
+use App\Enums\PositionCategory;
+use App\Models\DeductionCategory;
+use App\Models\DeductionType;
+use App\Models\IncomeType;
+use App\Models\LateDeduction;
+use App\Models\LearningArea;
+use App\Models\Loan;
+use App\Models\PayrollIncome;
 use App\Models\PayrollPeriod;
 use App\Models\PayrollRecord;
+use App\Models\SalaryGrade;
 use App\Models\User;
 use App\Services\PayrollCalculationService;
 use Illuminate\Http\Request;
+use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
+use Illuminate\Validation\Rule;
+use PhpOffice\PhpSpreadsheet\Cell\DataType;
 use PhpOffice\PhpSpreadsheet\IOFactory;
 
 class PayrollController extends Controller
@@ -37,6 +51,135 @@ class PayrollController extends Controller
     }
 
     /**
+     * Display a listing of employee payroll profiles with NOSI step tracking.
+     */
+    public function employees(Request $request)
+    {
+        $search = trim((string) $request->input('search', ''));
+        $category = strtolower((string) $request->input('category', 'all'));
+        $eligibility = strtolower((string) $request->input('eligibility', 'all'));
+        $sex = in_array((string) $request->input('sex'), ['0', '1'], true) ? (string) $request->input('sex') : '';
+        $learningAreaId = $category === 'teaching' ? (int) $request->input('learning_area_id') : 0;
+
+        // Load all salary grades matrix keyed by grade_step
+        $salaryMatrix = SalaryGrade::all()->keyBy(fn ($sg) => $sg->grade.'_'.$sg->step);
+
+        // Roster-wide counts stay on this lighter query. Step logs load only for the current page.
+        $allEmployees = User::where('role_id', 1)
+            ->where(function ($q) {
+                $q->whereNull('status')->orWhere('status', '!=', 'Inactive');
+            })
+            ->with([
+                'position',
+                'learningArea',
+                'pdsPersonalInfo',
+            ])
+            ->orderBy('last_name')
+            ->orderBy('first_name')
+            ->get();
+
+        // Calculate counts across the full active employee roster
+        $totalCount = $allEmployees->count();
+        $teachingCount = $allEmployees->filter(fn ($u) => $u->isTeaching())->count();
+        $nonTeachingCount = $allEmployees->filter(fn ($u) => ! $u->isTeaching())->count();
+        $eligibleCount = $allEmployees->filter(function ($u) {
+            $eligibilityDate = $u->next_eligibility_date;
+            $step = $u->step_increment ?: 1;
+            $grade = $u->position?->salary_grade;
+
+            return $grade && $step < 8 && $eligibilityDate && Carbon::parse($eligibilityDate)->lte(Carbon::today());
+        })->count();
+
+        // Apply filters
+        $filtered = $allEmployees;
+
+        if ($search !== '') {
+            $term = strtolower($search);
+            $filtered = $filtered->filter(function ($u) use ($term) {
+                $fullName = strtolower(($u->first_name ?? '').' '.($u->middle_name ?? '').' '.($u->last_name ?? ''));
+                $employeeNo = strtolower($u->pdsPersonalInfo?->employee_no ?? '');
+                $position = strtolower($u->position?->position_name ?? '');
+                $email = strtolower($u->email ?? '');
+
+                return str_contains($fullName, $term)
+                    || str_contains($employeeNo, $term)
+                    || str_contains($position, $term)
+                    || str_contains($email, $term);
+            });
+        }
+
+        if ($category === 'teaching') {
+            $filtered = $filtered->filter(fn ($u) => $u->isTeaching());
+        } elseif ($category === 'non-teaching') {
+            $filtered = $filtered->filter(fn ($u) => ! $u->isTeaching());
+        }
+
+        if ($eligibility === 'eligible') {
+            $filtered = $filtered->filter(function ($u) {
+                $eligibilityDate = $u->next_eligibility_date;
+                $step = $u->step_increment ?: 1;
+                $grade = $u->position?->salary_grade;
+
+                return $grade && $step < 8 && $eligibilityDate && Carbon::parse($eligibilityDate)->lte(Carbon::today());
+            });
+        }
+
+        if ($sex !== '') {
+            $wantedSex = $sex === '1' ? 'Male' : 'Female';
+            $filtered = $filtered->filter(fn ($u) => $u->applicantSex() === $wantedSex);
+        }
+
+        if ($learningAreaId > 0) {
+            $filtered = $filtered->filter(fn ($u) => (int) $u->learning_area_id === $learningAreaId);
+        }
+
+        $employees = $this->paginateEmployees($filtered->values());
+
+        return view('hr.payroll.employees', [
+            'employees' => $employees,
+            'salaryMatrix' => $salaryMatrix,
+            'learningAreas' => LearningArea::orderBy('name')->get(),
+            'counts' => [
+                'total' => $totalCount,
+                'teaching' => $teachingCount,
+                'non_teaching' => $nonTeachingCount,
+                'eligible' => $eligibleCount,
+            ],
+            'currentSearch' => $search,
+            'currentCategory' => $category,
+            'currentEligibility' => $eligibility,
+            'currentSex' => $sex,
+            'currentLearningAreaId' => $learningAreaId,
+        ]);
+    }
+
+    /**
+     * Page the already-filtered roster and load NOSI history only for that page.
+     */
+    private function paginateEmployees($employees): LengthAwarePaginator
+    {
+        $perPage = 5;
+        $page = LengthAwarePaginator::resolveCurrentPage();
+        $pageModels = new \Illuminate\Database\Eloquent\Collection(
+            $employees->forPage($page, $perPage)->values()->all()
+        );
+
+        if ($pageModels->isNotEmpty()) {
+            $pageModels->load([
+                'stepIncrementLogs' => fn ($query) => $query->with('approver')->orderByDesc('effective_date'),
+            ]);
+        }
+
+        return (new LengthAwarePaginator(
+            $pageModels,
+            $employees->count(),
+            $perPage,
+            $page,
+            ['path' => LengthAwarePaginator::resolveCurrentPath()]
+        ))->withQueryString();
+    }
+
+    /**
      * Show the form for creating a new payroll period.
      */
     public function create()
@@ -51,20 +194,22 @@ class PayrollController extends Controller
     {
         $validated = $request->validate([
             'fund_cluster' => 'required|string|max:255',
+            'payroll_type' => ['required', Rule::enum(PayrollType::class)],
             'period_month' => 'required|integer|between:1,12',
             'period_year' => 'required|integer|min:2000|max:2100',
             'description' => 'nullable|string|max:255',
         ]);
 
         $validated['status'] = 'DRAFT';
+        $payrollType = PayrollType::from($validated['payroll_type']);
 
         try {
-            $payrollPeriod = DB::transaction(function () use ($validated) {
+            $payrollPeriod = DB::transaction(function () use ($validated, $payrollType) {
                 // 1. Create the payroll period
                 $period = PayrollPeriod::create($validated);
 
                 // 2. Fetch all active standard employees (role_id = 1)
-                $employees = User::where('role_id', 1)
+                $employees = User::with(['position', 'allowances', 'loans'])->where('role_id', 1)
                     ->where('status', 'active')
                     ->get();
 
@@ -75,24 +220,84 @@ class PayrollController extends Controller
                 $records = [];
 
                 foreach ($employees as $employee) {
-                    // --- Basic Rate: from latest service record with a valid salary ---
-                    $basicRate = $this->resolveBasicRate($employee->id);
+                    // --- Basic Rate: from base_salary accessor ---
+                    $basicRate = $employee->base_salary;
 
-                    // --- PERA (standard government allowance) ---
-                    $peraAmount = self::DEFAULT_PERA;
+                    // Bonus runs skip the entire monthly deduction pipeline.
+                    if ($payrollType->isBonus()) {
+                        $bonusData = $this->buildBonusRecord($period, $employee, $payrollType, $basicRate);
+                        $bonusData['other_deductions'] = [];
+                        unset($bonusData['created_at'], $bonusData['updated_at']);
+                        PayrollRecord::create($bonusData);
+
+                        continue;
+                    }
+
+                    // --- PERA (conditionally assigned per employee) ---
+                    $peraAmount = $employee->active_pera;
+                    
+                    // --- Additional Allowances ---
+                    $otherAllowances = $employee->allowances()
+                        ->where('is_active', true)
+                        ->where('allowance_name', '!=', 'PERA')
+                        ->get();
+                    $otherAllowancesSum = $otherAllowances->sum('amount');
 
                     // --- Earned for Period (basic + PERA before absence deductions) ---
                     $earnedForPeriod = $basicRate;
 
-                    // --- Gross Earned (basic + PERA) ---
-                    $grossEarned = $basicRate + $peraAmount;
+                    // --- Gross Earned (basic + PERA + other allowances) ---
+                    $grossEarned = $basicRate + $peraAmount + $otherAllowancesSum;
 
-                    // --- LWOP / Absence deduction ---
+                    // --- LWOP / Absence deduction (from approved leave applications) ---
                     $daysWithoutPay = $this->resolveLwopDays($employee->id, $periodMonth, $periodYear);
                     $dailyRate = self::WORKING_DAYS_PER_MONTH > 0
                         ? $basicRate / self::WORKING_DAYS_PER_MONTH
                         : 0;
-                    $absencesAmount = round($dailyRate * $daysWithoutPay, 2);
+                    $formalLwopDeduction = round($dailyRate * $daysWithoutPay, 2);
+
+                    // --- Unexcused absences (from Attendance & Lates tracker) ---
+                    $currentPeriodString = sprintf('%04d-%02d', $periodYear, $periodMonth);
+                    $attendanceRecord = LateDeduction::where('user_id', $employee->id)
+                        ->where('payroll_period', $currentPeriodString)
+                        ->first();
+
+                    $unexcusedAbsentDays = $attendanceRecord ? (float) $attendanceRecord->unexcused_absences : 0;
+                    $unexcusedAbsenceDeduction = $attendanceRecord ? (float) $attendanceRecord->absence_deduction_amount : 0;
+
+                    // --- Combined absences (formal LWOP + unexcused AWOL) ---
+                    $totalAbsentDays = $daysWithoutPay + $unexcusedAbsentDays;
+                    $absencesAmount = round($formalLwopDeduction + $unexcusedAbsenceDeduction, 2);
+
+                    // --- Late / Tardiness deduction (pre-computed in Attendance module) ---
+                    $lateDeduction = $attendanceRecord ? (float) $attendanceRecord->computed_amount : 0.00;
+
+                    // ========================================================
+                    // FULL MONTH LWOP INTERCEPTOR
+                    // ========================================================
+                    if ($totalAbsentDays >= self::WORKING_DAYS_PER_MONTH || $absencesAmount >= $basicRate) {
+                        PayrollRecord::create([
+                            'payroll_period_id' => $period->id,
+                            'user_id' => $employee->id,
+                            'basic_rate' => $basicRate,
+                            'earned_for_period' => 0,
+                            'pera_amount' => 0,
+                            'gross_earned' => 0,
+                            'absences_amount' => 0,
+                            'late_deduction' => 0,
+                            'tax_withheld' => 0,
+                            'gsis_premium' => 0,
+                            'philhealth_premium' => 0,
+                            'pagibig_premium' => 0,
+                            'loan_amortization' => 0,
+                            'other_deductions' => [],
+                            'total_deductions' => 0,
+                            'net_amount' => 0,
+                            'is_full_lwop' => true,
+                        ]);
+
+                        continue;
+                    }
 
                     // --- Statutory deductions (via PayrollCalculationService) ---
                     $deductions = $this->calculationService->calculateMandatoryDeductions($basicRate);
@@ -102,13 +307,16 @@ class PayrollController extends Controller
                     $pagibigPremium = $deductions['pagibig_premium'];
                     $otherDeductions = [];
 
+                    // --- Loan amortization (sum of all outstanding active loans) ---
+                    $loanDeduction = $employee->active_loan_deductions;
+
                     // --- Totals ---
-                    $totalDeductions = $absencesAmount + $taxWithheld + $gsisPremium
-                        + $philhealthPremium + $pagibigPremium;
+                    $totalDeductions = $absencesAmount + $lateDeduction + $taxWithheld + $gsisPremium
+                        + $philhealthPremium + $pagibigPremium + $loanDeduction;
 
                     $netAmount = $grossEarned - $totalDeductions;
 
-                    $records[] = [
+                    $record = PayrollRecord::create([
                         'payroll_period_id' => $period->id,
                         'user_id' => $employee->id,
                         'basic_rate' => $basicRate,
@@ -116,21 +324,33 @@ class PayrollController extends Controller
                         'pera_amount' => $peraAmount,
                         'gross_earned' => $grossEarned,
                         'absences_amount' => $absencesAmount,
+                        'late_deduction' => $lateDeduction,
                         'tax_withheld' => $taxWithheld,
                         'gsis_premium' => $gsisPremium,
                         'philhealth_premium' => $philhealthPremium,
                         'pagibig_premium' => $pagibigPremium,
-                        'other_deductions' => json_encode($otherDeductions),
+                        'loan_amortization' => $loanDeduction,
+                        'other_deductions' => $otherDeductions,
                         'total_deductions' => $totalDeductions,
                         'net_amount' => $netAmount,
-                        'created_at' => now(),
-                        'updated_at' => now(),
-                    ];
-                }
+                        'is_full_lwop' => false,
+                    ]);
 
-                // 4. Bulk insert all records
-                if (! empty($records)) {
-                    PayrollRecord::insert($records);
+                    // Insert attached allowances as payroll incomes
+                    if ($otherAllowances->isNotEmpty()) {
+                        $incomeData = $otherAllowances->map(function ($allowance) use ($record, $employee) {
+                            return [
+                                'payroll_record_id' => $record->id,
+                                'user_id' => $employee->id,
+                                'income_type_id' => $allowance->income_type_id,
+                                'amount' => $allowance->amount,
+                                'created_at' => now(),
+                                'updated_at' => now(),
+                            ];
+                        })->toArray();
+
+                        PayrollIncome::insert($incomeData);
+                    }
                 }
 
                 return $period;
@@ -144,20 +364,204 @@ class PayrollController extends Controller
         }
 
         return redirect()->route('hr.payroll.show', $payrollPeriod->id)
-            ->with('success', 'Payroll period generated successfully!');
+            ->with('success', $payrollType->value.' payroll generated successfully!');
+    }
+
+    /**
+     * Build a payroll record for a Mid-Year or Year-End Bonus run.
+     *
+     * A bonus pays one month of basic salary — Year-End adds the statutory
+     * ₱5,000 cash gift. No PERA, statutory premiums, absences, lates, or loan
+     * amortization are applied; the only withholding is tax on the portion
+     * above the TRAIN Law exemption ceiling.
+     *
+     * @return array<string, mixed>
+     */
+    private function buildBonusRecord(PayrollPeriod $period, User $employee, PayrollType $payrollType, float $basicRate): array
+    {
+        $grossEarned = round($basicRate + $payrollType->cashGift(), 2);
+        $taxWithheld = $this->calculationService->calculateBonusTax($grossEarned);
+
+        return [
+            'payroll_period_id' => $period->id,
+            'user_id' => $employee->id,
+            'basic_rate' => $basicRate,
+            'earned_for_period' => $basicRate,
+            'pera_amount' => 0,
+            'gross_earned' => $grossEarned,
+            'absences_amount' => 0,
+            'late_deduction' => 0,
+            'tax_withheld' => $taxWithheld,
+            'gsis_premium' => 0,
+            'philhealth_premium' => 0,
+            'pagibig_premium' => 0,
+            'loan_amortization' => 0,
+            'other_deductions' => json_encode([]),
+            'total_deductions' => $taxWithheld,
+            'net_amount' => round($grossEarned - $taxWithheld, 2),
+            'is_full_lwop' => false,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ];
     }
 
     /**
      * Display the payroll master sheet for a specific period.
      */
-    public function show(string $id)
+    public function show(Request $request, string $id)
     {
-        $period = PayrollPeriod::with('payrollRecords.user')
-            ->findOrFail($id);
+        $period = PayrollPeriod::findOrFail($id);
+
+        $gender = strtolower((string) $request->query('gender', ''));
+        $position = strtolower((string) $request->query('position', $request->query('filter', '')));
+
+        // Base query for payroll records in this period
+        $query = PayrollRecord::with([
+            'employee.position',
+            'employee.pdsPersonalInfo',
+            'employee.serviceRecords',
+            'user.position',
+            'user.pdsPersonalInfo',
+            'user.serviceRecords',
+            'user.stepIncrementLogs.approver',
+            'payrollIncomes.incomeType',
+        ])->where('payroll_period_id', $period->id);
+
+        // Conditional whereHas('employee', ...) filters
+        if (in_array($gender, ['male', '1'])) {
+            $query->whereHas('employee', function ($q) {
+                $q->whereHas('pdsPersonalInfo', function ($pdsQ) {
+                    $pdsQ->where('sex', 1);
+                });
+            });
+        } elseif (in_array($gender, ['female', '0'])) {
+            $query->whereHas('employee', function ($q) {
+                $q->whereHas('pdsPersonalInfo', function ($pdsQ) {
+                    $pdsQ->where('sex', 0);
+                });
+            });
+        }
+
+        if ($position === 'teaching') {
+            $query->whereHas('employee', function ($q) {
+                $q->where('employee_type', 1)
+                    ->orWhereHas('position', fn ($pos) => $pos->where('category', PositionCategory::Teaching->value));
+            });
+        } elseif ($position === 'non-teaching') {
+            $query->whereHas('employee', function ($q) {
+                $q->where(function ($sub) {
+                    $sub->where('employee_type', 0)
+                        ->whereDoesntHave('position', fn ($pos) => $pos->where('category', PositionCategory::Teaching->value));
+                })->orWhereHas('position', fn ($pos) => $pos->where('category', PositionCategory::NonTeaching->value));
+            });
+        }
+
+        // Crucial Math Isolation: Clone the $query builder before paginating it to calculate Summary Cards
+        // Exclude full LWOP records from summary totals to prevent inflated deductions
+        $unpaginatedQuery = clone $query;
+        $summaryQuery = (clone $unpaginatedQuery)->where('payroll_records.is_full_lwop', false);
+        $totalEmployees = (clone $unpaginatedQuery)->count();
+        $totalGross = (float) (clone $summaryQuery)->sum('gross_earned');
+        $totalAbsences = (float) (clone $summaryQuery)->sum('absences_amount');
+        $totalLates = (float) (clone $summaryQuery)->sum('late_deduction');
+        $totalTax = (float) (clone $summaryQuery)->sum('tax_withheld');
+        $totalGsis = (float) (clone $summaryQuery)->sum('gsis_premium');
+        $totalPhilhealth = (float) (clone $summaryQuery)->sum('philhealth_premium');
+        $totalPagibig = (float) (clone $summaryQuery)->sum('pagibig_premium');
+        $totalLoans = (float) (clone $summaryQuery)->sum('loan_amortization');
+        $totalDeductions = (float) (clone $summaryQuery)->sum('total_deductions');
+        $totalNet = (float) (clone $summaryQuery)->sum('net_amount');
+
+        // Position count badges (scoped to the selected gender if any)
+        $basePositionQuery = PayrollRecord::where('payroll_period_id', $period->id);
+        if (in_array($gender, ['male', '1'])) {
+            $basePositionQuery->whereHas('employee', function ($q) {
+                $q->whereHas('pdsPersonalInfo', fn ($pdsQ) => $pdsQ->where('sex', 1));
+            });
+        } elseif (in_array($gender, ['female', '0'])) {
+            $basePositionQuery->whereHas('employee', function ($q) {
+                $q->whereHas('pdsPersonalInfo', fn ($pdsQ) => $pdsQ->where('sex', 0));
+            });
+        }
+
+        $totalEmployeesCount = (clone $basePositionQuery)->count();
+        $teachingEmployeesCount = (clone $basePositionQuery)->whereHas('employee', function ($q) {
+            $q->where('employee_type', 1)
+                ->orWhereHas('position', fn ($pos) => $pos->where('category', PositionCategory::Teaching->value));
+        })->count();
+        $nonTeachingEmployeesCount = (clone $basePositionQuery)->whereHas('employee', function ($q) {
+            $q->where(function ($sub) {
+                $sub->where('employee_type', 0)
+                    ->whereDoesntHave('position', fn ($pos) => $pos->where('category', PositionCategory::Teaching->value));
+            })->orWhereHas('position', fn ($pos) => $pos->where('category', PositionCategory::NonTeaching->value));
+        })->count();
+
+        // Gender count badges (scoped to the selected position if any)
+        $baseGenderQuery = PayrollRecord::where('payroll_period_id', $period->id);
+        if ($position === 'teaching') {
+            $baseGenderQuery->whereHas('employee', function ($q) {
+                $q->where('employee_type', 1)
+                    ->orWhereHas('position', fn ($pos) => $pos->where('category', PositionCategory::Teaching->value));
+            });
+        } elseif ($position === 'non-teaching') {
+            $baseGenderQuery->whereHas('employee', function ($q) {
+                $q->where(function ($sub) {
+                    $sub->where('employee_type', 0)
+                        ->whereDoesntHave('position', fn ($pos) => $pos->where('category', PositionCategory::Teaching->value));
+                })->orWhereHas('position', fn ($pos) => $pos->where('category', PositionCategory::NonTeaching->value));
+            });
+        }
+
+        $maleEmployeesCount = (clone $baseGenderQuery)->whereHas('employee.pdsPersonalInfo', fn ($pdsQ) => $pdsQ->where('sex', 1))->count();
+        $femaleEmployeesCount = (clone $baseGenderQuery)->whereHas('employee.pdsPersonalInfo', fn ($pdsQ) => $pdsQ->where('sex', 0))->count();
+
+        // Order by employee last name and paginate with active query string
+        $query->join('users', 'payroll_records.user_id', '=', 'users.id')
+            ->select('payroll_records.*')
+            ->orderBy('users.last_name', 'asc')
+            ->orderBy('users.first_name', 'asc');
+
+        $payrollRecords = $query->paginate(15)->withQueryString();
+
+        $categories = DeductionCategory::with(['types' => function ($tQuery) {
+            $tQuery->active()->orderBy('name');
+        }])
+            ->active()
+            ->orderBy('sort_order')
+            ->get();
+
+        $incomeTypes = IncomeType::active()->orderBy('name')->get();
 
         return view('hr.payroll.show', [
             'period' => $period,
             'payrollPeriod' => $period,
+            'payrollRecords' => $payrollRecords,
+            'records' => $payrollRecords,
+            'categories' => $categories,
+            'incomeTypes' => $incomeTypes,
+            'currentPosition' => $position,
+            'currentGender' => $gender,
+            'counts' => [
+                'all' => $totalEmployeesCount,
+                'teaching' => $teachingEmployeesCount,
+                'non_teaching' => $nonTeachingEmployeesCount,
+            ],
+            'genderCounts' => [
+                'all' => (clone $baseGenderQuery)->count(),
+                'male' => $maleEmployeesCount,
+                'female' => $femaleEmployeesCount,
+            ],
+            'totalEmployees' => $totalEmployees,
+            'totalGross' => $totalGross,
+            'totalAbsences' => $totalAbsences,
+            'totalLates' => $totalLates,
+            'totalTax' => $totalTax,
+            'totalGsis' => $totalGsis,
+            'totalPhilhealth' => $totalPhilhealth,
+            'totalPagibig' => $totalPagibig,
+            'totalLoans' => $totalLoans,
+            'totalDeductions' => $totalDeductions,
+            'totalNet' => $totalNet,
         ]);
     }
 
@@ -172,6 +576,7 @@ class PayrollController extends Controller
         $request->validate([
             'other_deductions' => 'nullable|array',
             'other_deductions.*' => 'nullable|numeric|min:0',
+            'filter' => 'nullable|string',
         ]);
 
         $rawOtherDeductions = $request->input('other_deductions', []);
@@ -179,8 +584,8 @@ class PayrollController extends Controller
             $rawOtherDeductions = [];
         }
 
-        // Expected custom loans: GSIS Conso, Pag-IBIG MPL, Landbank, CNHS Multi-coop
-        $standardKeys = ['gsis_conso', 'pagibig_mpl', 'landbank_loan', 'cnhs_multicoop'];
+        // Dynamically derive standard keys from active deduction types
+        $standardKeys = DeductionType::active()->pluck('code')->toArray();
         $allKeys = array_unique(array_merge($standardKeys, array_keys($rawOtherDeductions)));
 
         $otherDeductions = [];
@@ -197,26 +602,139 @@ class PayrollController extends Controller
             $otherDeductionsSum += $amount;
         }
 
+        // --- Recalculate gross and net ---
+        // Gross = basic_rate + PERA + additional incomes
+        $basicRate = (float) $record->basic_rate;
+        $peraAmount = (float) $record->pera_amount;
+        $totalAdditionalIncome = $record->payrollIncomes()->sum('amount');
+        $grossEarned = round($basicRate + $peraAmount + $totalAdditionalIncome, 2);
+
         // Mandatory & statutory deductions
         $lwop = (float) $record->absences_amount;
+        $late = (float) $record->late_deduction;
         $tax = (float) $record->tax_withheld;
         $gsis = (float) $record->gsis_premium;
         $philhealth = (float) $record->philhealth_premium;
         $pagibig = (float) $record->pagibig_premium;
+        $loanAmortization = (float) $record->loan_amortization;
 
         // Recalculate total deductions and net pay
-        $totalDeductions = round($lwop + $tax + $gsis + $philhealth + $pagibig + $otherDeductionsSum, 2);
-        $grossEarned = (float) $record->gross_earned;
+        $totalDeductions = round($lwop + $late + $tax + $gsis + $philhealth + $pagibig + $loanAmortization + $otherDeductionsSum, 2);
         $netAmount = round($grossEarned - $totalDeductions, 2);
 
         // Save updated totals to PayrollRecord
         $record->other_deductions = $otherDeductions;
+        $record->gross_earned = $grossEarned;
         $record->total_deductions = $totalDeductions;
         $record->net_amount = $netAmount;
         $record->save();
 
-        return redirect()->route('hr.payroll.show', $record->payroll_period_id)
-            ->with('success', 'Employee deductions and net salary recalculated successfully.');
+        $redirectParams = ['id' => $record->payroll_period_id];
+        if ($request->filled('position')) {
+            $redirectParams['position'] = $request->input('position');
+        } elseif ($request->filled('filter')) {
+            $redirectParams['position'] = $request->input('filter');
+        }
+        if ($request->filled('gender')) {
+            $redirectParams['gender'] = $request->input('gender');
+        }
+        if ($request->filled('page')) {
+            $redirectParams['page'] = $request->input('page');
+        }
+
+        return redirect()->route('hr.payroll.show', $redirectParams)
+            ->with('success', 'Employee payroll (incomes + deductions) recalculated successfully.');
+    }
+
+    /**
+     * Finalize the payroll period and post the withheld loan amortizations
+     * against each employee's outstanding loan balance.
+     */
+    public function approve(string $id)
+    {
+        $period = PayrollPeriod::findOrFail($id);
+
+        if ($period->status === 'FINALIZED') {
+            return back()->with('error', 'Payroll period is already finalized.');
+        }
+
+        try {
+            $settledLoans = DB::transaction(function () use ($period) {
+                // Re-read under a row lock so two concurrent requests cannot
+                // amortize the same period twice.
+                $locked = PayrollPeriod::whereKey($period->id)->lockForUpdate()->firstOrFail();
+
+                if ($locked->status === 'FINALIZED') {
+                    return null;
+                }
+
+                $settled = $this->amortizeLoansForPeriod($locked);
+
+                $locked->status = 'FINALIZED';
+                $locked->save();
+
+                return $settled;
+            });
+        } catch (\Throwable $e) {
+            Log::error('Payroll finalization failed: '.$e->getMessage(), [
+                'payroll_period_id' => $period->id,
+                'trace' => $e->getTraceAsString(),
+            ]);
+
+            return back()->with('error', 'Failed to finalize payroll period. '.$e->getMessage());
+        }
+
+        if ($settledLoans === null) {
+            return back()->with('error', 'Payroll period is already finalized.');
+        }
+
+        $message = 'Payroll period has been finalized successfully.';
+
+        if ($settledLoans > 0) {
+            $message .= ' '.$settledLoans.' '.Str::plural('loan', $settledLoans).' fully paid and closed.';
+        }
+
+        return back()->with('success', $message);
+    }
+
+    /**
+     * Deduct one month of amortization from every outstanding loan belonging to
+     * employees who actually had a loan withheld in this period. Loans whose
+     * balance reaches zero are closed out as Paid.
+     *
+     * @return int Number of loans fully settled by this run.
+     */
+    private function amortizeLoansForPeriod(PayrollPeriod $period): int
+    {
+        $userIds = PayrollRecord::where('payroll_period_id', $period->id)
+            ->where('loan_amortization', '>', 0)
+            ->pluck('user_id');
+
+        if ($userIds->isEmpty()) {
+            return 0;
+        }
+
+        $loans = Loan::whereIn('user_id', $userIds)
+            ->outstanding()
+            ->lockForUpdate()
+            ->get();
+
+        $settled = 0;
+
+        foreach ($loans as $loan) {
+            $balance = round((float) $loan->running_balance - (float) $loan->monthly_amortization, 2);
+
+            if ($balance <= 0) {
+                $balance = 0.00;
+                $loan->status = 'Paid';
+                $settled++;
+            }
+
+            $loan->running_balance = $balance;
+            $loan->save();
+        }
+
+        return $settled;
     }
 
     /**
@@ -255,10 +773,55 @@ class PayrollController extends Controller
      *   AK = LANDBANK Salary Loan    AN = CNHS Multi-coop   AT = TOTAL DEDUCTIONS
      *   AV = Net Amount Received
      */
-    public function exportExcel(string $id)
+    public function exportExcel(Request $request, string $id)
     {
-        $period = PayrollPeriod::with(['payrollRecords.user.position'])
-            ->findOrFail($id);
+        $period = PayrollPeriod::findOrFail($id);
+
+        $gender = strtolower((string) $request->query('gender', ''));
+        $position = strtolower((string) $request->query('position', $request->query('filter', '')));
+
+        $recordsQuery = PayrollRecord::with([
+            'employee.position',
+            'employee.pdsPersonalInfo',
+            'employee.serviceRecords',
+            'user.position',
+            'user.pdsPersonalInfo',
+            'user.serviceRecords',
+        ])->where('payroll_period_id', $period->id);
+
+        if (in_array($gender, ['male', '1'])) {
+            $recordsQuery->whereHas('employee', function ($q) {
+                $q->whereHas('pdsPersonalInfo', function ($pdsQ) {
+                    $pdsQ->where('sex', 1);
+                });
+            });
+        } elseif (in_array($gender, ['female', '0'])) {
+            $recordsQuery->whereHas('employee', function ($q) {
+                $q->whereHas('pdsPersonalInfo', function ($pdsQ) {
+                    $pdsQ->where('sex', 0);
+                });
+            });
+        }
+
+        if ($position === 'teaching') {
+            $recordsQuery->whereHas('employee', function ($q) {
+                $q->where('employee_type', 1)
+                    ->orWhereHas('position', fn ($pos) => $pos->where('category', PositionCategory::Teaching->value));
+            });
+        } elseif ($position === 'non-teaching') {
+            $recordsQuery->whereHas('employee', function ($q) {
+                $q->where(function ($sub) {
+                    $sub->where('employee_type', 0)
+                        ->whereDoesntHave('position', fn ($pos) => $pos->where('category', PositionCategory::Teaching->value));
+                })->orWhereHas('position', fn ($pos) => $pos->where('category', PositionCategory::NonTeaching->value));
+            });
+        }
+
+        $records = $recordsQuery->get()->sortBy(function ($rec) {
+            $user = $rec->user ?? $rec->employee;
+
+            return $user ? ($user->last_name.', '.$user->first_name) : 'ZZZZZ';
+        })->values();
 
         $templatePath = storage_path('app/templates/General Payroll.xlsx');
 
@@ -271,16 +834,23 @@ class PayrollController extends Controller
 
         // --- Header Info ---
         $monthName = Carbon::create()->month((int) $period->period_month)->format('F');
-        $sheet->setCellValue('A2', "FOR THE PERIOD : {$monthName} {$period->period_year}");
+        $filterParts = [];
+        if ($position === 'teaching') {
+            $filterParts[] = 'TEACHING';
+        } elseif ($position === 'non-teaching') {
+            $filterParts[] = 'NON-TEACHING';
+        }
+        if (in_array($gender, ['male', '1'])) {
+            $filterParts[] = 'MALE';
+        } elseif (in_array($gender, ['female', '0'])) {
+            $filterParts[] = 'FEMALE';
+        }
+        $filterHeader = ! empty($filterParts) ? ' ('.implode(' - ', $filterParts).' STAFF)' : '';
+
+        $sheet->setCellValue('A2', "FOR THE PERIOD : {$monthName} {$period->period_year}{$filterHeader}");
         $sheet->setCellValue('A4', "FUND CLUSTER: {$period->fund_cluster}");
 
         // --- Data rows start at row 11, totals row is currently at row 12 ---
-        $records = $period->payrollRecords->sortBy(function ($rec) {
-            $user = $rec->user;
-
-            return $user ? ($user->last_name . ', ' . $user->first_name) : 'ZZZZZ';
-        });
-
         $dataStartRow = 11;
         $totalRows = $records->count();
         $totalsRow = $dataStartRow + $totalRows; // Push the TOTAL PAYROLL row down
@@ -290,6 +860,9 @@ class PayrollController extends Controller
             $sheet->insertNewRowBefore($dataStartRow + 1, $totalRows - 1);
         }
 
+        // Fetch active deduction types with Excel column mappings (once, outside the loop)
+        $activeTypes = DeductionType::active()->whereNotNull('excel_column')->get();
+
         $currentRow = $dataStartRow;
         foreach ($records as $index => $record) {
             $user = $record->user;
@@ -298,12 +871,12 @@ class PayrollController extends Controller
             $employeeName = 'Unknown';
             if ($user) {
                 if (! empty($user->last_name) || ! empty($user->first_name)) {
-                    $employeeName = $user->last_name . ', ' . $user->first_name;
+                    $employeeName = $user->last_name.', '.$user->first_name;
                     if (! empty($user->middle_name)) {
-                        $employeeName .= ' ' . strtoupper(substr($user->middle_name, 0, 1)) . '.';
+                        $employeeName .= ' '.strtoupper(substr($user->middle_name, 0, 1)).'.';
                     }
                     if (! empty($user->suffix)) {
-                        $employeeName .= ' ' . $user->suffix;
+                        $employeeName .= ' '.$user->suffix;
                     }
                 } elseif (! empty($user->name)) {
                     $employeeName = $user->name;
@@ -316,12 +889,31 @@ class PayrollController extends Controller
             // Decode other_deductions JSON
             $otherDeductions = is_array($record->other_deductions) ? $record->other_deductions : [];
 
+            $pds = $user->pdsPersonalInfo ?? null;
+            $firstServiceRecord = $user->serviceRecords ? $user->serviceRecords->sortBy('date_from')->first() : null;
+            $appointmentDate = '';
+            if ($firstServiceRecord && ! empty($firstServiceRecord->date_from)) {
+                try {
+                    $appointmentDate = \Carbon\Carbon::parse($firstServiceRecord->date_from)->format('m/d/Y');
+                } catch (\Throwable $e) {
+                }
+            }
+
             // A: Row number
             $sheet->setCellValue("A{$currentRow}", $index + 1);
             // B: Name
             $sheet->setCellValue("B{$currentRow}", $employeeName);
             // C: Position
             $sheet->setCellValue("C{$currentRow}", $positionName);
+
+            // D-J: Demographics
+            $sheet->setCellValueExplicit("D{$currentRow}", (string) ($pds->employee_no ?? ''), DataType::TYPE_STRING);
+            $sheet->setCellValue("E{$currentRow}", $appointmentDate);
+            $sheet->setCellValueExplicit("F{$currentRow}", (string) ($pds->tin_no ?? ''), DataType::TYPE_STRING);
+            $sheet->setCellValueExplicit("G{$currentRow}", (string) ($pds->gsis_id_no ?? ''), DataType::TYPE_STRING);
+            $sheet->setCellValueExplicit("H{$currentRow}", (string) ($pds->pagibig_id_no ?? ''), DataType::TYPE_STRING);
+            $sheet->setCellValueExplicit("I{$currentRow}", (string) ($pds->philhealth_no ?? ''), DataType::TYPE_STRING);
+            $sheet->setCellValue("J{$currentRow}", 'CNHS-JHS');
 
             // COMPENSATION columns
             $sheet->setCellValue("L{$currentRow}", (float) $record->basic_rate);           // Rate per Month
@@ -336,11 +928,11 @@ class PayrollController extends Controller
             $sheet->setCellValue("AC{$currentRow}", (float) $record->pagibig_premium);      // HDMF Membership Premiums
             $sheet->setCellValue("AH{$currentRow}", (float) $record->philhealth_premium);   // PhilHealth
 
-            // DEDUCTIONS — Variable Loans (from other_deductions JSON)
-            $sheet->setCellValue("V{$currentRow}", (float) ($otherDeductions['gsis_conso'] ?? 0));      // GSIS Consolidated Loan
-            $sheet->setCellValue("AD{$currentRow}", (float) ($otherDeductions['pagibig_mpl'] ?? 0));    // HDMF Multi-Purpose Loan
-            $sheet->setCellValue("AK{$currentRow}", (float) ($otherDeductions['landbank_loan'] ?? 0));  // LANDBANK Salary Loan
-            $sheet->setCellValue("AN{$currentRow}", (float) ($otherDeductions['cnhs_multicoop'] ?? 0)); // CNHS Multi-coop Loan
+            // DEDUCTIONS — Custom Loans (dynamically mapped from deduction_types)
+            foreach ($activeTypes as $type) {
+                $value = (float) ($otherDeductions[$type->code] ?? 0);
+                $sheet->setCellValue($type->excel_column.$currentRow, $value);
+            }
 
             // TOTALS
             $sheet->setCellValue("AT{$currentRow}", (float) $record->total_deductions);     // Total Deductions
@@ -362,8 +954,9 @@ class PayrollController extends Controller
         }
 
         // --- Write to temp file and return download ---
-        $fileName = 'Payroll_Master_' . $monthName . '_' . $period->period_year . '.xlsx';
-        $tempPath = storage_path('app/temp/' . $fileName);
+        $filterSuffix = ! empty($filterParts) ? '_'.implode('_', array_map('ucfirst', array_map('strtolower', $filterParts))) : '';
+        $fileName = 'Payroll_Master_'.$monthName.'_'.$period->period_year.$filterSuffix.'.xlsx';
+        $tempPath = storage_path('app/temp/'.$fileName);
 
         // Ensure temp directory exists
         if (! is_dir(dirname($tempPath))) {
@@ -381,28 +974,6 @@ class PayrollController extends Controller
     // =========================================================
     // PRIVATE HELPERS
     // =========================================================
-
-    /**
-     * Resolve the employee's basic monthly rate from the latest service record
-     * that has a valid numeric salary. Returns 0 if none found.
-     */
-    private function resolveBasicRate(int $userId): float
-    {
-        $record = DB::table('service_records')
-            ->where('user_id', $userId)
-            ->whereNotNull('salary')
-            ->where('salary', '!=', '')
-            ->where('salary', '!=', 'TBD')
-            ->orderByDesc('date_from')
-            ->first();
-
-        if (! $record) {
-            return 0.00;
-        }
-
-        // Salary may contain commas (e.g. "100,000") — strip them before casting.
-        return (float) str_replace(',', '', $record->salary);
-    }
 
     /**
      * Sum LWOP days from approved leave applications whose inclusive date range

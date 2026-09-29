@@ -7,9 +7,14 @@ use Illuminate\Database\Eloquent\Model;
 class Event extends Model
 {
     protected $fillable = [
-        'title', 'type', 'description', 'event_date',
-        'event_time', 'venue', 'max_attendees', 'created_by',
+        'title', 'event_type_id', 'description', 'event_date',
+        'event_time', 'venue', 'max_attendees', 'adviser_id', 'created_by',
     ];
+
+    public function eventType()
+    {
+        return $this->belongsTo(EventType::class);
+    }
 
     public function attendees()
     {

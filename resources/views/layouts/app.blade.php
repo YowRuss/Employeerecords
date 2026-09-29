@@ -4,7 +4,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CNHS-JHS HR System</title>
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+    <title>CNHS-JHS Employee Records System</title>
     
     <!-- Favicon -->
     <link rel="icon" href="{{ asset('build/assets/images/logo.png') }}" type="image/png">
@@ -32,7 +35,7 @@
             </button>
 
             <h5 class="m-0 fw-bolder text-nowrap d-none d-sm-block" style="background: linear-gradient(135deg, #0f172a, #334155); -webkit-background-clip: text; -webkit-text-fill-color: transparent; letter-spacing: -0.5px; font-size: 1.2rem;">
-                CNHS-JHS <span style="background: linear-gradient(135deg, var(--accent-yellow-dark), #b45309); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">HR System</span>
+                CNHS-JHS <span style="background: linear-gradient(135deg, var(--accent-yellow-dark), #b45309); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">Employee Records</span>
             </h5>
         </div>
 
@@ -65,126 +68,7 @@
         </div>
     </header>
 
-    <aside class="sidebar" id="mainSidebar">
-        <div class="position-relative py-2 text-center mb-1 d-flex flex-column align-items-center mx-2 mt-2">
-            <!-- Close button for mobile -->
-            <button class="btn btn-sm btn-light border-0 d-lg-none position-absolute rounded-circle shadow-sm d-flex align-items-center justify-content-center" 
-                    style="right: 5px; top: 0; width: 32px; height: 32px;" 
-                    onclick="closeMobileSidebar()">
-                <i class="bi bi-x-lg text-secondary m-0"></i>
-            </button>
-            
-            <img src="{{ asset('build/assets/images/logo.png') }}" alt="CNHS Logo" class="logo-large rounded-circle mb-2 shadow-sm border" style="width: 65px; height: 65px; object-fit: contain;">
-            <img src="{{ asset('build/assets/images/logo.png') }}" alt="CNHS Logo Min" class="logo-small rounded-circle mb-1 shadow-sm border hide-on-expanded" style="width: 36px; height: 36px; object-fit: contain;">
-            <h6 class="fw-bold m-0 hide-on-mini text-dark mt-1 tracking-tight" style="font-size: 0.95rem;">CNHS-JHS</h6>
-        </div>
-        <hr class="my-2 mx-3 border-secondary opacity-10">
-
-        <nav class="nav flex-column mt-2 px-2">
-            <a class="nav-link {{ request()->is('dashboard') ? 'active bg-warning text-dark fw-bold' : 'text-muted' }} d-flex align-items-center gap-3 px-3 py-2 mb-1 rounded" href="/dashboard">
-                <i class="bi bi-grid-1x2-fill fs-5"></i> <span class="hide-on-mini">Dashboard</span>
-            </a>
-
-            @if(session('role_id') == 1)
-            <a class="nav-link {{ request()->routeIs('pds.edit', 'pds.update') ? 'active bg-warning text-dark fw-bold' : 'text-muted' }} d-flex align-items-center gap-3 px-3 py-2 mb-1 rounded" href="{{ route('pds.edit') }}">
-                <i class="bi bi-person-vcard-fill fs-5"></i> <span class="hide-on-mini">My PDS</span>
-            </a>
-            <a class="nav-link {{ request()->routeIs('saln.index') ? 'active bg-warning text-dark fw-bold' : 'text-muted' }} d-flex align-items-center gap-3 px-3 py-2 mb-1 rounded" href="{{ route('saln.index') }}">
-                <i class="bi bi-wallet-fill fs-5"></i> <span class="hide-on-mini">My SALN</span>
-            </a>
-            <a class="nav-link {{ request()->routeIs('leave.index', 'leave.store') ? 'active bg-warning text-dark fw-bold' : 'text-muted' }} d-flex align-items-center gap-3 px-3 py-2 mb-1 rounded" href="{{ route('leave.index') }}">
-                <i class="bi bi-calendar2-check-fill fs-5"></i> <span class="hide-on-mini">Leave Requests</span>
-            </a>
-            <a class="nav-link {{ request()->routeIs('service_record.index', 'service_record.store', 'service_record.destroy') ? 'active bg-warning text-dark fw-bold' : 'text-muted' }} d-flex align-items-center gap-3 px-3 py-2 mb-1 rounded" href="{{ route('service_record.index') }}">
-                <i class="bi bi-journal-text fs-5"></i> <span class="hide-on-mini">Service Record</span>
-            </a>
-            <a class="nav-link {{ request()->routeIs('employee.announcements') ? 'active bg-warning text-dark fw-bold' : 'text-muted' }} d-flex align-items-center gap-3 px-3 py-2 mb-1 rounded" href="{{ route('employee.announcements') }}">
-                <i class="bi bi-megaphone-fill fs-5"></i> <span class="hide-on-mini">Announcements</span>
-            </a>
-            <a class="nav-link {{ request()->routeIs('employee.events') ? 'active bg-warning text-dark fw-bold' : 'text-muted' }} d-flex align-items-center gap-3 px-3 py-2 mb-1 rounded" href="{{ route('employee.events') }}">
-                <i class="bi bi-calendar-event-fill fs-5"></i> <span class="hide-on-mini">Events</span>
-            </a>
-            @if(session('role_id') == 1)
-                @php
-                    // Count unread messages inside this specific employee's chat room that were sent by HR
-                    $empUnreadCount = \App\Models\HrMessage::where('employee_id', session('user_id'))
-                                                        ->where('sender_id', '!=', session('user_id'))
-                                                        ->where('is_read', 0)
-                                                        ->count();
-                @endphp
-
-                <a class="nav-link {{ request()->routeIs('employee.chat') ? 'active bg-warning text-dark fw-bold' : 'text-muted' }} d-flex align-items-center gap-3 px-3 py-2 mb-1 rounded" href="{{ route('employee.chat') }}">
-                    <i class="bi bi-chat-dots-fill fs-5"></i> <span class="hide-on-mini">Message HR</span>
-                    
-                    <!-- Only show the badge if there is a reply from HR -->
-                    @if($empUnreadCount > 0)
-                        <span class="badge bg-danger rounded-pill hide-on-mini shadow-sm ms-auto" style="font-size: 0.75rem;">
-                            {{ $empUnreadCount }}
-                        </span>
-                    @endif
-                </a>
-            @endif
-            @endif
-
-            @if(session('role_id') == 2)
-            <a class="nav-link {{ request()->routeIs('hr.staff_profiling') ? 'active bg-warning text-dark fw-bold' : 'text-muted' }} d-flex align-items-center gap-3 px-3 py-2 mb-1 rounded" href="{{ route('hr.staff_profiling') }}">
-                <i class="bi bi-people-fill fs-5"></i> <span class="hide-on-mini">Staff Profiling</span>
-            </a>
-            <a class="nav-link {{ request()->routeIs('hr.leave.index') ? 'active bg-warning text-dark fw-bold' : 'text-muted' }} d-flex align-items-center gap-3 px-3 py-2 mb-1 rounded" href="{{ route('hr.leave.index') }}">
-                <i class="bi bi-calendar3-range-fill fs-5"></i> <span class="hide-on-mini">Leave Monitoring</span>
-            </a>
-            <a class="nav-link {{ request()->routeIs('hr.service_record.directory', 'hr.service_record.index') ? 'active bg-warning text-dark fw-bold' : 'text-muted' }} d-flex align-items-center gap-3 px-3 py-2 mb-1 rounded" href="{{ route('hr.service_record.directory') }}">
-                <i class="bi bi-folder-fill fs-5"></i> <span class="hide-on-mini">Service Records</span>
-            </a>
-            <a class="nav-link {{ request()->routeIs('requisitions.*') ? 'active bg-warning text-dark fw-bold' : 'text-muted' }} d-flex align-items-center gap-3 px-3 py-2 mb-1 rounded" href="{{ route('requisitions.index') }}">
-                <i class="bi bi-clipboard-data-fill fs-5"></i> <span class="hide-on-mini">Requisitions</span>
-            </a>
-
-            <a class="nav-link {{ request()->routeIs('hr.payroll.*') ? 'active bg-warning text-dark fw-bold' : 'text-muted' }} d-flex align-items-center gap-3 px-3 py-2 mb-1 rounded" href="{{ route('hr.payroll.index') }}">
-                <i class="bi bi-cash-stack fs-5"></i> <span class="hide-on-mini">Payroll Management</span>
-            </a>
-            <!--
-            <a class="nav-link {{ request()->routeIs('hr.applications.*') ? 'active bg-warning text-dark fw-bold' : 'text-muted' }} d-flex align-items-center gap-3 px-3 py-2 mb-1 rounded" href="{{ route('hr.applications.index') }}">
-                <i class="bi bi-person-lines-fill fs-5"></i> <span class="hide-on-mini">Job Applicants</span>
-            </a>
-            <a class="nav-link {{ request()->routeIs('hr.job_postings.*') ? 'active bg-warning text-dark fw-bold' : 'text-muted' }} d-flex align-items-center gap-3 px-3 py-2 mb-1 rounded" href="{{ route('hr.job_postings.index') }}">
-                <i class="bi bi-briefcase-fill fs-5"></i> <span class="hide-on-mini">Job Postings</span>
-            </a>
--->
-            
-            <a class="nav-link {{ request()->routeIs('hr.settings.positions_areas') ? 'active bg-warning text-dark fw-bold' : 'text-muted' }} d-flex align-items-center gap-3 px-3 py-2 mb-1 rounded" href="{{ route('hr.settings.positions_areas') }}">
-                <i class="bi bi-gear-fill fs-5"></i> <span class="hide-on-mini">Positions & Areas</span>
-            </a>
-
-          
-
-            @if(session('role_id') == 2)
-                @php
-                    // Count all unread messages sent by employees (not sent by the logged-in HR)
-                    $hrUnreadCount = \App\Models\HrMessage::where('sender_id', '!=', session('user_id'))
-                                                        ->where('is_read', 0)
-                                                        ->count();
-                @endphp
-
-                <a class="nav-link {{ request()->routeIs('hr.chat.*') ? 'active bg-warning text-dark fw-bold' : 'text-muted' }} d-flex align-items-center gap-3 px-3 py-2 mb-1 rounded" href="{{ route('hr.chat.inbox') }}">
-                    <i class="bi bi-inbox-fill fs-5"></i> <span class="hide-on-mini">Helpdesk Messages</span>
-                    
-                    <!-- Only show the badge if there are unread messages -->
-                    @if($hrUnreadCount > 0)
-                        <span class="badge bg-danger rounded-pill hide-on-mini shadow-sm ms-auto" style="font-size: 0.75rem;">
-                            {{ $hrUnreadCount }}
-                        </span>
-                    @endif
-                </a>
-            @endif
-            @endif
-
-            @if(session('role_id') == 3)
-            <a class="nav-link text-muted d-flex align-items-center gap-3 px-3 py-2 mb-1 rounded" href="#"><i class="bi bi-briefcase-fill fs-5"></i> <span class="hide-on-mini">Manage Positions</span></a>
-            <a class="nav-link text-muted d-flex align-items-center gap-3 px-3 py-2 mb-1 rounded" href="#"><i class="bi bi-database-fill-gear fs-5"></i> <span class="hide-on-mini">Data Maintenance</span></a>
-            @endif
-        </nav>
-    </aside>
+    @include('layouts.sidebar')
 
     <div class="sidebar-overlay" id="sidebarOverlay"></div>
 
@@ -211,10 +95,60 @@
         const content = document.getElementById('mainContent');
         const sidebarOverlay = document.getElementById('sidebarOverlay');
 
+        function collapseToggleFor(menu) {
+            const parentId = menu.getAttribute('id');
+            if (!parentId || !sidebar) {
+                return null;
+            }
+
+            return sidebar.querySelector('[data-bs-target="#' + parentId + '"], [href="#' + parentId + '"]');
+        }
+
+        function closeSidebarDropdowns() {
+            if (!sidebar) {
+                return;
+            }
+
+            sidebar.querySelectorAll('.collapse.show').forEach(menu => {
+                if (window.bootstrap && bootstrap.Collapse) {
+                    bootstrap.Collapse.getOrCreateInstance(menu, { toggle: false }).hide();
+                } else {
+                    menu.classList.remove('show');
+                }
+
+                const toggle = collapseToggleFor(menu);
+                if (toggle) {
+                    toggle.setAttribute('aria-expanded', 'false');
+                }
+            });
+        }
+
+        function expandSidebar() {
+            if (!sidebar) {
+                return;
+            }
+
+            sidebar.classList.remove('minimized');
+            content.classList.remove('expanded');
+            topbar.classList.remove('expanded');
+            localStorage.setItem('sidebarState', 'expanded');
+        }
+
         if (localStorage.getItem('sidebarState') === 'minimized' && window.innerWidth > 992) {
             sidebar.classList.add('minimized');
             content.classList.add('expanded');
             topbar.classList.add('expanded');
+            closeSidebarDropdowns();
+        }
+
+        if (sidebar) {
+            sidebar.querySelectorAll('[data-bs-toggle="collapse"]').forEach(dropdown => {
+                dropdown.addEventListener('click', function () {
+                    if (window.innerWidth > 992 && sidebar.classList.contains('minimized')) {
+                        expandSidebar();
+                    }
+                });
+            });
         }
 
         window.addEventListener('DOMContentLoaded', () => {
@@ -238,12 +172,20 @@
         }
 
         if (sidebarToggle) {
-            sidebarToggle.addEventListener('click', () => {
+            sidebarToggle.addEventListener('click', (event) => {
+                event.preventDefault();
+
                 if (window.innerWidth > 992) {
                     sidebar.classList.toggle('minimized');
                     content.classList.toggle('expanded');
                     topbar.classList.toggle('expanded');
-                    localStorage.setItem('sidebarState', sidebar.classList.contains('minimized') ? 'minimized' : 'expanded');
+
+                    if (sidebar.classList.contains('minimized')) {
+                        localStorage.setItem('sidebarState', 'minimized');
+                        closeSidebarDropdowns();
+                    } else {
+                        localStorage.setItem('sidebarState', 'expanded');
+                    }
                 } else {
                     toggleMobileSidebar();
                 }
@@ -254,15 +196,24 @@
             sidebarOverlay.addEventListener('click', closeMobileSidebar);
         }
 
-        // Close mobile drawer when clicking nav links on small screens
+        // Close the mobile drawer after a real navigation link, not a dropdown toggle.
         document.querySelectorAll('.sidebar .nav-link').forEach(link => {
             link.addEventListener('click', () => {
-                if (window.innerWidth <= 992) {
+                if (window.innerWidth <= 992 && link.getAttribute('data-bs-toggle') !== 'collapse') {
                     closeMobileSidebar();
                 }
             });
         });
+
+        // Force reload if page is restored from bfcache (browser back/forward button after session destroy)
+        window.addEventListener('pageshow', function(event) {
+            if (event.persisted) {
+                window.location.reload();
+            }
+        });
     </script>
+
+    @yield('scripts')
 </body>
 
 </html>

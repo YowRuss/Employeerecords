@@ -4,7 +4,7 @@
 <div class="container-fluid py-4">
     <div class="d-flex justify-content-between align-items-center mb-4">
         <div>
-            <h4 class="text-brand fw-bold m-0"><i class="bi bi-person-lines-fill me-2"></i> Applicant Tracking</h4>
+            <h4 class="text-header-blue fw-bold m-0"><i class="bi bi-person-lines-fill me-2 text-header-blue"></i> Applicant Tracking</h4>
             <p class="text-muted small m-0">Review incoming job applications and manage candidate statuses.</p>
         </div>
     </div>
