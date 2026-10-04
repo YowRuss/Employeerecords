@@ -309,13 +309,13 @@
 
 <div class="row mb-4">
     <div class="col-12">
-        <h5 class="text-accent fw-bold"><i class="bi bi-grid-fill me-2"></i> HR Management Modules</h5>
+        <h5 class="text-header-blue fw-bold"><i class="bi bi-grid-fill me-2"></i> HR Management Modules</h5>
     </div>
 </div>
 
 <div class="row g-4 mb-4">
     <!-- Announcements -->
-    <div class="col-md-6 col-lg-4">
+    <div class="col-md-6 col-lg-6">
         <div class="card hr-module-card h-100 border-0 shadow-sm rounded-4 hover-lift">
             <div class="card-body text-center p-4">
                 <div class="hr-module-icon rounded-circle d-inline-flex align-items-center justify-content-center mb-3">
@@ -331,7 +331,7 @@
     </div>
 
     <!-- Event Organizer -->
-    <div class="col-md-6 col-lg-4">
+    <div class="col-md-6 col-lg-6">
         <div class="card hr-module-card h-100 border-0 shadow-sm rounded-4 hover-lift">
             <div class="card-body text-center p-4">
                 <div class="hr-module-icon rounded-circle d-inline-flex align-items-center justify-content-center mb-3">
@@ -346,21 +346,6 @@
         </div>
     </div>
 
-    <!-- System Reports -->
-    <div class="col-md-6 col-lg-4">
-        <div class="card hr-module-card h-100 border-0 shadow-sm rounded-4 hover-lift">
-            <div class="card-body text-center p-4">
-                <div class="hr-module-icon rounded-circle d-inline-flex align-items-center justify-content-center mb-3">
-                    <i class="bi bi-bar-chart-fill fs-3"></i>
-                </div>
-                <h6 class="fw-bold text-dark">System Reports</h6>
-                <p class="text-muted small mb-4">Generate comprehensive metrics on staff demographics and activities.</p>
-                <a href="{{ route('hr.reports.index') }}" class="btn hr-module-btn btn-sm w-100 fw-bold rounded-pill">
-                    View Reports
-                </a>
-            </div>
-        </div>
-    </div>
 </div>
 @endif
 

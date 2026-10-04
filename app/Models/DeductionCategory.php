@@ -13,6 +13,7 @@ class DeductionCategory extends Model
         'slug',
         'sort_order',
         'is_active',
+        'profile_version',
     ];
 
     /**

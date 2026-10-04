@@ -211,7 +211,7 @@
 
         {{-- 3. Payroll Dropdown Group (Collapsible) --}}
         @php
-            $isPayrollActive = request()->routeIs('hr.payroll.*', 'hr.bir2316.*', 'hr.settings.deductions.*', 'payroll.salary_settings', 'payroll.loans.*', 'payroll.remittances.*', 'payroll.allowances.*', 'payroll.attendance.*', 'payroll.holidays.*');
+            $isPayrollActive = request()->routeIs('hr.payroll.*', 'hr.bir2316.*', 'hr.settings.deductions.*', 'hr.settings.incomes.*', 'payroll.salary_settings', 'payroll.loans.*', 'payroll.remittances.*', 'payroll.allowances.*', 'payroll.attendance.*', 'payroll.holidays.*');
         @endphp
         <div class="nav-item mb-1">
             <a class="nav-link {{ $isPayrollActive ? 'active bg-warning text-dark fw-bold' : 'text-muted' }} d-flex align-items-center justify-content-between px-3 py-2 rounded" 
@@ -287,11 +287,12 @@
                     </a>
 
                     {{-- 7. Allowances & Other Incomes --}}
-                    <a class="nav-link py-2 px-3 mb-1 rounded d-flex align-items-center gap-2 sidebar-sub-link {{ request()->routeIs('payroll.allowances.*') ? 'fw-bold text-white shadow-sm' : 'text-secondary' }}" 
+                    <a class="nav-link py-2 px-2 mb-1 rounded d-flex align-items-center gap-2 sidebar-sub-link {{ request()->routeIs('payroll.allowances.*', 'hr.settings.incomes.*') ? 'fw-bold text-white shadow-sm' : 'text-secondary' }}" 
                        href="{{ route('payroll.allowances.index') }}"
-                       style="{{ request()->routeIs('payroll.allowances.*') ? 'background-color: #1A3E6F; color: #ffffff !important;' : '' }} font-size: 0.875rem; margin: 0.2rem 0;">
-                        <i class="bi bi-coin {{ request()->routeIs('payroll.allowances.*') ? 'text-white' : 'text-muted' }}" style="font-size: 1rem; margin-right: 0;"></i>
-                        <span>Allowances & Other Incomes</span>
+                       title="Allowances & Other Incomes"
+                       style="{{ request()->routeIs('payroll.allowances.*', 'hr.settings.incomes.*') ? 'background-color: #1A3E6F; color: #ffffff !important;' : '' }} font-size: 0.875rem; margin: 0.2rem 0;">
+                        <i class="bi bi-coin flex-shrink-0 {{ request()->routeIs('payroll.allowances.*', 'hr.settings.incomes.*') ? 'text-white' : 'text-muted' }}" style="font-size: 1rem; margin-right: 0;"></i>
+                        <span class="text-truncate">Allowances & Incomes</span>
                     </a>
 
                     {{-- 8. Attendance & Lates --}}
@@ -313,7 +314,12 @@
             </div>
         </div>
 
-        {{-- 4. Helpdesk Messages --}}
+        {{-- 4. System Reports --}}
+        <a class="nav-link {{ request()->routeIs('hr.reports.*') ? 'active bg-warning text-dark fw-bold' : 'text-muted' }} d-flex align-items-center gap-3 px-3 py-2 mb-1 rounded" href="{{ route('hr.reports.index') }}">
+            <i class="bi bi-bar-chart-fill fs-5"></i> <span class="hide-on-mini">System Reports</span>
+        </a>
+
+        {{-- 5. Helpdesk Messages --}}
         @php
             $hrUnreadCount = \App\Models\HrMessage::where('sender_id', '!=', session('user_id'))
                                                 ->where('is_read', 0)
@@ -345,6 +351,16 @@
     /* Chevron rotation for collapsible sidebar menus */
     .nav-link[aria-expanded="true"] .submenu-arrow {
         transform: rotate(180deg) !important;
+    }
+    .sidebar .nav.flex-column > .nav-item,
+    .sidebar .collapse,
+    .sidebar .collapse > div {
+        min-width: 0;
+        max-width: 100%;
+    }
+    .sidebar-sub-link {
+        min-width: 0;
+        max-width: 100%;
     }
     .sidebar-sub-link:hover {
         background-color: rgba(26, 62, 111, 0.08) !important;

@@ -13,11 +13,11 @@
 
     <div class="row g-4">
         <div class="col-md-4" id="period-list">
-            <div class="card shadow-sm border-0 h-100">
+            <div class="card shadow-sm rounded-3 h-100">
                 <div class="card-header bg-white border-bottom d-flex align-items-center gap-2 py-3 px-4">
-                    <i class="bi bi-calendar3 text-muted"></i>
+                    <i class="bi bi-calendar3" style="color: #1A3E6F;"></i>
                     <span class="fw-semibold" style="color: #1A3E6F;">Payroll Periods</span>
-                    <span class="badge bg-light text-secondary border ms-auto">{{ $records->count() }} {{ Str::plural('period', $records->count()) }}</span>
+                    <span class="badge bg-accent ms-auto">{{ $records->count() }} {{ Str::plural('period', $records->count()) }}</span>
                 </div>
                 <div class="card-body p-0">
                     @if($records->isEmpty())
@@ -52,7 +52,7 @@
         </div>
 
         <div class="col-md-8" id="calendar-view">
-            <div class="card shadow-sm border-0 h-100">
+            <div class="card shadow-sm rounded-3 h-100">
                 <div class="card-header bg-white border-bottom py-3 px-4 d-flex align-items-center justify-content-between gap-2">
                     <div>
                         <span class="fw-semibold d-block" id="employeeCalendarTitle" style="color: #1A3E6F;">Attendance Calendar</span>
@@ -82,8 +82,9 @@
 
 <style>
     .attendance-period-item.active {
-        background-color: rgba(26, 62, 111, 0.08);
-        border-left: 3px solid #1A3E6F;
+        background-color: #fde047;
+        border-left: 3px solid #facc15;
+        color: #1e293b;
     }
     .attendance-calendar-weekdays,
     .attendance-calendar-grid {

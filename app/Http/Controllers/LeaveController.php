@@ -1094,11 +1094,9 @@ class LeaveController extends Controller
             return back()->with('error', 'Something went wrong while generating the PDF. Please try again.');
         }
 
-        $disposition = $request->boolean('inline') ? 'inline' : 'attachment';
-
         return response($content, 200, [
             'Content-Type' => 'application/pdf',
-            'Content-Disposition' => $disposition.'; filename="'.$fileName.'"',
+            'Content-Disposition' => 'inline; filename="'.$fileName.'"',
             'Content-Length' => strlen($content),
             'Cache-Control' => 'private, no-store, max-age=0',
         ]);

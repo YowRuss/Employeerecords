@@ -22,10 +22,10 @@
         $amount = (float) $value;
 
         if ($isBonusPayroll) {
-            return '₱' . number_format($amount, 2);
+            return number_format($amount, 2);
         }
 
-        return $amount > 0 ? '₱' . number_format($amount, 2) : '—';
+        return $amount > 0 ? number_format($amount, 2) : '—';
     };
 
     $records = $records ?? $payrollRecords ?? $payrollPeriod->payrollRecords ?? collect();
@@ -130,9 +130,9 @@
         <i class="bi bi-gift-fill fs-5 mt-1"></i>
         <div class="small">
             <strong class="d-block mb-1">{{ $payrollType->value }} sheet — statutory deductions do not apply.</strong>
-            Each employee receives one month of basic salary{{ $payrollType === \App\Enums\PayrollType::YearEndBonus ? ' plus the ₱5,000 cash gift' : '' }}.
-            GSIS, PhilHealth, Pag-IBIG, absences, lates, and loan amortization are all ₱0.00 and shown greyed out below.
-            Withholding tax applies only to the amount above the ₱90,000 TRAIN Law exemption.
+            Each employee receives one month of basic salary{{ $payrollType === \App\Enums\PayrollType::YearEndBonus ? ' plus the 5,000 cash gift' : '' }}.
+            GSIS, PhilHealth, Pag-IBIG, absences, lates, and loan amortization are all 0.00 and shown greyed out below.
+            Withholding tax applies only to the amount above the 90,000 TRAIN Law exemption.
         </div>
     </div>
     @endif
@@ -149,23 +149,43 @@
         <div class="col-6 col-lg-3">
             <div class="card shadow-sm rounded-3 bg-white p-3 h-100 border-start border-4 border-info">
                 <span class="text-muted small fw-bold text-uppercase">Total Gross Earned</span>
-                <h4 class="fw-bold mb-0 mt-1 text-info">₱{{ number_format($totalGross, 2) }}</h4>
+                <h4 class="fw-bold mb-0 mt-1 text-info">{{ number_format($totalGross, 2) }}</h4>
                 <span class="small text-muted">Gross payroll payout</span>
             </div>
         </div>
         <div class="col-6 col-lg-3">
             <div class="card shadow-sm rounded-3 bg-white p-3 h-100 border-start border-4 border-danger">
                 <span class="text-muted small fw-bold text-uppercase">Total Deductions</span>
-                <h4 class="fw-bold mb-0 mt-1 text-danger">₱{{ number_format($totalDeductions, 2) }}</h4>
+                <h4 class="fw-bold mb-0 mt-1 text-danger">{{ number_format($totalDeductions, 2) }}</h4>
                 <span class="small text-muted">Statutory & other cuts</span>
             </div>
         </div>
         <div class="col-6 col-lg-3">
             <div class="card shadow-sm rounded-3 bg-white p-3 h-100 border-start border-4 border-success">
                 <span class="text-muted small fw-bold text-uppercase">Total Net Amount</span>
-                <h4 class="fw-bold mb-0 mt-1 text-success">₱{{ number_format($totalNet, 2) }}</h4>
+                <h4 class="fw-bold mb-0 mt-1 text-success">{{ number_format($totalNet, 2) }}</h4>
                 <span class="small text-muted">Net disbursement</span>
             </div>
+        </div>
+    </div>
+
+    {{-- Deduction UI Profile Toggle --}}
+    <div class="card shadow-sm rounded-3 mb-3">
+        <div class="card-body d-flex flex-column flex-lg-row justify-content-between align-items-lg-center gap-3 bg-white">
+            <div>
+                <h6 class="mb-0 fw-bold text-header-blue">
+                    <i class="bi bi-layout-text-sidebar-reverse me-2"></i>Deduction UI Profile
+                </h6>
+                <small class="text-muted">Select which deduction layout to display in the "Manage Deductions & Loans" modal.</small>
+            </div>
+            <form action="{{ route('hr.payroll.toggle_deduction_version') }}" method="POST" class="d-flex align-items-center gap-2 mb-0">
+                @csrf
+                <select name="deduction_version" class="form-select form-select-sm fw-bold shadow-sm" style="min-width: 250px; border-color: #facc15; background-color: #fde047; color: #1e293b;" onchange="this.form.submit()">
+                    <option value="v1" {{ session('deduction_version', 'v1') == 'v1' ? 'selected' : '' }}>Option 1: Dynamic (Database)</option>
+                    <option value="v2" {{ session('deduction_version') == 'v2' ? 'selected' : '' }}>Option 2: Hardcoded (Legacy)</option>
+                    {{-- Future options can easily be added here --}}
+                </select>
+            </form>
         </div>
     </div>
 
@@ -338,7 +358,7 @@
                                 @endif
                             </td>
                             <td class="text-end text-muted font-monospace">
-                                ₱{{ number_format((float)$record->basic_rate, 2) }}
+                                {{ number_format((float)$record->basic_rate, 2) }}
                             </td>
                             @if($record->is_full_lwop)
                             {{-- Full Month LWOP: span across all financial columns --}}
@@ -352,7 +372,7 @@
                             </td>
                             @else
                             <td class="text-end fw-semibold font-monospace" style="color: #1A3E6F;">
-                                ₱{{ number_format((float)$record->gross_earned, 2) }}
+                                {{ number_format((float)$record->gross_earned, 2) }}
                             </td>
                             <td class="text-end font-monospace {{ $deductionClass }}">
                                 {{ $formatDeduction($record->absences_amount) }}
@@ -361,7 +381,7 @@
                                 {{ $formatDeduction($record->late_deduction) }}
                             </td>
                             <td class="text-end text-danger font-monospace">
-                                {{ (float)$record->tax_withheld > 0 ? '₱' . number_format((float)$record->tax_withheld, 2) : '—' }}
+                                {{ (float)$record->tax_withheld > 0 ? number_format((float)$record->tax_withheld, 2) : '—' }}
                             </td>
                             <td class="text-end font-monospace {{ $deductionClass }}">
                                 {{ $formatDeduction($record->gsis_premium) }}
@@ -376,15 +396,15 @@
                                 {{ $formatDeduction($record->loan_amortization) }}
                             </td>
                             <td class="text-end text-danger fw-bold font-monospace bg-light bg-opacity-50">
-                                <div>₱{{ number_format((float)$record->total_deductions, 2) }}</div>
+                                <div>{{ number_format((float)$record->total_deductions, 2) }}</div>
                                 @if($loansSum > 0)
                                     <div class="text-muted fw-normal" style="font-size: 0.68rem;">
-                                        incl. ₱{{ number_format($loansSum, 2) }} loans
+                                        incl. {{ number_format($loansSum, 2) }} loans
                                     </div>
                                 @endif
                             </td>
                             <td class="pe-3 text-end fw-bold font-monospace" style="font-size: 0.95rem;">
-                                ₱{{ number_format((float)$record->net_amount, 2) }}
+                                {{ number_format((float)$record->net_amount, 2) }}
                             </td>
                             <td class="text-center py-2 pe-3">
                                 <button type="button" 
@@ -419,34 +439,34 @@
                             </td>
                             <td class="text-end font-monospace text-muted py-3">—</td>
                             <td class="text-end font-monospace py-3 text-header-blue">
-                                ₱{{ number_format($totalGross, 2) }}
+                                {{ number_format($totalGross, 2) }}
                             </td>
                             <td class="text-end font-monospace py-3 {{ $deductionClass }}">
-                                ₱{{ number_format($totalAbsences, 2) }}
+                                {{ number_format($totalAbsences, 2) }}
                             </td>
                             <td class="text-end font-monospace py-3 {{ $deductionClass }}">
-                                ₱{{ number_format($totalLates, 2) }}
+                                {{ number_format($totalLates, 2) }}
                             </td>
                             <td class="text-end font-monospace text-danger py-3">
-                                ₱{{ number_format($totalTax, 2) }}
+                                {{ number_format($totalTax, 2) }}
                             </td>
                             <td class="text-end font-monospace py-3 {{ $deductionClass }}">
-                                ₱{{ number_format($totalGsis, 2) }}
+                                {{ number_format($totalGsis, 2) }}
                             </td>
                             <td class="text-end font-monospace py-3 {{ $deductionClass }}">
-                                ₱{{ number_format($totalPhilhealth, 2) }}
+                                {{ number_format($totalPhilhealth, 2) }}
                             </td>
                             <td class="text-end font-monospace py-3 {{ $deductionClass }}">
-                                ₱{{ number_format($totalPagibig, 2) }}
+                                {{ number_format($totalPagibig, 2) }}
                             </td>
                             <td class="text-end font-monospace py-3 {{ $deductionClass }}">
-                                ₱{{ number_format($totalLoans, 2) }}
+                                {{ number_format($totalLoans, 2) }}
                             </td>
                             <td class="text-end font-monospace text-danger py-3">
-                                ₱{{ number_format($totalDeductions, 2) }}
+                                {{ number_format($totalDeductions, 2) }}
                             </td>
                             <td class="pe-3 text-end font-monospace py-3 fw-bold" style="font-size: 1rem;">
-                                ₱{{ number_format($totalNet, 2) }}
+                                {{ number_format($totalNet, 2) }}
                             </td>
                             <td class="text-center font-monospace text-muted py-3 pe-3">—</td>
                         </tr>
@@ -525,7 +545,15 @@
                                 </div>
                             </div>
                         </div>
-                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                        <div class="d-flex align-items-center gap-2">
+                            <button type="button" class="btn btn-sm btn-outline-secondary copyDataBtn" title="Copy deduction values">
+                                <i class="bi bi-clipboard"></i> Copy
+                            </button>
+                            <button type="button" class="btn btn-sm btn-outline-primary pasteDataBtn" title="Paste deduction values">
+                                <i class="bi bi-clipboard-check"></i> Paste
+                            </button>
+                            <button type="button" class="btn-close ms-2" data-bs-dismiss="modal" aria-label="Close"></button>
+                        </div>
                     </div>
 
                     <div class="modal-body p-4">
@@ -533,61 +561,172 @@
                         <div class="row g-2 mb-4 p-3 rounded-3 bg-light border">
                             <div class="col-sm-3 col-6 text-center border-end">
                                 <span class="text-muted small text-uppercase" style="font-size: 0.7rem;">Basic Salary</span>
-                                <div class="fw-bold font-monospace text-secondary">₱{{ number_format((float)$record->basic_rate, 2) }}</div>
+                                <div class="fw-bold font-monospace text-secondary">{{ number_format((float)$record->basic_rate, 2) }}</div>
                             </div>
                             <div class="col-sm-3 col-6 text-center border-end">
                                 <span class="text-muted small text-uppercase" style="font-size: 0.7rem;">Gross Earned</span>
-                                <div class="fw-bold font-monospace" style="color: #1A3E6F;">₱{{ number_format((float)$record->gross_earned, 2) }}</div>
+                                <div class="fw-bold font-monospace" style="color: #1A3E6F;">{{ number_format((float)$record->gross_earned, 2) }}</div>
                             </div>
                             <div class="col-sm-3 col-6 text-center border-end">
                                 <span class="text-muted small text-uppercase" style="font-size: 0.7rem;">Mandatory Cuts</span>
-                                <div class="fw-bold font-monospace text-danger">₱{{ number_format((float)($record->gsis_premium + $record->philhealth_premium + $record->pagibig_premium + $record->absences_amount + $record->tax_withheld), 2) }}</div>
+                                <div class="fw-bold font-monospace text-danger">{{ number_format((float)($record->gsis_premium + $record->philhealth_premium + $record->pagibig_premium + $record->absences_amount + $record->tax_withheld), 2) }}</div>
                             </div>
                             <div class="col-sm-3 col-6 text-center">
                                 <span class="text-muted small text-uppercase" style="font-size: 0.7rem;">Current Net Pay</span>
-                                <div class="fw-bold font-monospace text-success">₱{{ number_format((float)$record->net_amount, 2) }}</div>
+                                <div class="fw-bold font-monospace text-success">{{ number_format((float)$record->net_amount, 2) }}</div>
                             </div>
                         </div>
 
-                        {{-- ====== DEDUCTIONS SECTION ====== --}}
-                        <div class="alert alert-info py-2 px-3 small d-flex align-items-center mb-3">
-                            <i class="bi bi-info-circle-fill me-2 flex-shrink-0 fs-6"></i>
-                            <div>
-                                Enter monthly loan deduction amounts below. Blank or empty inputs will automatically be converted to <strong>₱0.00</strong>. Totals and net pay will be recalculated immediately upon saving.
-                            </div>
-                        </div>
+                        {{-- ====== DEDUCTIONS SECTION (Versioned Layout) ====== --}}
+                        @switch($layoutVersion)
+                            @case('v2')
+                                {{-- OPTION 2: HARDCODED LEGACY LAYOUT --}}
+                                <div class="alert alert-warning py-2 px-3 small d-flex align-items-center mb-3">
+                                    <i class="bi bi-exclamation-triangle-fill me-2 flex-shrink-0 fs-6"></i>
+                                    <div>
+                                        <strong>Legacy Layout (V2):</strong> This layout uses hardcoded deduction fields. Changes to deduction categories in settings will not be reflected here.
+                                    </div>
+                                </div>
 
-                        {{-- Dynamic Loan Input Fields (from deduction_categories/types) --}}
-                        @foreach($categories as $category)
-                            <h6 class="fw-bold mt-4 mb-3" style="color: #1A3E6F; border-bottom: 2px solid #e2e8f0; padding-bottom: 5px;">
-                                <i class="bi bi-folder2 me-2"></i>{{ $category->name }}
-                            </h6>
-                            <div class="row g-3">
-                                @foreach($category->types as $type)
+                                {{-- GSIS Loans --}}
+                                <h6 class="fw-bold mt-3 mb-3" style="color: #1A3E6F; border-bottom: 2px solid #e2e8f0; padding-bottom: 5px;">
+                                    <i class="bi bi-building me-2"></i>GSIS Loans
+                                </h6>
+                                <div class="row g-3">
                                     @php
-                                        $val = isset($deductions[$type->code]) && (float)$deductions[$type->code] > 0
-                                            ? number_format((float)$deductions[$type->code], 2, '.', '')
-                                            : '';
+                                        $gsisFields = [
+                                            'gsis_conso'     => 'GSIS Consolidated Loan',
+                                            'gsis_policy'    => 'GSIS Policy Loan',
+                                            'gsis_ouli'      => 'GSIS Optional / OULI',
+                                            'gsis_eml'       => 'GSIS Emergency Loan',
+                                            'gsis_uoli'      => 'GSIS UOLI',
+                                            'gsis_edu'       => 'GSIS Education Loan',
+                                            'gsis_enhanced'  => 'GSIS Enhanced Loan',
+                                            'gsis_rlip'      => 'GSIS RLIP',
+                                        ];
                                     @endphp
-                                    <div class="col-md-4 col-sm-6">
-                                        <label for="{{ $type->code }}_{{ $record->id }}" class="form-label small fw-semibold text-secondary mb-1 text-truncate w-100" title="{{ $type->name }}">
-                                            {{ $type->name }}
-                                        </label>
-                                        <div class="input-group input-group-sm">
-                                            <span class="input-group-text bg-light text-muted border-end-0">₱</span>
-                                            <input type="number"
-                                                   step="0.01"
-                                                   min="0"
-                                                   class="form-control font-monospace border-start-0 ps-1"
-                                                   id="{{ $type->code }}_{{ $record->id }}"
-                                                   name="other_deductions[{{ $type->code }}]"
-                                                   value="{{ $val }}"
-                                                   placeholder="0.00">
+                                    @foreach($gsisFields as $fieldKey => $fieldLabel)
+                                        <div class="col-md-4 col-sm-6">
+                                            <label for="{{ $fieldKey }}_{{ $record->id }}" class="form-label small fw-semibold text-secondary mb-1 dynamic-label">{{ $fieldLabel }}</label>
+                                            <div class="input-group input-group-sm">
+                                                                                                <input type="number" step="0.01" min="0"
+                                                       class="form-control font-monospace dynamic-input"
+                                                       id="{{ $fieldKey }}_{{ $record->id }}"
+                                                       name="other_deductions[{{ $fieldKey }}]"
+                                                       value="{{ isset($deductions[$fieldKey]) && (float)$deductions[$fieldKey] > 0 ? number_format((float)$deductions[$fieldKey], 2, '.', '') : '' }}"
+                                                       placeholder="0.00">
+                                            </div>
                                         </div>
+                                    @endforeach
+                                </div>
+
+                                {{-- Pag-IBIG Loans --}}
+                                <h6 class="fw-bold mt-4 mb-3" style="color: #1A3E6F; border-bottom: 2px solid #e2e8f0; padding-bottom: 5px;">
+                                    <i class="bi bi-house-door me-2"></i>Pag-IBIG (HDMF) Loans
+                                </h6>
+                                <div class="row g-3">
+                                    @php
+                                        $pagibigFields = [
+                                            'pagibig_mpl'      => 'Pag-IBIG Multi-Purpose Loan',
+                                            'pagibig_calamity' => 'Pag-IBIG Calamity Loan',
+                                            'pagibig_mp2'      => 'Pag-IBIG MP2 Savings',
+                                            'pagibig_housing'  => 'Pag-IBIG Housing Loan',
+                                        ];
+                                    @endphp
+                                    @foreach($pagibigFields as $fieldKey => $fieldLabel)
+                                        <div class="col-md-4 col-sm-6">
+                                            <label for="{{ $fieldKey }}_{{ $record->id }}" class="form-label small fw-semibold text-secondary mb-1 dynamic-label">{{ $fieldLabel }}</label>
+                                            <div class="input-group input-group-sm">
+                                                                                                <input type="number" step="0.01" min="0"
+                                                       class="form-control font-monospace dynamic-input"
+                                                       id="{{ $fieldKey }}_{{ $record->id }}"
+                                                       name="other_deductions[{{ $fieldKey }}]"
+                                                       value="{{ isset($deductions[$fieldKey]) && (float)$deductions[$fieldKey] > 0 ? number_format((float)$deductions[$fieldKey], 2, '.', '') : '' }}"
+                                                       placeholder="0.00">
+                                            </div>
+                                        </div>
+                                    @endforeach
+                                </div>
+
+                                {{-- Other / Institutional Loans --}}
+                                <h6 class="fw-bold mt-4 mb-3" style="color: #1A3E6F; border-bottom: 2px solid #e2e8f0; padding-bottom: 5px;">
+                                    <i class="bi bi-bank me-2"></i>Other / Institutional Loans
+                                </h6>
+                                <div class="row g-3">
+                                    @php
+                                        $otherFields = [
+                                            'landbank_salary'  => 'LandBank Salary Loan',
+                                            'philhealth_loan'  => 'PhilHealth Loan',
+                                            'coop_loan'        => 'Multi-Purpose Coop Loan',
+                                            'salary_loan_other'=> 'Other Salary Loan',
+                                        ];
+                                    @endphp
+                                    @foreach($otherFields as $fieldKey => $fieldLabel)
+                                        <div class="col-md-4 col-sm-6">
+                                            <label for="{{ $fieldKey }}_{{ $record->id }}" class="form-label small fw-semibold text-secondary mb-1 dynamic-label">{{ $fieldLabel }}</label>
+                                            <div class="input-group input-group-sm">
+                                                                                                <input type="number" step="0.01" min="0"
+                                                       class="form-control font-monospace dynamic-input"
+                                                       id="{{ $fieldKey }}_{{ $record->id }}"
+                                                       name="other_deductions[{{ $fieldKey }}]"
+                                                       value="{{ isset($deductions[$fieldKey]) && (float)$deductions[$fieldKey] > 0 ? number_format((float)$deductions[$fieldKey], 2, '.', '') : '' }}"
+                                                       placeholder="0.00">
+                                            </div>
+                                        </div>
+                                    @endforeach
+                                </div>
+                                @break
+
+                            @case('v3')
+                                {{-- OPTION 3: Placeholder for future layout --}}
+                                <div class="alert alert-info d-flex align-items-center mb-0">
+                                    <i class="bi bi-gear-wide-connected me-2 fs-5"></i>
+                                    <div>
+                                        <strong>Layout V3</strong> is under development. Switch back to Option 1 or Option 2 for now.
+                                    </div>
+                                </div>
+                                @break
+
+                            @default
+                                {{-- OPTION 1 (DEFAULT): DYNAMIC DATABASE LAYOUT --}}
+                                <div class="alert alert-info py-2 px-3 small d-flex align-items-center mb-3">
+                                    <i class="bi bi-info-circle-fill me-2 flex-shrink-0 fs-6"></i>
+                                    <div>
+                                        Enter monthly loan deduction amounts below. Blank or empty inputs will automatically be converted to <strong>0.00</strong>. Totals and net pay will be recalculated immediately upon saving.
+                                    </div>
+                                </div>
+
+                                {{-- Dynamic Loan Input Fields (from deduction_categories/types) --}}
+                                @foreach($categories as $category)
+                                    <h6 class="fw-bold mt-4 mb-3" style="color: #1A3E6F; border-bottom: 2px solid #e2e8f0; padding-bottom: 5px;">
+                                        <i class="bi bi-folder2 me-2"></i>{{ $category->name }}
+                                    </h6>
+                                    <div class="row g-3">
+                                        @foreach($category->types as $type)
+                                            @php
+                                                $val = isset($deductions[$type->code]) && (float)$deductions[$type->code] > 0
+                                                    ? number_format((float)$deductions[$type->code], 2, '.', '')
+                                                    : '';
+                                            @endphp
+                                            <div class="col-md-4 col-sm-6">
+                                                <label for="{{ $type->code }}_{{ $record->id }}" class="form-label small fw-semibold text-secondary mb-1 text-truncate w-100 dynamic-label" title="{{ $type->name }}">
+                                                    {{ $type->name }}
+                                                </label>
+                                                <div class="input-group input-group-sm">
+                                                                                                        <input type="number"
+                                                           step="0.01"
+                                                           min="0"
+                                                           class="form-control font-monospace dynamic-input"
+                                                           id="{{ $type->code }}_{{ $record->id }}"
+                                                           name="other_deductions[{{ $type->code }}]"
+                                                           value="{{ $val }}"
+                                                           placeholder="0.00">
+                                                </div>
+                                            </div>
+                                        @endforeach
                                     </div>
                                 @endforeach
-                            </div>
-                        @endforeach
+                        @endswitch
                     </div>
 
                     <div class="modal-footer bg-light py-2 px-4 border-top flex-shrink-0">
@@ -722,13 +861,13 @@
                                     <tr class="border-bottom">
                                         <td class="text-muted py-2 ps-3">Current Rate</td>
                                         <td class="fw-bold text-end pe-3 py-2 font-monospace" style="color: #1A3E6F;">
-                                            ₱{{ number_format($currentRate, 2) }}
+                                            {{ number_format($currentRate, 2) }}
                                         </td>
                                     </tr>
                                     <tr class="border-bottom">
                                         <td class="text-muted py-2 ps-3">Next Step Rate (Step {{ $currentStep + 1 }})</td>
                                         <td class="fw-bold text-end pe-3 py-2 font-monospace {{ $nextStepRate ? 'text-success' : 'text-muted' }}">
-                                            {{ $nextStepRate ? '₱' . number_format($nextStepRate, 2) : ($isAtMaxStep ? 'At Maximum' : 'N/A') }}
+                                            {{ $nextStepRate ? number_format($nextStepRate, 2) : ($isAtMaxStep ? 'At Maximum' : 'N/A') }}
                                         </td>
                                     </tr>
                                     <tr class="border-bottom">
@@ -789,9 +928,9 @@
                                 </form>
                                 <div class="mt-2 small text-muted">
                                     <i class="bi bi-info-circle me-1"></i>
-                                    This will advance from <strong>Step {{ $currentStep }}</strong> (₱{{ number_format($currentRate, 2) }}) to <strong>Step {{ $currentStep + 1 }}</strong>
+                                    This will advance from <strong>Step {{ $currentStep }}</strong> ({{ number_format($currentRate, 2) }}) to <strong>Step {{ $currentStep + 1 }}</strong>
                                     @if($nextStepRate)
-                                        (₱{{ number_format($nextStepRate, 2) }})
+                                        ({{ number_format($nextStepRate, 2) }})
                                     @endif
                                     and will be reflected in future payroll calculations.
                                 </div>
@@ -842,10 +981,10 @@
                                                     </span>
                                                 </td>
                                                 <td class="text-end py-2 font-monospace text-muted">
-                                                    ₱{{ number_format((float)$log->old_rate, 2) }}
+                                                    {{ number_format((float)$log->old_rate, 2) }}
                                                 </td>
                                                 <td class="text-end py-2 font-monospace fw-semibold text-success">
-                                                    ₱{{ number_format((float)$log->new_rate, 2) }}
+                                                    {{ number_format((float)$log->new_rate, 2) }}
                                                 </td>
                                                 <td class="pe-3 py-2 text-muted">
                                                     @if($log->approver)
@@ -875,4 +1014,115 @@
     @endforeach
 
 </div>
+@endsection
+
+@section('scripts')
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    /**
+     * Universal Dynamic Copy/Paste for Deductions.
+     *
+     * Matches data by the visible label text (.dynamic-label) rather than
+     * input name attributes, making it work across v1 (database) and v2
+     * (hardcoded) layouts without any changes.
+     */
+
+    // Scope copy/paste to the currently visible (open) modal
+    function getActiveModal() {
+        return document.querySelector('.modal.show');
+    }
+
+    // --- COPY ---
+    document.addEventListener('click', function (e) {
+        const btn = e.target.closest('.copyDataBtn');
+        if (!btn) return;
+
+        const modal = btn.closest('.modal') || getActiveModal();
+        if (!modal) return;
+
+        let data = {};
+        modal.querySelectorAll('.dynamic-input').forEach(function (input) {
+            const labelEl = input.closest('.input-group')?.previousElementSibling
+                         || input.closest('div')?.previousElementSibling;
+
+            if (labelEl && labelEl.classList.contains('dynamic-label') && input.value) {
+                const labelText = labelEl.innerText.trim();
+                data[labelText] = input.value;
+            }
+        });
+
+        if (Object.keys(data).length === 0) {
+            btn.innerHTML = '<i class="bi bi-x-circle"></i> Nothing to copy';
+            setTimeout(function () { btn.innerHTML = '<i class="bi bi-clipboard"></i> Copy'; }, 2000);
+            return;
+        }
+
+        navigator.clipboard.writeText(JSON.stringify(data)).then(function () {
+            btn.innerHTML = '<i class="bi bi-check2"></i> Copied!';
+            btn.classList.remove('btn-outline-secondary');
+            btn.classList.add('btn-success');
+            setTimeout(function () {
+                btn.innerHTML = '<i class="bi bi-clipboard"></i> Copy';
+                btn.classList.remove('btn-success');
+                btn.classList.add('btn-outline-secondary');
+            }, 2000);
+        });
+    });
+
+    // --- PASTE ---
+    document.addEventListener('click', function (e) {
+        const btn = e.target.closest('.pasteDataBtn');
+        if (!btn) return;
+
+        const modal = btn.closest('.modal') || getActiveModal();
+        if (!modal) return;
+
+        navigator.clipboard.readText().then(function (text) {
+            let data;
+            try {
+                data = JSON.parse(text);
+            } catch (_) {
+                alert('Clipboard does not contain valid deduction data.');
+                return;
+            }
+
+            const allLabels = Array.from(modal.querySelectorAll('.dynamic-label'));
+            let matched = 0;
+
+            for (const key in data) {
+                const matchedLabel = allLabels.find(function (l) {
+                    return l.innerText.trim() === key;
+                });
+
+                if (matchedLabel) {
+                    const input = matchedLabel.nextElementSibling
+                        ? matchedLabel.nextElementSibling.querySelector('.dynamic-input')
+                        : null;
+
+                    if (input) {
+                        input.value = data[key];
+                        matched++;
+                    }
+                }
+            }
+
+            if (matched > 0) {
+                btn.innerHTML = '<i class="bi bi-check2"></i> Pasted ' + matched + '!';
+                btn.classList.remove('btn-outline-primary');
+                btn.classList.add('btn-success');
+            } else {
+                btn.innerHTML = '<i class="bi bi-x-circle"></i> No matches';
+            }
+
+            setTimeout(function () {
+                btn.innerHTML = '<i class="bi bi-clipboard-check"></i> Paste';
+                btn.classList.remove('btn-success');
+                btn.classList.add('btn-outline-primary');
+            }, 2000);
+        }).catch(function () {
+            alert('Unable to read clipboard. Please allow clipboard access.');
+        });
+    });
+});
+</script>
 @endsection

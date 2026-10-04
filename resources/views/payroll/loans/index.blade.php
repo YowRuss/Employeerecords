@@ -97,14 +97,14 @@
         <div class="col-6 col-lg-3">
             <div class="card shadow-sm border-0 rounded-3 bg-white p-3 h-100 border-start border-4 border-warning">
                 <span class="text-muted small fw-bold text-uppercase">Total Principal</span>
-                <h4 class="fw-bold mb-0 mt-1 text-warning">₱{{ number_format($totalPrincipal, 2) }}</h4>
+                <h4 class="fw-bold mb-0 mt-1 text-warning">{{ number_format($totalPrincipal, 2) }}</h4>
                 <span class="small text-muted">Active loan total</span>
             </div>
         </div>
         <div class="col-6 col-lg-3">
             <div class="card shadow-sm border-0 rounded-3 bg-white p-3 h-100 border-start border-4 border-info">
                 <span class="text-muted small fw-bold text-uppercase">Monthly Withholding</span>
-                <h4 class="fw-bold mb-0 mt-1 text-info">₱{{ number_format($totalMonthlyAmortization, 2) }}</h4>
+                <h4 class="fw-bold mb-0 mt-1 text-info">{{ number_format($totalMonthlyAmortization, 2) }}</h4>
                 <span class="small text-muted">Total deducted per month</span>
             </div>
         </div>
@@ -278,14 +278,14 @@
 
                                 {{-- Financials --}}
                                 <td class="py-3">
-                                    <div class="fw-semibold font-monospace text-dark">₱{{ number_format((float) $loan->principal_amount, 2) }}</div>
-                                    <small class="text-muted font-monospace text-nowrap">₱{{ number_format((float) $loan->monthly_amortization, 2) }} / mo</small>
+                                    <div class="fw-semibold font-monospace text-dark">{{ number_format((float) $loan->principal_amount, 2) }}</div>
+                                    <small class="text-muted font-monospace text-nowrap">{{ number_format((float) $loan->monthly_amortization, 2) }} / mo</small>
                                 </td>
 
                                 {{-- Running Balance --}}
                                 <td class="py-3">
                                     <div class="fw-bold font-monospace" style="color: #1A3E6F;">
-                                        ₱{{ number_format((float) $loan->running_balance, 2) }}
+                                        {{ number_format((float) $loan->running_balance, 2) }}
                                     </div>
                                     @if($remainingMonths)
                                         <small class="text-muted">{{ $remainingMonths }} {{ Str::plural('month', $remainingMonths) }} left</small>
@@ -391,8 +391,7 @@
                                 Principal Amount <span class="text-danger">*</span>
                             </label>
                             <div class="input-group">
-                                <span class="input-group-text bg-light text-muted">₱</span>
-                                <input type="number" step="0.01" min="0.01" name="principal_amount" id="add_principal_amount"
+                                                                <input type="number" step="0.01" min="0.01" name="principal_amount" id="add_principal_amount"
                                        class="form-control font-monospace" value="{{ old('principal_amount') }}" placeholder="0.00"
                                        data-loan-principal required>
                             </div>
@@ -415,8 +414,7 @@
                             Monthly Amortization <span class="text-danger">*</span>
                         </label>
                         <div class="input-group">
-                            <span class="input-group-text bg-light text-muted">₱</span>
-                            <input type="number" step="0.01" min="0.01" name="monthly_amortization" id="add_monthly_amortization"
+                                                        <input type="number" step="0.01" min="0.01" name="monthly_amortization" id="add_monthly_amortization"
                                    class="form-control font-monospace" value="{{ old('monthly_amortization') }}" placeholder="0.00"
                                    data-loan-amortization required>
                         </div>
@@ -505,8 +503,7 @@
                                 Principal Amount <span class="text-danger">*</span>
                             </label>
                             <div class="input-group">
-                                <span class="input-group-text bg-light text-muted">₱</span>
-                                <input type="number" step="0.01" min="0.01" name="principal_amount"
+                                                                <input type="number" step="0.01" min="0.01" name="principal_amount"
                                        class="form-control font-monospace" value="{{ (float) $loan->principal_amount }}"
                                        data-loan-principal required>
                             </div>
@@ -529,8 +526,7 @@
                             Monthly Amortization <span class="text-danger">*</span>
                         </label>
                         <div class="input-group">
-                            <span class="input-group-text bg-light text-muted">₱</span>
-                            <input type="number" step="0.01" min="0.01" name="monthly_amortization"
+                                                        <input type="number" step="0.01" min="0.01" name="monthly_amortization"
                                    class="form-control font-monospace" value="{{ (float) $loan->monthly_amortization }}"
                                    data-loan-amortization required>
                         </div>
@@ -542,8 +538,7 @@
                                 Running Balance <span class="text-danger">*</span>
                             </label>
                             <div class="input-group">
-                                <span class="input-group-text bg-light text-muted">₱</span>
-                                <input type="number" step="0.01" min="0" name="running_balance"
+                                                                <input type="number" step="0.01" min="0" name="running_balance"
                                        class="form-control font-monospace" value="{{ (float) $loan->running_balance }}" required>
                             </div>
                         </div>
@@ -561,7 +556,7 @@
                         <i class="bi bi-info-circle mt-1"></i>
                         <span data-loan-summary>
                             @if($loan->remaining_months)
-                                At ₱{{ number_format((float) $loan->monthly_amortization, 2) }} per month, this loan clears in
+                                At {{ number_format((float) $loan->monthly_amortization, 2) }} per month, this loan clears in
                                 <strong>{{ $loan->remaining_months }} {{ Str::plural('month', $loan->remaining_months) }}</strong>.
                             @else
                                 This loan has no outstanding balance remaining.
@@ -653,7 +648,7 @@
                 if (principal > 0 && terms > 0) {
                     const monthly = (principal / terms).toFixed(2);
                     amortizationInput.value = monthly;
-                    summaryText.innerHTML = `This loan will be automatically deducted at <strong>₱${peso.format(monthly)}</strong> per month for <strong>${terms} ${terms === 1 ? 'month' : 'months'}</strong>.`;
+                    summaryText.innerHTML = `This loan will be automatically deducted at <strong>${peso.format(monthly)}</strong> per month for <strong>${terms} ${terms === 1 ? 'month' : 'months'}</strong>.`;
                 } else {
                     if (clearsWhenIncomplete) {
                         amortizationInput.value = '';

@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\Announcement;
 use App\Models\Event;
 use App\Models\EventType;
 use App\Models\User;
@@ -88,4 +89,35 @@ test('the create event form blocks past dates and times and the server rejects t
     } finally {
         Carbon::setTestNow();
     }
+});
+
+test('assigning an event adviser publishes an announcement with a type', function () {
+    $hr = User::where('role_id', 2)->firstOrFail();
+    $adviser = User::where('role_id', 1)->firstOrFail();
+    $type = EventType::query()->first() ?? EventType::create([
+        'name' => 'Training',
+        'badge_color' => 'success',
+    ]);
+    $date = now()->timezone('Asia/Manila')->addDays(40)->toDateString();
+
+    $this->actingAs($hr)->withSession([
+        'user_id' => $hr->id,
+        'role_id' => 2,
+    ])->post(route('events.store'), [
+        'title' => 'ADVISER ANNOUNCEMENT TYPE',
+        'event_type_id' => $type->id,
+        'event_date' => $date,
+        'event_time' => '09:00',
+        'venue' => 'Conference Room',
+        'adviser_id' => $adviser->id,
+        'override_conflict' => 1,
+    ])->assertSessionHas('success');
+
+    $announcement = Announcement::with('announcementType')
+        ->where('title', 'Official Adviser Assignment: ADVISER ANNOUNCEMENT TYPE')
+        ->first();
+
+    expect($announcement)->not->toBeNull()
+        ->and($announcement->announcement_type_id)->not->toBeNull()
+        ->and($announcement->announcementType->name)->toBe('Assignment');
 });

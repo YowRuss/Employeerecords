@@ -9,6 +9,7 @@ use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Session;
 use Illuminate\Support\Str;
 
@@ -23,14 +24,76 @@ class DeductionController extends Controller
             return $redirect;
         }
 
+        $version = session('manage_version', 'v1');
+
         $categories = DeductionCategory::with(['types' => function ($query) {
             $query->orderBy('name');
         }])
+            ->where('profile_version', $version)
             ->orderBy('sort_order')
             ->orderBy('name')
             ->get();
 
-        return view('hr.settings.deductions.index', compact('categories'));
+        $availableProfiles = DeductionCategory::select('profile_version')->distinct()->pluck('profile_version')->toArray();
+
+        // Ensure at least 'v1' and 'v2' exist in the array to prevent empty states for new installs
+        if (!in_array('v1', $availableProfiles)) $availableProfiles[] = 'v1';
+        if (!in_array('v2', $availableProfiles)) $availableProfiles[] = 'v2';
+        sort($availableProfiles);
+
+        $categoriesCount = $categories->count();
+        $activeCategoriesCount = $categories->where('is_active', true)->count();
+        $typesCount = $categories->sum(fn ($c) => $c->types->count());
+        $excelMappingCount = $categories->sum(fn ($c) => $c->types->whereNotNull('excel_column')->count());
+
+        return view('hr.settings.deductions.index', compact(
+            'categories',
+            'categoriesCount',
+            'activeCategoriesCount',
+            'typesCount',
+            'excelMappingCount',
+            'version',
+            'availableProfiles'
+        ));
+    }
+
+    /**
+     * Toggle the manage profile version.
+     */
+    public function toggleManageProfile(Request $request)
+    {
+        if ($redirect = $this->authorizeHrAccess()) {
+            return $redirect;
+        }
+
+        $request->validate(['manage_version' => 'required|string|in:v1,v2']);
+
+        session(['manage_version' => $request->manage_version]);
+
+        return redirect()->route('hr.settings.deductions.index')
+            ->with('success', 'Profile switched to '.strtoupper($request->manage_version).'.');
+    }
+
+    /**
+     * Create a new custom profile version.
+     */
+    public function createProfile(Request $request)
+    {
+        if ($redirect = $this->authorizeHrAccess()) {
+            return $redirect;
+        }
+
+        $request->validate([
+            'new_profile_version' => 'required|alpha_dash|max:50'
+        ]);
+
+        $newProfile = strtolower($request->new_profile_version);
+
+        // Switch the session to this new profile
+        session(['manage_version' => $newProfile]);
+
+        return redirect()->route('hr.settings.deductions.index')
+            ->with('success', 'Switched to new empty profile: ' . strtoupper($newProfile) . '. You can now copy a previous schema or build from scratch.');
     }
 
     /**
@@ -45,6 +108,7 @@ class DeductionController extends Controller
         $validated = $request->validate([
             'name' => 'required|string|max:255|unique:deduction_categories,name',
             'sort_order' => 'nullable|integer|min:0',
+            'profile_version' => 'required|string|in:v1,v2',
         ]);
 
         $maxSort = DeductionCategory::max('sort_order') ?? 0;
@@ -54,6 +118,7 @@ class DeductionController extends Controller
             'slug' => Str::slug($validated['name']),
             'sort_order' => $validated['sort_order'] ?? $maxSort + 1,
             'is_active' => true,
+            'profile_version' => $validated['profile_version'],
         ]);
 
         return redirect()->route('hr.settings.deductions.index')
@@ -212,6 +277,62 @@ class DeductionController extends Controller
 
         return redirect()->route('hr.settings.deductions.index')
             ->with('success', 'Deduction type deleted successfully.');
+    }
+
+    /**
+     * Copy the entire schema from one profile version to another.
+     */
+    public function copySchema(Request $request)
+    {
+        if ($redirect = $this->authorizeHrAccess()) {
+            return $redirect;
+        }
+
+        $request->validate([
+            'source_version' => 'required|string',
+            'target_version' => 'required|string|different:source_version',
+        ]);
+
+        $sourceVersion = $request->source_version;
+        $targetVersion = $request->target_version;
+
+        // Fetch all source categories with their types
+        $sourceCategories = DeductionCategory::with('types')
+            ->where('profile_version', $sourceVersion)
+            ->get();
+
+        if ($sourceCategories->isEmpty()) {
+            return redirect()->back()->with('error', "No categories found in source profile ({$sourceVersion}) to copy.");
+        }
+
+        DB::transaction(function () use ($sourceCategories, $targetVersion) {
+            foreach ($sourceCategories as $sourceCategory) {
+                // 1. Replicate the category under the new profile_version
+                $newCategory = $sourceCategory->replicate();
+                $newCategory->profile_version = $targetVersion;
+                $newCategory->slug = $sourceCategory->slug . '-' . strtolower($targetVersion);
+                $newCategory->created_at = now();
+                $newCategory->updated_at = now();
+                $newCategory->save();
+
+                // 2. Replicate all child deduction types under the new category ID
+                foreach ($sourceCategory->types as $sourceType) {
+                    $newType = $sourceType->replicate();
+                    $newType->category_id = $newCategory->id;
+                    $newType->code = $sourceType->code . '_' . strtolower($targetVersion);
+                    
+                    if (in_array('slug', $newType->getFillable())) {
+                        $newType->slug = $sourceType->slug . '-' . strtolower($targetVersion);
+                    }
+                    
+                    $newType->created_at = now();
+                    $newType->updated_at = now();
+                    $newType->save();
+                }
+            }
+        });
+
+        return redirect()->back()->with('success', "Successfully copied all categories and deduction types from " . strtoupper($sourceVersion) . " to " . strtoupper($targetVersion) . ".");
     }
 
     /**

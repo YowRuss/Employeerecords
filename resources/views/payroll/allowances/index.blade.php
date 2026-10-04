@@ -54,7 +54,10 @@
             </h4>
             <p class="text-muted small mb-0">Assign PERA, bonuses, and statutory allowances to employees.</p>
         </div>
-        <div class="col-12 col-md-6 text-md-end">
+        <div class="col-12 col-md-6 text-md-end d-flex flex-wrap justify-content-md-end gap-2">
+            <a href="{{ route('hr.settings.incomes.index') }}" class="btn btn-outline-secondary fw-semibold shadow-sm px-3 py-2">
+                <i class="bi bi-wallet2 me-1"></i> Income Types
+            </a>
             <a href="{{ route('hr.payroll.index') }}" class="btn btn-outline-secondary fw-semibold shadow-sm px-3 py-2">
                 <i class="bi bi-arrow-left me-1"></i> Back to Payroll
             </a>
@@ -193,7 +196,7 @@
                                     <div class="d-flex flex-wrap gap-1">
                                         @foreach($employee->allowances as $allowance)
                                             <span class="badge" style="background-color: rgba(25, 135, 84, 0.1); color: #198754; border: 1px solid rgba(25, 135, 84, 0.2);">
-                                                {{ $allowance->allowance_name }} (₱{{ number_format($allowance->amount, 2) }})
+                                                {{ $allowance->allowance_name }} ({{ number_format($allowance->amount, 2) }})
                                             </span>
                                         @endforeach
                                     </div>
@@ -205,8 +208,35 @@
                                 </button>
                             </td>
                         </tr>
+                        @empty
+                        <tr>
+                            <td colspan="5" class="text-center py-5 text-muted">
+                                <i class="bi bi-inbox fs-1 d-block mb-2 opacity-50"></i>
+                                No active employees found.
+                            </td>
+                        </tr>
+                        @endforelse
+                    </tbody>
+                </table>
+            </div>
+            @if($employees->hasPages())
+                <div class="d-flex justify-content-between align-items-center px-4 py-3 border-top bg-light">
+                    <div class="text-muted small">
+                        Showing <strong>{{ $employees->firstItem() ?? 0 }}</strong> to <strong>{{ $employees->lastItem() ?? 0 }}</strong> of <strong>{{ $employees->total() }}</strong> employees
+                    </div>
+                    <div class="pagination-centered">
+                        {{ $employees->links('pagination::bootstrap-5') }}
+                    </div>
+                </div>
+            @endif
+        </div>
+    </div>
+</div>
 
-                        {{-- Manage Allowances Modal --}}
+@foreach($employees as $employee)
+@php
+    $employeeName = $employee->last_name ? $employee->last_name . ', ' . $employee->first_name : $employee->name;
+@endphp
                         <div class="modal fade" id="manageModal{{ $employee->id }}" tabindex="-1" aria-hidden="true">
                             <div class="modal-dialog modal-lg">
                                 <div class="modal-content border-0 shadow">
@@ -214,7 +244,15 @@
                                         <h5 class="modal-title fw-bold" style="color: #1A3E6F;">
                                             <i class="bi bi-wallet2 me-2"></i> Manage Allowances
                                         </h5>
-                                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                        <div class="d-flex align-items-center gap-2">
+                                            <button type="button" class="btn btn-sm btn-outline-dark copyDataBtn" title="Copy allowance values">
+                                                <i class="bi bi-clipboard"></i> Copy
+                                            </button>
+                                            <button type="button" class="btn btn-sm btn-outline-primary pasteDataBtn" title="Paste allowance values">
+                                                <i class="bi bi-clipboard-check"></i> Paste
+                                            </button>
+                                            <button type="button" class="btn-close ms-1" data-bs-dismiss="modal" aria-label="Close"></button>
+                                        </div>
                                     </div>
                                     <form action="{{ route('payroll.allowances.update', $employee->id) }}" method="POST">
                                         @csrf
@@ -244,10 +282,9 @@
                                                                 </select>
                                                             </div>
                                                             <div class="col-md-5 col-sm-5">
-                                                                <label class="form-label small fw-semibold text-secondary mb-1">Amount</label>
+                                                                <label class="form-label small fw-semibold text-secondary mb-1 dynamic-label">{{ $allowance->allowance_name }}</label>
                                                                 <div class="input-group input-group-sm">
-                                                                    <span class="input-group-text bg-light text-success border-end-0">₱</span>
-                                                                    <input type="number" step="0.01" min="0" name="income_amounts[]" class="form-control font-monospace border-start-0 ps-1" value="{{ $allowance->amount }}">
+                                                                                                                                        <input type="number" step="0.01" min="0" name="income_amounts[]" class="form-control font-monospace dynamic-input" value="{{ $allowance->amount }}">
                                                                 </div>
                                                             </div>
                                                             <div class="col-md-2 col-sm-2">
@@ -268,30 +305,7 @@
                                 </div>
                             </div>
                         </div>
-                        @empty
-                        <tr>
-                            <td colspan="5" class="text-center py-5 text-muted">
-                                <i class="bi bi-inbox fs-1 d-block mb-2 opacity-50"></i>
-                                No active employees found.
-                            </td>
-                        </tr>
-                        @endforelse
-                    </tbody>
-                </table>
-            </div>
-            @if($employees->hasPages())
-                <div class="d-flex justify-content-between align-items-center px-4 py-3 border-top bg-light">
-                    <div class="text-muted small">
-                        Showing <strong>{{ $employees->firstItem() ?? 0 }}</strong> to <strong>{{ $employees->lastItem() ?? 0 }}</strong> of <strong>{{ $employees->total() }}</strong> employees
-                    </div>
-                    <div class="pagination-centered">
-                        {{ $employees->links('pagination::bootstrap-5') }}
-                    </div>
-                </div>
-            @endif
-        </div>
-    </div>
-</div>
+@endforeach
 @endsection
 
 @section('scripts')
@@ -322,7 +336,7 @@ document.addEventListener('DOMContentLoaded', function () {
         return html;
     }
 
-    // Add Income Row
+    // Add Income Row — now includes dynamic-label and dynamic-input classes
     document.querySelectorAll('.add-income-btn').forEach(function (btn) {
         btn.addEventListener('click', function () {
             const recordId = this.getAttribute('data-record');
@@ -338,10 +352,9 @@ document.addEventListener('DOMContentLoaded', function () {
                     </select>
                 </div>
                 <div class="col-md-5 col-sm-5">
-                    <label class="form-label small fw-semibold text-secondary mb-1">Amount</label>
+                    <label class="form-label small fw-semibold text-secondary mb-1 dynamic-label">—</label>
                     <div class="input-group input-group-sm">
-                        <span class="input-group-text bg-light text-success border-end-0">₱</span>
-                        <input type="number" step="0.01" min="0" name="income_amounts[]" class="form-control font-monospace border-start-0 ps-1" placeholder="0.00">
+                                                <input type="number" step="0.01" min="0" name="income_amounts[]" class="form-control font-monospace dynamic-input" placeholder="0.00">
                     </div>
                 </div>
                 <div class="col-md-2 col-sm-2">
@@ -359,6 +372,7 @@ document.addEventListener('DOMContentLoaded', function () {
         const select = row.querySelector('.income-type-select');
         const amountInput = row.querySelector('input[name="income_amounts[]"]');
         const removeBtn = row.querySelector('.remove-income-row');
+        const dynamicLabel = row.querySelector('.dynamic-label');
 
         if (select && amountInput) {
             const fillDefaultAmount = function () {
@@ -372,10 +386,20 @@ document.addEventListener('DOMContentLoaded', function () {
                 if (!amountInput.value || parseFloat(amountInput.value) === 0) {
                     amountInput.value = defaultAmount > 0 ? defaultAmount.toFixed(2) : '';
                 }
+
+                // Keep the dynamic-label text in sync with the selected option
+                if (dynamicLabel) {
+                    dynamicLabel.innerText = selected.value ? selected.text.trim() : '\u2014';
+                }
             };
 
             select.addEventListener('change', fillDefaultAmount);
-            $(select).on('select2:select', fillDefaultAmount);
+            if (typeof $ !== 'undefined' && $.fn.select2) {
+                $(select).on('select2:select', fillDefaultAmount);
+                $(select).on('select2:clear', function () {
+                    if (dynamicLabel) dynamicLabel.innerText = '\u2014';
+                });
+            }
         }
 
         if (removeBtn) {
@@ -392,6 +416,111 @@ document.addEventListener('DOMContentLoaded', function () {
     // Bind existing rows
     document.querySelectorAll('.income-row').forEach(function (row) {
         bindIncomeRowEvents(row);
+    });
+
+    /**
+     * Universal Dynamic Copy/Paste for Allowances.
+     *
+     * Uses .dynamic-label (the allowance name shown next to the amount)
+     * as the key, making it version-agnostic.
+     */
+
+    function getActiveModal() {
+        return document.querySelector('.modal.show');
+    }
+
+    // --- COPY ---
+    document.addEventListener('click', function (e) {
+        const btn = e.target.closest('.copyDataBtn');
+        if (!btn) return;
+
+        const modal = btn.closest('.modal') || getActiveModal();
+        if (!modal) return;
+
+        let data = {};
+        modal.querySelectorAll('.dynamic-input').forEach(function (input) {
+            const labelEl = input.closest('.input-group')?.previousElementSibling
+                         || input.closest('div')?.previousElementSibling;
+
+            if (labelEl && labelEl.classList.contains('dynamic-label') && input.value) {
+                const labelText = labelEl.innerText.trim();
+                if (labelText && labelText !== '\u2014') {
+                    data[labelText] = input.value;
+                }
+            }
+        });
+
+        if (Object.keys(data).length === 0) {
+            btn.innerHTML = '<i class="bi bi-x-circle"></i> Nothing to copy';
+            setTimeout(function () { btn.innerHTML = '<i class="bi bi-clipboard"></i> Copy'; }, 2000);
+            return;
+        }
+
+        navigator.clipboard.writeText(JSON.stringify(data)).then(function () {
+            btn.innerHTML = '<i class="bi bi-check2"></i> Copied!';
+            btn.classList.add('btn-success');
+            btn.classList.remove('btn-outline-dark');
+            setTimeout(function () {
+                btn.innerHTML = '<i class="bi bi-clipboard"></i> Copy';
+                btn.classList.remove('btn-success');
+                btn.classList.add('btn-outline-dark');
+            }, 2000);
+        });
+    });
+
+    // --- PASTE ---
+    document.addEventListener('click', function (e) {
+        const btn = e.target.closest('.pasteDataBtn');
+        if (!btn) return;
+
+        const modal = btn.closest('.modal') || getActiveModal();
+        if (!modal) return;
+
+        navigator.clipboard.readText().then(function (text) {
+            let data;
+            try {
+                data = JSON.parse(text);
+            } catch (_) {
+                alert('Clipboard does not contain valid allowance data.');
+                return;
+            }
+
+            const allLabels = Array.from(modal.querySelectorAll('.dynamic-label'));
+            let matched = 0;
+
+            for (const key in data) {
+                const matchedLabel = allLabels.find(function (l) {
+                    return l.innerText.trim() === key;
+                });
+
+                if (matchedLabel) {
+                    const input = matchedLabel.nextElementSibling
+                        ? matchedLabel.nextElementSibling.querySelector('.dynamic-input')
+                        : null;
+
+                    if (input) {
+                        input.value = data[key];
+                        matched++;
+                    }
+                }
+            }
+
+            if (matched > 0) {
+                btn.innerHTML = '<i class="bi bi-check2"></i> Pasted ' + matched + '!';
+                btn.classList.remove('btn-outline-primary');
+                btn.classList.add('btn-success');
+            } else {
+                btn.innerHTML = '<i class="bi bi-x-circle"></i> No matches';
+            }
+
+            setTimeout(function () {
+                btn.innerHTML = '<i class="bi bi-clipboard-check"></i> Paste';
+                btn.classList.remove('btn-success');
+                btn.classList.add('btn-outline-primary');
+            }, 2000);
+        }).catch(function () {
+            alert('Unable to read clipboard. Please allow clipboard access.');
+        });
     });
 });
 </script>

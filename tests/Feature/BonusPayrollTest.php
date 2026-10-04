@@ -102,6 +102,66 @@ test('a regular run still applies statutory deductions', function () {
         ->and((float) $record->gsis_premium)->toBeGreaterThan(0)
         ->and((float) $record->philhealth_premium)->toBeGreaterThan(0)
         ->and((float) $record->pagibig_premium)->toBeGreaterThan(0);
+
+    $taxed = PayrollRecord::where('payroll_period_id', $period->id)
+        ->where('is_full_lwop', false)
+        ->where('basic_rate', '>', 30000)
+        ->first();
+
+    expect($taxed)->not->toBeNull()
+        ->and((float) $taxed->tax_withheld)->toBeGreaterThan(0);
+});
+
+test('train withholding tax follows the monthly compensation brackets', function () {
+    $service = new PayrollCalculationService;
+
+    $teacher = $service->calculateMandatoryDeductions(31705);
+
+    expect($teacher['gsis_premium'])->toBe(2853.45)
+        ->and($teacher['philhealth_premium'])->toBe(792.63)
+        ->and($teacher['pagibig_premium'])->toBe(200.0)
+        ->and($service->calculateWithholdingTax(31705, 2853.45, 792.63, 200))->toBe(1053.89)
+        ->and($service->calculateWithholdingTax(20000, 0, 0, 0))->toBe(0.0)
+        ->and($service->calculateMandatoryDeductions(5000)['philhealth_premium'])->toBe(250.0)
+        ->and($service->calculateMandatoryDeductions(150000)['philhealth_premium'])->toBe(2500.0);
+});
+
+test('opening a draft regular payroll fills a missing withholding tax', function () {
+    $employee = User::where('role_id', 1)->where('status', 'active')->first();
+    expect($employee)->not->toBeNull();
+
+    $period = PayrollPeriod::create([
+        'fund_cluster' => '01',
+        'period_month' => 4,
+        'period_year' => 2033,
+        'status' => 'DRAFT',
+    ]);
+
+    $record = PayrollRecord::create([
+        'payroll_period_id' => $period->id,
+        'user_id' => $employee->id,
+        'basic_rate' => 31705,
+        'earned_for_period' => 31705,
+        'gross_earned' => 31705,
+        'gsis_premium' => 2853.45,
+        'philhealth_premium' => 792.63,
+        'pagibig_premium' => 200,
+        'tax_withheld' => 0,
+        'total_deductions' => 3846.08,
+        'net_amount' => 27858.92,
+        'is_full_lwop' => false,
+    ]);
+
+    $this->withSession(payrollHrSession())
+        ->get(route('hr.payroll.show', $period->id))
+        ->assertSuccessful();
+
+    $record->refresh();
+
+    expect((float) $record->tax_withheld)->toBe(1053.89)
+        ->and((float) $record->gsis_premium)->toBe(2853.45)
+        ->and((float) $record->total_deductions)->toBe(4899.97)
+        ->and((float) $record->net_amount)->toBe(26805.03);
 });
 
 test('bonus tax exempts the first 90000 and taxes the excess at 20 percent', function () {

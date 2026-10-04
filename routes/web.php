@@ -143,6 +143,7 @@ Route::post('/my-pds/reference/update/{id}', [PdsController::class, 'updateRefer
 Route::post('/my-pds/update-page4-details', [PdsController::class, 'updatePage4Details'])->name('pds.update_page4_details');
 Route::post('/my-pds/delete-record/{table}/{id}', [PdsController::class, 'deleteRecord'])->name('pds.delete_record');
 Route::get('/my-pds/print', [PdsController::class, 'printPds'])->name('pds.print');
+Route::get('/pds/export/{id}', [PdsController::class, 'printPds'])->name('pds.export');
 Route::get('/pds/document/{id}/{column}', [PdsController::class, 'downloadDocument'])->name('pds.document');
 Route::post('/announcements/{id}/acknowledge', [AnnouncementController::class, 'acknowledge'])->name('announcements.acknowledge');
 
@@ -268,6 +269,9 @@ Route::post('/hr/settings/learning-areas/delete/{id}', [HrSettingsController::cl
 // HR Settings: Deduction Categories & Types
 Route::prefix('hr/settings/deductions')->name('hr.settings.deductions.')->group(function () {
     Route::get('/', [DeductionController::class, 'index'])->name('index');
+    Route::post('/copy-schema', [DeductionController::class, 'copySchema'])->name('copySchema');
+    Route::post('/toggle-manage-profile', [DeductionController::class, 'toggleManageProfile'])->name('toggleManageProfile');
+    Route::post('/create-profile', [DeductionController::class, 'createProfile'])->name('createProfile');
     Route::post('/category', [DeductionController::class, 'storeCategory'])->name('category.store');
     Route::post('/category/{id}/update', [DeductionController::class, 'updateCategory'])->name('category.update');
     Route::post('/category/{id}/delete', [DeductionController::class, 'destroyCategory'])->name('category.destroy');
@@ -309,6 +313,7 @@ Route::prefix('hr/payroll')->name('hr.payroll.')->group(function () {
     Route::get('/{id}/export', [PayrollController::class, 'exportExcel'])->name('export');
     Route::post('/step-increment/{user}', [StepIncrementController::class, 'processIncrement'])->name('step_increment.process');
     Route::get('/employees', [PayrollController::class, 'employees'])->name('employees');
+    Route::post('/toggle-deduction-version', [PayrollController::class, 'toggleDeductionVersion'])->name('toggle_deduction_version');
     Route::get('/{id}', [PayrollController::class, 'show'])->name('show');
 });
 

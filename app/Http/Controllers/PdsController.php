@@ -130,6 +130,25 @@ class PdsController extends Controller
         return Session::get('user_id');
     }
 
+    /**
+     * Employees export their own PDS. HR (2) and Admin (3) may export any employee.
+     */
+    private function exportablePdsUserId(mixed $requestedId): int
+    {
+        $sessionId = (int) $this->userId();
+        $requestedId = $requestedId === null || $requestedId === '' ? $sessionId : (int) $requestedId;
+
+        if ($requestedId === $sessionId) {
+            return $sessionId;
+        }
+
+        if (! in_array((int) Session::get('role_id'), [2, 3], true)) {
+            abort(403, 'Unauthorized to export this PDS.');
+        }
+
+        return $requestedId;
+    }
+
     /** mb_ variant: strtoupper() leaves ñ untouched, so PEÑA became PEñA. */
     private function upper($value): string
     {
@@ -1095,13 +1114,13 @@ class PdsController extends Controller
     // =========================================================
     // 8. AUTO-FILL AND PRINT EXCEL PDS
     // =========================================================
-    public function printPds()
+    public function printPds($id = null)
     {
         if ($redirect = $this->requireAuth()) {
             return $redirect;
         }
 
-        $user_id = $this->userId();
+        $user_id = $this->exportablePdsUserId($id);
 
         // FIX: loaded via the model so ->country resolves. The old code used
         // DB::table(), which returns a plain stdClass — $personal_info->country was

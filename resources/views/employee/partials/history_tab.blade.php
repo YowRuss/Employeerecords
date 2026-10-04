@@ -59,8 +59,8 @@
                                 <button type="submit" class="btn btn-sm btn-outline-danger p-1" title="Cancel Leave"><i class="bi bi-x-circle d-md-none"></i><span class="d-none d-md-inline"><i class="bi bi-x-circle me-1"></i>Cancel</span></button>
                             </form>
                             @elseif(in_array($leave->status, ['APPROVED', 'DISAPPROVED']))
-                            <a href="{{ route('leave.export_pdf', $leave->id) }}" class="btn btn-sm" style="background-color: #fff; color: #1A3E6F; border: 1px solid #1A3E6F;" title="Download PDF">
-                                <i class="bi bi-file-earmark-pdf"></i><span class="d-none d-md-inline ms-1">Download PDF</span>
+                            <a href="{{ route('leave.export_pdf', $leave->id) }}" target="_blank" rel="noopener" class="btn btn-sm" style="background-color: #fff; color: #1A3E6F; border: 1px solid #1A3E6F;" title="View PDF">
+                                <i class="bi bi-eye"></i><span class="d-none d-md-inline ms-1">View PDF</span>
                             </a>
                             @else
                             <span class="text-muted small"><i class="bi bi-lock-fill"></i> <span class="d-none d-md-inline">Locked</span></span>
@@ -132,8 +132,8 @@
                             </button>
                         </form>
                         @elseif(in_array($leave->status, ['APPROVED', 'DISAPPROVED']))
-                        <a href="{{ route('leave.export_pdf', $leave->id) }}" class="btn btn-sm" style="background-color: #fff; color: #1A3E6F; border: 1px solid #1A3E6F;" title="Download PDF">
-                            <i class="bi bi-file-earmark-pdf me-1"></i> Download PDF
+                        <a href="{{ route('leave.export_pdf', $leave->id) }}" target="_blank" rel="noopener" class="btn btn-sm" style="background-color: #fff; color: #1A3E6F; border: 1px solid #1A3E6F;" title="View PDF">
+                            <i class="bi bi-eye me-1"></i> View PDF
                         </a>
                         @else
                         <span class="text-muted small align-self-center"><i class="bi bi-lock-fill me-1"></i> Locked</span>

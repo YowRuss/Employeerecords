@@ -20,6 +20,39 @@ function pdsExportSession(User $employee): array
     ];
 }
 
+test('hr can download another employees official pds workbook', function () {
+    $info = PdsPersonalInfo::whereNotNull('last_name')->where('last_name', '!=', '')->first();
+
+    if (! $info) {
+        $this->markTestSkipped('No PDS personal info is available to export.');
+    }
+
+    $hr = User::where('role_id', 2)->firstOrFail();
+
+    $response = $this->withSession([
+        'user_id' => $hr->id,
+        'role_id' => 2,
+    ])->get(route('pds.export', $info->user_id))
+        ->assertSuccessful();
+
+    $path = tempnam(sys_get_temp_dir(), 'pds_hr_');
+    copy($response->getFile()->getPathname(), $path);
+
+    $sheet = IOFactory::load($path)->getSheetByName('C1');
+    expect(mb_strtoupper((string) $sheet->getCell('D10')->getValue()))->toBe(mb_strtoupper($info->last_name));
+
+    @unlink($path);
+});
+
+test('an employee cannot export another employees pds', function () {
+    $employee = User::where('role_id', 1)->firstOrFail();
+    $other = User::where('id', '!=', $employee->id)->firstOrFail();
+
+    $this->withSession(pdsExportSession($employee))
+        ->get(route('pds.export', $other->id))
+        ->assertForbidden();
+});
+
 test('pds excel export ticks sex civil status and keeps the country dropdown', function () {
     $info = PdsPersonalInfo::whereNotNull('last_name')->where('last_name', '!=', '')->first();
 

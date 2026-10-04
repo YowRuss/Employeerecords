@@ -11,9 +11,6 @@
             <p class="text-muted small mb-0">Manage payroll periods, generate records, and review master sheets.</p>
         </div>
         <div class="col-12 col-md-6 text-md-end d-flex flex-wrap justify-content-md-end gap-2">
-            <a href="{{ route('hr.settings.incomes.index') }}" class="btn btn-outline-secondary fw-semibold shadow-sm px-3 py-2">
-                <i class="bi bi-wallet2 me-1"></i> Income Types
-            </a>
             <a href="{{ route('hr.settings.deductions.index') }}" class="btn btn-outline-secondary fw-semibold shadow-sm px-3 py-2">
                 <i class="bi bi-sliders me-1"></i> Deduction Settings
             </a>
@@ -202,7 +199,7 @@
                             <i class="bi bi-info-circle me-1"></i>
                             Bonus runs pay one month of basic salary with <strong>no statutory deductions</strong>
                             (GSIS, PhilHealth, Pag-IBIG), no absences, lates, or loan amortization.
-                            Year-End Bonus adds the ₱5,000 cash gift, and tax applies only above ₱90,000.
+                            Year-End Bonus adds the 5,000 cash gift, and tax applies only above 90,000.
                         </div>
                     </div>
 

@@ -44,11 +44,12 @@ class AllowanceController extends Controller
 
         // Handle the Search Bar
         if ($request->filled('search')) {
-            $query->where(function ($q) use ($request) {
-                $q->where('name', 'LIKE', '%' . $request->search . '%')
-                  ->orWhere('last_name', 'LIKE', '%' . $request->search . '%')
-                  ->orWhere('first_name', 'LIKE', '%' . $request->search . '%')
-                  ->orWhere('username', 'LIKE', '%' . $request->search . '%');
+            $search = trim((string) $request->search);
+            $query->where(function ($q) use ($search) {
+                $q->where('first_name', 'like', "%{$search}%")
+                    ->orWhere('middle_name', 'like', "%{$search}%")
+                    ->orWhere('last_name', 'like', "%{$search}%")
+                    ->orWhere('username', 'like', "%{$search}%");
             });
         }
 
@@ -81,35 +82,58 @@ class AllowanceController extends Controller
             'income_amounts.*' => 'nullable|numeric|min:0',
         ]);
 
-        // Remove old allowances that aren't PERA (or handle carefully to allow a clean slate)
-        // Actually, just remove all and recreate them to match the repeater
-        UserAllowance::where('user_id', $user->id)->delete();
+        $keptIds = [];
+        $incomeTypes = $request->input('income_types', []);
+        $incomeAmounts = $request->input('income_amounts', []);
 
-        if ($request->has('income_types')) {
-            $incomeTypes = $request->input('income_types', []);
-            $incomeAmounts = $request->input('income_amounts', []);
+        foreach ($incomeTypes as $index => $typeId) {
+            if (empty($typeId)) {
+                continue;
+            }
 
-            foreach ($incomeTypes as $index => $typeId) {
-                if (empty($typeId)) {
-                    continue;
-                }
+            $incomeType = IncomeType::find($typeId);
+            if (! $incomeType) {
+                continue;
+            }
 
-                $incomeAmount = (float) ($incomeAmounts[$index] ?? 0);
-                if ($incomeAmount <= 0) {
-                    continue;
-                }
+            $incomeAmount = (float) ($incomeAmounts[$index] ?? 0);
+            if ($incomeAmount <= 0) {
+                $incomeAmount = (float) $incomeType->default_amount;
+            }
+            if ($incomeAmount <= 0) {
+                continue;
+            }
 
-                $incomeType = IncomeType::find($typeId);
+            $record = UserAllowance::query()
+                ->where('user_id', $user->id)
+                ->where(function ($query) use ($typeId, $incomeType) {
+                    $query->where('income_type_id', $typeId)
+                        ->orWhere('allowance_name', $incomeType->name);
+                })
+                ->first();
 
-                UserAllowance::create([
+            $attributes = [
+                'income_type_id' => $typeId,
+                'allowance_name' => $incomeType->name,
+                'amount' => round($incomeAmount, 2),
+                'is_active' => true,
+            ];
+
+            if ($record) {
+                $record->update($attributes);
+            } else {
+                $record = UserAllowance::create([
                     'user_id' => $user->id,
-                    'income_type_id' => $typeId,
-                    'allowance_name' => $incomeType ? $incomeType->name : 'Allowance',
-                    'amount' => round($incomeAmount, 2),
-                    'is_active' => true,
+                    ...$attributes,
                 ]);
             }
+
+            $keptIds[] = $record->id;
         }
+
+        UserAllowance::where('user_id', $user->id)
+            ->when($keptIds !== [], fn ($query) => $query->whereNotIn('id', $keptIds))
+            ->delete();
 
         return redirect()->route('payroll.allowances.index')
             ->with('success', 'Allowances updated successfully for ' . ($user->first_name ?? 'employee') . '.');

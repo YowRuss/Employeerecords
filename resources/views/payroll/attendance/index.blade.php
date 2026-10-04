@@ -209,7 +209,7 @@
                                     @endif
                                 </td>
                                 <td class="text-end font-monospace text-muted">
-                                    ₱{{ number_format($baseSalary, 2) }}
+                                    {{ number_format($baseSalary, 2) }}
                                 </td>
                                 <td class="text-center">
                                     <input type="hidden" name="attendance[{{ $employee->id }}][user_id]" value="{{ $employee->id }}">
@@ -246,7 +246,7 @@
                                 <td class="text-end">
                                     <span class="font-monospace fw-semibold absence-deduction-display" id="absence-deduction-{{ $employee->id }}"
                                         style="color: {{ $existingAbsenceAmount > 0 ? '#dc3545' : '#6c757d' }};">
-                                        {{ $existingAbsenceAmount > 0 ? '₱' . number_format($existingAbsenceAmount, 2) : '—' }}
+                                        {{ $existingAbsenceAmount > 0 ? number_format($existingAbsenceAmount, 2) : '—' }}
                                     </span>
                                 </td>
                                 <td class="text-center">
@@ -282,7 +282,7 @@
                                 <td class="text-end">
                                     <span class="font-monospace fw-semibold late-deduction-display" id="late-deduction-{{ $employee->id }}"
                                         style="color: {{ $existingLateAmount > 0 ? '#dc3545' : '#6c757d' }};">
-                                        {{ $existingLateAmount > 0 ? '₱' . number_format($existingLateAmount, 2) : '—' }}
+                                        {{ $existingLateAmount > 0 ? number_format($existingLateAmount, 2) : '—' }}
                                     </span>
                                 </td>
                             </tr>
@@ -316,9 +316,9 @@
                     </div>
                     <div class="col text-end">
                         <span class="fw-bold" style="color: #1A3E6F;">
-                            Absence Total: <span class="text-danger font-monospace" id="absenceGrandTotal">₱0.00</span>
+                            Absence Total: <span class="text-danger font-monospace" id="absenceGrandTotal">0.00</span>
                             &nbsp;|&nbsp;
-                            Late Total: <span class="text-danger font-monospace" id="lateGrandTotal">₱0.00</span>
+                            Late Total: <span class="text-danger font-monospace" id="lateGrandTotal">0.00</span>
                         </span>
                     </div>
                 </div>
@@ -695,7 +695,7 @@
         if (days > 0 && baseSalary > 0) {
             const dailyRate = baseSalary / 22;
             const deduction = Math.round(days * dailyRate * 100) / 100;
-            display.textContent = '₱' + deduction.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            display.textContent = deduction.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
             display.style.color = '#dc3545';
         } else {
             display.textContent = '—';
@@ -717,7 +717,7 @@
         if (minutes > 0 && baseSalary > 0) {
             const minuteRate = baseSalary / 22 / 8 / 60;
             const deduction = Math.round(minutes * minuteRate * 100) / 100;
-            display.textContent = '₱' + deduction.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            display.textContent = deduction.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
             display.style.color = '#dc3545';
         } else {
             display.textContent = '—';
@@ -747,8 +747,8 @@
             }
         });
 
-        document.getElementById('absenceGrandTotal').textContent = '₱' + absenceTotal.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-        document.getElementById('lateGrandTotal').textContent = '₱' + lateTotal.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        document.getElementById('absenceGrandTotal').textContent = absenceTotal.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        document.getElementById('lateGrandTotal').textContent = lateTotal.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     }
 
     const searchInput = document.getElementById('searchInput');

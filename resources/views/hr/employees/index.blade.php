@@ -251,7 +251,7 @@
                     </button>
                 </li>
                 <li class="nav-item" role="presentation">
-                    <button class="nav-link text-warning {{ request('category') == 'unassigned' ? 'active' : '' }}" id="unassigned-tab" data-bs-toggle="tab" data-bs-target="#unassigned" type="button" role="tab" aria-controls="unassigned" aria-selected="{{ request('category') == 'unassigned' ? 'true' : 'false' }}">
+                    <button class="nav-link {{ request('category') == 'unassigned' ? 'active' : '' }}" id="unassigned-tab" data-bs-toggle="tab" data-bs-target="#unassigned" type="button" role="tab" aria-controls="unassigned" aria-selected="{{ request('category') == 'unassigned' ? 'true' : 'false' }}">
                         Unassigned Positions <span class="badge bg-warning text-dark ms-1">{{ $unassignedCount }}</span>
                     </button>
                 </li>

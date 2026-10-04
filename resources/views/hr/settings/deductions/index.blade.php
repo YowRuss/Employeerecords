@@ -16,6 +16,11 @@
             <p class="text-muted small mb-0">Manage loan categories and deduction types used across the payroll system.</p>
         </div>
         <div class="col-12 col-md-6 text-md-end d-flex flex-wrap justify-content-md-end gap-2">
+            @if($version !== 'v1' && $categoriesCount === 0)
+            <button type="button" class="btn btn-accent fw-bold shadow-sm px-3 py-2" data-bs-toggle="modal" data-bs-target="#copySchemaModal">
+                <i class="bi bi-copy me-1"></i> Copy from V1
+            </button>
+            @endif
             <button type="button" class="btn btn-accent fw-bold shadow-sm px-3 py-2" data-bs-toggle="modal" data-bs-target="#addCategoryModal">
                 <i class="bi bi-folder-plus me-1"></i> Add Category
             </button>
@@ -54,33 +59,58 @@
     </div>
     @endif
 
+    {{-- Active Deduction Schema Profile Toggle --}}
+    <div class="card shadow-sm rounded-3 mb-4">
+        <div class="card-body d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 bg-white">
+            <div>
+                <h6 class="mb-0 fw-bold text-header-blue">Active Deduction Schema Profile</h6>
+                <small class="text-muted">Select which deduction profile you are currently managing.</small>
+            </div>
+            <div class="d-flex align-items-center gap-2">
+                <form action="{{ route('hr.settings.deductions.toggleManageProfile') }}" method="POST" class="mb-0">
+                    @csrf
+                    <select name="manage_version" class="form-select fw-bold shadow-sm" style="min-width: 160px; border-color: #facc15; background-color: #fde047; color: #1e293b;" onchange="this.form.submit()">
+                        @foreach($availableProfiles as $prof)
+                            <option value="{{ $prof }}" {{ session('manage_version', 'v1') == $prof ? 'selected' : '' }}>
+                                Profile: {{ strtoupper($prof) }}
+                            </option>
+                        @endforeach
+                    </select>
+                </form>
+                <button type="button" class="btn btn-accent shadow-sm" data-bs-toggle="modal" data-bs-target="#createProfileModal" title="Add New Profile" aria-label="Add New Profile">
+                    <i class="bi bi-plus-lg"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+
     {{-- Summary Cards --}}
     <div class="row g-3 mb-4">
         <div class="col-6 col-lg-3">
             <div class="card shadow-sm border-0 rounded-3 bg-white p-3 h-100 border-start border-4" style="border-left-color: #1A3E6F !important;">
                 <span class="text-muted small fw-bold text-uppercase">Categories</span>
-                <h4 class="fw-bold mb-0 mt-1" style="color: #1A3E6F;">{{ $categories->count() }}</h4>
+                <h4 class="fw-bold mb-0 mt-1" style="color: #1A3E6F;">{{ $categoriesCount }}</h4>
                 <span class="small text-muted">Total groups</span>
             </div>
         </div>
         <div class="col-6 col-lg-3">
             <div class="card shadow-sm border-0 rounded-3 bg-white p-3 h-100 border-start border-4 border-success">
                 <span class="text-muted small fw-bold text-uppercase">Active Categories</span>
-                <h4 class="fw-bold mb-0 mt-1 text-success">{{ $categories->where('is_active', true)->count() }}</h4>
+                <h4 class="fw-bold mb-0 mt-1 text-success">{{ $activeCategoriesCount }}</h4>
                 <span class="small text-muted">Currently enabled</span>
             </div>
         </div>
         <div class="col-6 col-lg-3">
             <div class="card shadow-sm border-0 rounded-3 bg-white p-3 h-100 border-start border-4 border-info">
                 <span class="text-muted small fw-bold text-uppercase">Deduction Types</span>
-                <h4 class="fw-bold mb-0 mt-1 text-info">{{ $categories->sum(fn($c) => $c->types->count()) }}</h4>
+                <h4 class="fw-bold mb-0 mt-1 text-info">{{ $typesCount }}</h4>
                 <span class="small text-muted">Total loan/deduction types</span>
             </div>
         </div>
         <div class="col-6 col-lg-3">
             <div class="card shadow-sm border-0 rounded-3 bg-white p-3 h-100 border-start border-4 border-warning">
                 <span class="text-muted small fw-bold text-uppercase">With Excel Mapping</span>
-                <h4 class="fw-bold mb-0 mt-1 text-warning">{{ $categories->sum(fn($c) => $c->types->whereNotNull('excel_column')->count()) }}</h4>
+                <h4 class="fw-bold mb-0 mt-1 text-warning">{{ $excelMappingCount }}</h4>
                 <span class="small text-muted">Mapped to spreadsheet columns</span>
             </div>
         </div>
@@ -297,9 +327,16 @@
                 <i class="bi bi-folder-x text-muted display-4 d-block mb-3 opacity-50"></i>
                 <h6 class="fw-bold text-secondary mb-1">No Deduction Categories</h6>
                 <p class="text-muted small mb-3">Get started by creating your first deduction category.</p>
-                <button type="button" class="btn btn-sm btn-accent shadow-sm px-3 py-2" data-bs-toggle="modal" data-bs-target="#addCategoryModal">
-                    <i class="bi bi-folder-plus me-1"></i> Add Category
-                </button>
+                <div class="d-flex justify-content-center gap-2">
+                    <button type="button" class="btn btn-sm btn-accent shadow-sm px-3 py-2" data-bs-toggle="modal" data-bs-target="#addCategoryModal">
+                        <i class="bi bi-folder-plus me-1"></i> Add Category
+                    </button>
+                    @if($version !== 'v1' && $categoriesCount === 0)
+                    <button type="button" class="btn btn-sm btn-accent shadow-sm px-3 py-2" data-bs-toggle="modal" data-bs-target="#copySchemaModal">
+                        <i class="bi bi-copy me-1"></i> Copy All Categories & Types from V1
+                    </button>
+                    @endif
+                </div>
             </div>
             @endforelse
         </div>
@@ -314,6 +351,7 @@
         <div class="modal-content border-0 shadow">
             <form action="{{ route('hr.settings.deductions.category.store') }}" method="POST">
                 @csrf
+                <input type="hidden" name="profile_version" value="{{ session('manage_version', 'v1') }}">
                 <div class="modal-header border-bottom py-3" style="background-color: #f8fafc;">
                     <div class="d-flex align-items-center gap-2">
                         <div class="rounded-circle d-flex align-items-center justify-content-center" style="width: 38px; height: 38px; background-color: rgba(26, 62, 111, 0.1); color: #1A3E6F;">
@@ -427,6 +465,72 @@
                     </button>
                 </form>
             </div>
+        </div>
+    </div>
+</div>
+
+{{-- ============================= --}}
+{{-- Copy Schema Modal --}}
+{{-- ============================= --}}
+<div class="modal fade" id="copySchemaModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header border-bottom py-3" style="background-color: #f8fafc;">
+                <div class="d-flex align-items-center gap-2">
+                    <div class="rounded-circle d-flex align-items-center justify-content-center bg-accent" style="width: 38px; height: 38px;">
+                        <i class="bi bi-copy fs-5"></i>
+                    </div>
+                    <div>
+                        <h6 class="modal-title fw-bold mb-0" style="color: #1A3E6F;">Copy Schema from V1</h6>
+                        <div class="text-muted small">Clone all categories and deduction types.</div>
+                    </div>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-4 text-center">
+                <p class="mb-0">Are you sure you want to copy all categories and deduction types from <strong>V1</strong> into <strong>{{ strtoupper($version) }}</strong>?</p>
+            </div>
+            <div class="modal-footer bg-light py-2 px-4 border-top">
+                <form action="{{ route('hr.settings.deductions.copySchema') }}" method="POST">
+                    @csrf
+                    <input type="hidden" name="source_version" value="v1">
+                    <input type="hidden" name="target_version" value="{{ $version }}">
+                    <button type="button" class="btn btn-sm btn-outline-secondary px-3" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-sm btn-accent px-4 shadow-sm">
+                        <i class="bi bi-copy me-1"></i> Copy Schema
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+{{-- ============================= --}}
+{{-- Create Profile Modal --}}
+{{-- ============================= --}}
+<div class="modal fade" id="createProfileModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-sm modal-dialog-centered">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header border-bottom py-3 bg-accent">
+                <h6 class="modal-title text-header-blue fw-bold mb-0">
+                    <i class="bi bi-plus-circle me-2"></i>Create New Profile
+                </h6>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form action="{{ route('hr.settings.deductions.createProfile') }}" method="POST">
+                @csrf
+                <div class="modal-body p-4">
+                    <label class="form-label text-muted small fw-semibold">Profile Identifier</label>
+                    <input type="text" class="form-control font-monospace" name="new_profile_version" placeholder="e.g. v3, 2027_schema" required pattern="[A-Za-z0-9_-]+">
+                    <div class="form-text mt-2">Use only letters, numbers, hyphens or underscores (no spaces). This will create a blank profile slate.</div>
+                </div>
+                <div class="modal-footer bg-light py-2 px-4 border-top">
+                    <button type="button" class="btn btn-sm btn-outline-secondary px-3" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-sm btn-accent px-4 shadow-sm">
+                        <i class="bi bi-check2-circle me-1"></i> Create & Switch
+                    </button>
+                </div>
+            </form>
         </div>
     </div>
 </div>

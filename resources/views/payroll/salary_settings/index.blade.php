@@ -31,6 +31,20 @@
                 </div>
             </div>
         </div>
+
+        <div class="px-4 py-3 border-top border-bottom bg-white d-flex flex-column flex-lg-row justify-content-between align-items-lg-center gap-3">
+            <h6 class="text-header-blue fw-bold mb-0">Filter by Step Increment:</h6>
+            <ul class="nav nav-pills step-filters gap-1 flex-nowrap overflow-auto pb-1">
+                @foreach(range(1, 8) as $filterStep)
+                    <li class="nav-item">
+                        <a class="nav-link rounded-pill px-3 py-1 fw-bold {{ (int) $step === $filterStep ? 'active' : '' }}"
+                           href="{{ route('payroll.salary_settings', ['step' => $filterStep]) }}">
+                            Step {{ $filterStep }}
+                        </a>
+                    </li>
+                @endforeach
+            </ul>
+        </div>
         
         <div class="card-body p-0">
             <div class="table-responsive">
@@ -58,7 +72,7 @@
                             </td>
                             <td class="py-4 border-light">
                                 <span class="fw-bolder" style="color: #1A3E6F; font-size: 1.1rem; letter-spacing: -0.3px;">
-                                    ₱ {{ number_format($grade->amount, 2) }}
+                                     {{ number_format($grade->amount, 2) }}
                                 </span>
                             </td>
                             <td class="text-end pe-5 py-4 border-light">
@@ -74,7 +88,7 @@
                                     <div class="bg-light rounded-circle d-flex align-items-center justify-content-center mb-3 shadow-sm" style="width: 64px; height: 64px;">
                                         <i class="bi bi-inbox fs-2 opacity-50"></i>
                                     </div>
-                                    <span class="fw-medium">No salary grades found in the matrix.</span>
+                                    <span class="fw-medium">No amounts saved for Step {{ $step }} yet.</span>
                                 </div>
                             </td>
                         </tr>
@@ -118,15 +132,14 @@
                         </div>
                         <div class="ms-auto text-end">
                             <div class="small text-muted mb-1 fw-medium">Current Amount</div>
-                            <div class="fw-bold" style="color: #475569;">₱ {{ number_format($grade->amount, 2) }}</div>
+                            <div class="fw-bold" style="color: #475569;"> {{ number_format($grade->amount, 2) }}</div>
                         </div>
                     </div>
                     
                     <div class="form-group mb-2">
                         <label class="form-label small fw-bold text-secondary text-uppercase tracking-wider mb-2">New Monthly Amount</label>
                         <div class="input-group input-group-lg shadow-sm rounded-4 overflow-hidden border focus-ring-group" style="transition: all 0.2s; border-color: #e2e8f0;">
-                            <span class="input-group-text border-0 fw-bold text-muted px-4" style="background-color: #f8fafc;">₱</span>
-                            <input type="number" step="0.01" name="amount" class="form-control border-0 fw-bold shadow-none" value="{{ $grade->amount }}" required style="font-size: 1.25rem; color: #1A3E6F; background-color: #f8fafc;" onfocus="this.parentElement.style.borderColor='#facc15'; this.parentElement.style.boxShadow='0 0 0 0.25rem rgba(253, 224, 71, 0.45)';" onblur="this.parentElement.style.borderColor='#e2e8f0'; this.parentElement.style.boxShadow='var(--bs-box-shadow-sm)';">
+                                                        <input type="number" step="0.01" name="amount" class="form-control border-0 fw-bold shadow-none" value="{{ $grade->amount }}" required style="font-size: 1.25rem; color: #1A3E6F; background-color: #f8fafc;" onfocus="this.parentElement.style.borderColor='#facc15'; this.parentElement.style.boxShadow='0 0 0 0.25rem rgba(253, 224, 71, 0.45)';" onblur="this.parentElement.style.borderColor='#e2e8f0'; this.parentElement.style.boxShadow='var(--bs-box-shadow-sm)';">
                         </div>
                         <div class="form-text mt-2 small text-muted"><i class="bi bi-info-circle me-1"></i> Enter the new base amount for this step.</div>
                     </div>
@@ -144,6 +157,26 @@
 @endforeach
 
 <style>
+    .step-filters {
+        scrollbar-width: thin;
+    }
+    .step-filters .nav-link {
+        color: #1A3E6F;
+        background-color: #f8fafc;
+        border: 1px solid #e2e8f0;
+        white-space: nowrap;
+    }
+    .step-filters .nav-link:hover {
+        background-color: #fef9c3;
+        border-color: #facc15;
+        color: #1e293b;
+    }
+    .step-filters .nav-link.active {
+        background: linear-gradient(135deg, var(--accent-yellow, #fde047), #fef08a);
+        border-color: #facc15;
+        color: #1e293b;
+        box-shadow: 0 2px 5px rgba(253, 224, 71, 0.45);
+    }
     .pagination-centered nav {
         width: 100%;
         display: flex;

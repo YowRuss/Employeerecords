@@ -388,7 +388,7 @@
                                                         <span class="badge bg-light text-dark border fw-bold px-2 py-1">SG-{{ $salaryGrade }}</span>
                                                         <span class="badge {{ $isMaxStep ? 'bg-success text-white' : 'bg-primary-subtle text-primary-emphasis border border-primary-subtle' }} px-2 py-1">Step {{ $currentStep }}{{ $isMaxStep ? ' (MAX)' : '' }}</span>
                                                     @endif
-                                                    <span class="fw-bold font-monospace small" style="color: #1A3E6F;">₱{{ number_format($currentRate, 2) }}</span>
+                                                    <span class="fw-bold font-monospace small" style="color: #1A3E6F;">{{ number_format($currentRate, 2) }}</span>
                                                 </div>
                                                 <div class="mt-2">
                                                     @if($isMaxStep)
@@ -454,7 +454,7 @@
 
                                 {{-- Monthly Basic --}}
                                 <td class="py-3 font-monospace fw-bold d-none d-lg-table-cell" style="color: #1A3E6F;">
-                                    ₱{{ number_format($currentRate, 2) }}
+                                    {{ number_format($currentRate, 2) }}
                                 </td>
 
                                 {{-- NOSI Eligibility --}}
@@ -661,13 +661,13 @@
                                 <tr class="border-bottom">
                                     <td class="text-muted py-2 ps-3">Monthly Basic Rate</td>
                                     <td class="fw-bold text-end pe-3 py-2 font-monospace" style="color: #1A3E6F;">
-                                        ₱{{ number_format($modalCurrentRate, 2) }}
+                                        {{ number_format($modalCurrentRate, 2) }}
                                     </td>
                                 </tr>
                                 <tr class="border-bottom">
                                     <td class="text-muted py-2 ps-3">Next Step Rate (Step {{ $modalCurrentStep + 1 }})</td>
                                     <td class="fw-bold text-end pe-3 py-2 font-monospace {{ $modalNextStepRate ? 'text-success' : 'text-muted' }}">
-                                        {{ $modalNextStepRate ? '₱' . number_format($modalNextStepRate, 2) : ($modalIsAtMaxStep ? 'At Maximum Step' : 'N/A') }}
+                                        {{ $modalNextStepRate ? number_format($modalNextStepRate, 2) : ($modalIsAtMaxStep ? 'At Maximum Step' : 'N/A') }}
                                     </td>
                                 </tr>
                                 <tr class="border-bottom">
@@ -728,9 +728,9 @@
                             </form>
                             <div class="mt-2 small text-muted">
                                 <i class="bi bi-info-circle me-1"></i>
-                                Advances from <strong>Step {{ $modalCurrentStep }}</strong> (₱{{ number_format($modalCurrentRate, 2) }}) to <strong>Step {{ $modalCurrentStep + 1 }}</strong>
+                                Advances from <strong>Step {{ $modalCurrentStep }}</strong> ({{ number_format($modalCurrentRate, 2) }}) to <strong>Step {{ $modalCurrentStep + 1 }}</strong>
                                 @if($modalNextStepRate)
-                                    (₱{{ number_format($modalNextStepRate, 2) }})
+                                    ({{ number_format($modalNextStepRate, 2) }})
                                 @endif
                                 and records an audit log entry with today's date.
                             </div>
@@ -781,10 +781,10 @@
                                                 </span>
                                             </td>
                                             <td class="text-end py-2 font-monospace text-muted">
-                                                ₱{{ number_format($log->old_rate, 2) }}
+                                                {{ number_format($log->old_rate, 2) }}
                                             </td>
                                             <td class="text-end py-2 font-monospace fw-bold text-success">
-                                                ₱{{ number_format($log->new_rate, 2) }}
+                                                {{ number_format($log->new_rate, 2) }}
                                             </td>
                                             <td class="pe-3 py-2">
                                                 <span class="badge bg-light text-secondary border">

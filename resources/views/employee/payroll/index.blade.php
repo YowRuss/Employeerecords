@@ -21,11 +21,11 @@
     @endif
 
     {{-- Payroll Table --}}
-    <div class="card shadow-sm border-0">
+    <div class="card shadow-sm rounded-3">
         <div class="card-header bg-white border-bottom d-flex align-items-center gap-2 py-3 px-4">
-            <i class="bi bi-table text-muted"></i>
+            <i class="bi bi-table" style="color: #1A3E6F;"></i>
             <span class="fw-semibold" style="color: #1A3E6F;">Payroll History</span>
-            <span class="badge bg-light text-secondary border ms-auto">{{ $records->count() }} {{ Str::plural('record', $records->count()) }}</span>
+            <span class="badge bg-accent ms-auto">{{ $records->count() }} {{ Str::plural('record', $records->count()) }}</span>
         </div>
 
         <div class="card-body p-0">
@@ -37,7 +37,7 @@
             @else
                 <div class="table-responsive">
                     <table class="table table-hover align-middle mb-0">
-                        <thead>
+                        <thead style="background-color: #f8fafc;">
                             <tr class="text-uppercase small text-muted" style="font-size: 0.75rem; letter-spacing: 0.5px;">
                                 <th class="ps-4 py-3">#</th>
                                 <th class="py-3">Period</th>
@@ -61,18 +61,17 @@
                                         <span class="fw-semibold" style="color: #1A3E6F;">{{ $periodLabel }}</span>
                                     </td>
                                     <td class="text-end font-monospace">
-                                        ₱{{ number_format((float) $record->gross_earned, 2) }}
+                                        {{ number_format((float) $record->gross_earned, 2) }}
                                     </td>
                                     <td class="text-end font-monospace text-danger">
-                                        ₱{{ number_format((float) $record->total_deductions, 2) }}
+                                        {{ number_format((float) $record->total_deductions, 2) }}
                                     </td>
                                     <td class="text-end font-monospace fw-bold" style="color: #1A3E6F;">
-                                        ₱{{ number_format((float) $record->net_amount, 2) }}
+                                        {{ number_format((float) $record->net_amount, 2) }}
                                     </td>
                                     <td class="text-center pe-4">
                                         <a href="{{ route('employee.payroll.show', $record->id) }}"
-                                           class="btn btn-sm btn-outline-primary rounded-pill px-3"
-                                           style="border-color: #1A3E6F; color: #1A3E6F;">
+                                           class="btn btn-sm btn-accent fw-bold shadow-sm text-nowrap">
                                             <i class="bi bi-eye me-1"></i> View Payslip
                                         </a>
                                     </td>

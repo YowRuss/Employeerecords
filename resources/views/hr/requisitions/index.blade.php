@@ -115,7 +115,79 @@
         .tab-empty-state { padding: 2rem 0.75rem; }
         .tab-empty-state i { font-size: 2rem; }
     }
+
+    .pagination-centered nav {
+        width: 100%;
+        display: flex;
+        justify-content: center;
+    }
+    .pagination-centered .d-flex.justify-content-between.flex-fill.d-sm-none {
+        display: none !important;
+    }
+    .pagination-centered .d-none.flex-sm-fill.d-sm-flex.align-items-sm-center.justify-content-sm-between > div:first-child {
+        display: none !important;
+    }
+    .pagination-centered .d-none.flex-sm-fill.d-sm-flex.align-items-sm-center.justify-content-sm-between > div:last-child {
+        width: 100%;
+        display: flex;
+        justify-content: center;
+    }
+    .pagination-centered .pagination {
+        display: flex;
+        gap: 6px;
+        margin: 0;
+        padding: 0;
+    }
+    .pagination-centered .page-item .page-link {
+        color: #1A3E6F;
+        font-weight: 600;
+        font-size: 0.875rem;
+        min-width: 36px;
+        height: 36px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 8px !important;
+        border: 1px solid #e2e8f0;
+        background-color: #ffffff;
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+        transition: all 0.2s ease-in-out;
+        text-decoration: none;
+    }
+    .pagination-centered .page-item:not(.active):not(.disabled) .page-link:hover {
+        background-color: #f8fafc;
+        border-color: #cbd5e1;
+        color: #0f172a;
+        transform: translateY(-1px);
+    }
+    .pagination-centered .page-item.active .page-link {
+        background: linear-gradient(135deg, #1A3E6F, #0f2746);
+        border-color: #1A3E6F;
+        color: #ffffff;
+    }
+    .pagination-centered .page-item.disabled .page-link {
+        background-color: #f8fafc;
+        border-color: #f1f5f9;
+        color: #94a3b8;
+        opacity: 0.6;
+    }
+    @media (max-width: 575.98px) {
+        .pagination-centered .d-none.flex-sm-fill.d-sm-flex.align-items-sm-center.justify-content-sm-between {
+            display: flex !important;
+        }
+        .pagination-centered .pagination {
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+    }
 </style>
+
+@php
+    $requisitionTab = request('tab', 'newhires');
+    if (! in_array($requisitionTab, ['newhires', 'promotions', 'transfers', 'terminations'], true)) {
+        $requisitionTab = 'newhires';
+    }
+@endphp
 
 <div class="container-fluid py-2">
     {{-- Page Header --}}
@@ -147,22 +219,22 @@
         <div class="card-header bg-white pt-3 pb-0 border-bottom-0">
             <ul class="nav nav-tabs req-tabs border-bottom-0" id="requisitionTabs" role="tablist">
                 <li class="nav-item" role="presentation">
-                    <button class="nav-link active" id="newhires-tab" data-bs-toggle="tab" data-bs-target="#newhires" type="button" role="tab" aria-controls="newhires" aria-selected="true">
+                    <button class="nav-link {{ $requisitionTab === 'newhires' ? 'active' : '' }}" id="newhires-tab" data-bs-toggle="tab" data-bs-target="#newhires" type="button" role="tab" aria-controls="newhires" aria-selected="{{ $requisitionTab === 'newhires' ? 'true' : 'false' }}">
                         <i class="bi bi-person-plus-fill me-1"></i> New Hires / Employment
                     </button>
                 </li>
                 <li class="nav-item" role="presentation">
-                    <button class="nav-link" id="promotions-tab" data-bs-toggle="tab" data-bs-target="#promotions" type="button" role="tab" aria-controls="promotions" aria-selected="false">
+                    <button class="nav-link {{ $requisitionTab === 'promotions' ? 'active' : '' }}" id="promotions-tab" data-bs-toggle="tab" data-bs-target="#promotions" type="button" role="tab" aria-controls="promotions" aria-selected="{{ $requisitionTab === 'promotions' ? 'true' : 'false' }}">
                         <i class="bi bi-arrow-up-circle me-1"></i> Promotions
                     </button>
                 </li>
                 <li class="nav-item" role="presentation">
-                    <button class="nav-link" id="transfers-tab" data-bs-toggle="tab" data-bs-target="#transfers" type="button" role="tab" aria-controls="transfers" aria-selected="false">
+                    <button class="nav-link {{ $requisitionTab === 'transfers' ? 'active' : '' }}" id="transfers-tab" data-bs-toggle="tab" data-bs-target="#transfers" type="button" role="tab" aria-controls="transfers" aria-selected="{{ $requisitionTab === 'transfers' ? 'true' : 'false' }}">
                         <i class="bi bi-arrow-left-right me-1"></i> Reassignments & Transfers
                     </button>
                 </li>
                 <li class="nav-item" role="presentation">
-                    <button class="nav-link" id="terminations-tab" data-bs-toggle="tab" data-bs-target="#terminations" type="button" role="tab" aria-controls="terminations" aria-selected="false">
+                    <button class="nav-link {{ $requisitionTab === 'terminations' ? 'active' : '' }}" id="terminations-tab" data-bs-toggle="tab" data-bs-target="#terminations" type="button" role="tab" aria-controls="terminations" aria-selected="{{ $requisitionTab === 'terminations' ? 'true' : 'false' }}">
                         <i class="bi bi-person-x me-1"></i> Terminations & Offboarding
                     </button>
                 </li>
@@ -175,7 +247,7 @@
                 {{-- ============================================ --}}
                 {{-- TAB 1: NEW HIRES / EMPLOYMENT --}}
                 {{-- ============================================ --}}
-                <div class="tab-pane fade show active" id="newhires" role="tabpanel" aria-labelledby="newhires-tab">
+                <div class="tab-pane fade {{ $requisitionTab === 'newhires' ? 'show active' : '' }}" id="newhires" role="tabpanel" aria-labelledby="newhires-tab">
                     <div class="p-4 pb-3 d-flex flex-column flex-sm-row justify-content-between align-items-sm-center gap-3 tab-section-header">
                         <div>
                             <h6 class="fw-bold text-dark m-0"><i class="bi bi-person-plus me-1 text-muted"></i> Employee Onboarding</h6>
@@ -243,12 +315,17 @@
                             </tbody>
                         </table>
                     </div>
+                    @if($recentHires->hasPages())
+                    <div class="d-flex justify-content-center py-3 pagination-centered">
+                        {{ $recentHires->links('pagination::bootstrap-5') }}
+                    </div>
+                    @endif
                 </div>
 
                 {{-- ============================================ --}}
                 {{-- TAB 2: PROMOTIONS --}}
                 {{-- ============================================ --}}
-                <div class="tab-pane fade" id="promotions" role="tabpanel" aria-labelledby="promotions-tab">
+                <div class="tab-pane fade {{ $requisitionTab === 'promotions' ? 'show active' : '' }}" id="promotions" role="tabpanel" aria-labelledby="promotions-tab">
                     <div class="p-4 pb-3 d-flex flex-column flex-sm-row justify-content-between align-items-sm-center gap-3 tab-section-header">
                         <div>
                             <h6 class="fw-bold text-dark m-0"><i class="bi bi-arrow-up-circle me-1 text-muted"></i> Process Promotion</h6>
@@ -304,12 +381,17 @@
                             </tbody>
                         </table>
                     </div>
+                    @if($recentPromotions->hasPages())
+                    <div class="d-flex justify-content-center py-3 pagination-centered">
+                        {{ $recentPromotions->links('pagination::bootstrap-5') }}
+                    </div>
+                    @endif
                 </div>
 
                 {{-- ============================================ --}}
                 {{-- TAB 3: REASSIGNMENTS & TRANSFERS --}}
                 {{-- ============================================ --}}
-                <div class="tab-pane fade" id="transfers" role="tabpanel" aria-labelledby="transfers-tab">
+                <div class="tab-pane fade {{ $requisitionTab === 'transfers' ? 'show active' : '' }}" id="transfers" role="tabpanel" aria-labelledby="transfers-tab">
                     <div class="p-4 pb-3 d-flex flex-column flex-sm-row justify-content-between align-items-sm-center gap-3 tab-section-header">
                         <div>
                             <h6 class="fw-bold text-dark m-0"><i class="bi bi-arrow-left-right me-1 text-muted"></i> Initiate Transfer</h6>
@@ -369,12 +451,17 @@
                             </tbody>
                         </table>
                     </div>
+                    @if($transferHistory->hasPages())
+                    <div class="d-flex justify-content-center py-3 pagination-centered">
+                        {{ $transferHistory->links('pagination::bootstrap-5') }}
+                    </div>
+                    @endif
                 </div>
 
                 {{-- ============================================ --}}
                 {{-- TAB 4: TERMINATIONS & OFFBOARDING --}}
                 {{-- ============================================ --}}
-                <div class="tab-pane fade" id="terminations" role="tabpanel" aria-labelledby="terminations-tab">
+                <div class="tab-pane fade {{ $requisitionTab === 'terminations' ? 'show active' : '' }}" id="terminations" role="tabpanel" aria-labelledby="terminations-tab">
                     <div class="p-4 pb-3 d-flex flex-column flex-sm-row justify-content-between align-items-sm-center gap-3 tab-section-header">
                         <div>
                             <h6 class="fw-bold text-dark m-0"><i class="bi bi-person-x me-1 text-muted"></i> Terminate / Offboard Employee</h6>
@@ -446,6 +533,11 @@
                             </tbody>
                         </table>
                     </div>
+                    @if($separationHistory->hasPages())
+                    <div class="d-flex justify-content-center py-3 pagination-centered">
+                        {{ $separationHistory->links('pagination::bootstrap-5') }}
+                    </div>
+                    @endif
                 </div>
 
             </div>

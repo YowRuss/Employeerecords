@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Announcement;
+use App\Models\AnnouncementType;
 use App\Models\Event;
 use App\Models\EventAttendee;
 use App\Models\EventType;
@@ -103,9 +104,14 @@ class EventController extends Controller
         // Auto-generate an Announcement if an adviser was assigned
         if ($request->adviser_id) {
             $adviser = DB::table('users')->where('id', $request->adviser_id)->first();
+            $assignmentType = AnnouncementType::firstOrCreate(
+                ['name' => 'Assignment'],
+                ['badge_color' => 'info'],
+            );
+
             Announcement::create([
                 'title' => 'Official Adviser Assignment: '.$event->title,
-                'type' => 'Assignment',
+                'announcement_type_id' => $assignmentType->id,
                 'content' => 'Attention '.$adviser->first_name.' '.$adviser->last_name.': You have been designated by HR as the official event adviser for '.$event->title.' scheduled on '.Carbon::parse($event->event_date)->format('M d, Y').'.',
                 'is_pinned' => 1,
                 'created_by' => Session::get('user_id'),

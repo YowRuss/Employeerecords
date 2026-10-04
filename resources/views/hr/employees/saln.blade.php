@@ -43,7 +43,14 @@
         <i class="bi bi-exclamation-triangle-fill me-2"></i> This employee has not submitted their SALN data yet.
     </div>
     @else
-    <div class="card shadow-sm border-0 border-top border-4 border-accent">
+    <div class="d-flex justify-content-end mb-3 d-print-none">
+        <button onclick="window.print()" class="btn btn-primary">
+            <i class="bi bi-printer"></i> Print Official SALN
+        </button>
+    </div>
+    
+    <div id="saln-printable-area" class="bg-white p-4">
+        <div class="card shadow-sm border-0 border-top border-4 border-accent">
         <div class="card-body p-0">
             <ul class="nav nav-tabs bg-light border-bottom pt-2 px-2 flex-nowrap overflow-auto" id="salnTabs" role="tablist" style="font-size: 0.85rem; white-space: nowrap;">
                 <li class="nav-item"><button class="nav-link fw-bold text-dark active border-bottom-0" data-bs-toggle="tab" data-bs-target="#info" type="button">Basic Info & Children</button></li>
@@ -284,11 +291,60 @@
                     </div>
                 </div>
 
-            </div>
-        </div>
-    </div>
+            </div> <!-- end tab-content -->
+        </div> <!-- end card-body -->
+    </div> <!-- end card -->
+    </div> <!-- end saln-printable-area -->
     @endif
 </div>
+
+<style>
+    @media print {
+        /* Hide everything else on the page */
+        body * {
+            visibility: hidden;
+        }
+
+        /* Only show the SALN container and its children */
+        #saln-printable-area, #saln-printable-area * {
+            visibility: visible;
+        }
+
+        /* Reset the position to the top-left of the paper */
+        #saln-printable-area {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 100%;
+            padding: 0 !important;
+            margin: 0 !important;
+        }
+
+        /* Force A4 Legal size and remove browser margins/headers */
+        @page {
+            size: 8.5in 13in; /* Philippine Legal Size standard for SALN */
+            margin: 0.5in;
+        }
+
+        /* Ensure Bootstrap background colors (like table headers) print accurately */
+        * {
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+        }
+
+        /* Show all tabs content during print */
+        .tab-content > .tab-pane {
+            display: block !important;
+            opacity: 1 !important;
+            visibility: visible !important;
+        }
+
+        /* Hide the navigation tabs and Net Worth highlight box */
+        #salnTabs, .d-print-none, .row.mb-4 {
+            display: none !important;
+        }
+    }
+</style>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 @endsection

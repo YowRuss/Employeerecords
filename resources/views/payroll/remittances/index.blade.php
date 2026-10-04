@@ -116,7 +116,7 @@
             <div class="col-6 col-md-4">
                 <div class="card shadow-sm border-0 rounded-3 bg-white p-3 h-100 border-start border-4 border-success">
                     <span class="text-muted small fw-bold text-uppercase">Total Remittance</span>
-                    <h5 class="fw-bold mb-0 mt-1 text-success">₱{{ number_format($totalRemittance, 2) }}</h5>
+                    <h5 class="fw-bold mb-0 mt-1 text-success">{{ number_format($totalRemittance, 2) }}</h5>
                     <span class="small text-muted">Due to {{ $selectedAgency->label() }}</span>
                 </div>
             </div>
@@ -179,7 +179,7 @@
                                 </td>
                                 <td class="fw-semibold" style="color: #1A3E6F;">{{ $employeeName }}</td>
                                 <td class="text-secondary">{{ $row->position_name ?: '—' }}</td>
-                                <td class="pe-4 text-end fw-semibold font-monospace">₱{{ number_format((float) $row->amount_withheld, 2) }}</td>
+                                <td class="pe-4 text-end fw-semibold font-monospace">{{ number_format((float) $row->amount_withheld, 2) }}</td>
                             </tr>
                             @empty
                             <tr>
@@ -204,7 +204,7 @@
                                     Total Remittance to {{ $selectedAgency->label() }} ({{ $results->count() }} {{ Str::plural('Employee', $results->count()) }})
                                 </td>
                                 <td class="pe-4 py-3 text-end font-monospace" style="color: #1A3E6F; font-size: 1rem;">
-                                    ₱{{ number_format($totalRemittance, 2) }}
+                                    {{ number_format($totalRemittance, 2) }}
                                 </td>
                             </tr>
                         </tfoot>

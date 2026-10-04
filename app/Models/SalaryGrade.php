@@ -6,6 +6,8 @@ use Illuminate\Database\Eloquent\Model;
 
 class SalaryGrade extends Model
 {
+    public $timestamps = false;
+
     protected $fillable = [
         'grade',
         'step',

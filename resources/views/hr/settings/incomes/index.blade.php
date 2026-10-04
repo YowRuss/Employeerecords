@@ -6,8 +6,8 @@
     <div class="row mb-4 align-items-center">
         <div class="col-12 col-md-6 mb-3 mb-md-0">
             <div class="d-flex align-items-center gap-2 mb-1">
-                <a href="{{ route('hr.payroll.index') }}" class="btn btn-sm btn-outline-secondary rounded-pill px-3 py-1">
-                    <i class="bi bi-arrow-left me-1"></i> Back to Payroll
+                <a href="{{ route('payroll.allowances.index') }}" class="btn btn-sm btn-outline-secondary rounded-pill px-3 py-1">
+                    <i class="bi bi-arrow-left me-1"></i> Back to Allowances
                 </a>
             </div>
             <h4 class="text-header-blue fw-bold mb-0">

@@ -11,7 +11,7 @@
         </div>
     </div>
 
-    <div class="card shadow-sm border-0">
+    <div class="card shadow-sm rounded-3">
         <div class="card-header bg-white border-bottom d-flex align-items-center gap-2 py-3 px-4">
             <i class="bi bi-folder2-open text-muted"></i>
             <span class="fw-semibold" style="color: #1A3E6F;">BIR Form 2316</span>

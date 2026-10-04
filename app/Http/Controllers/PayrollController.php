@@ -16,6 +16,7 @@ use App\Models\PayrollRecord;
 use App\Models\SalaryGrade;
 use App\Models\User;
 use App\Services\PayrollCalculationService;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Carbon;
@@ -160,7 +161,7 @@ class PayrollController extends Controller
     {
         $perPage = 5;
         $page = LengthAwarePaginator::resolveCurrentPage();
-        $pageModels = new \Illuminate\Database\Eloquent\Collection(
+        $pageModels = new Collection(
             $employees->forPage($page, $perPage)->values()->all()
         );
 
@@ -235,7 +236,7 @@ class PayrollController extends Controller
 
                     // --- PERA (conditionally assigned per employee) ---
                     $peraAmount = $employee->active_pera;
-                    
+
                     // --- Additional Allowances ---
                     $otherAllowances = $employee->allowances()
                         ->where('is_active', true)
@@ -301,10 +302,15 @@ class PayrollController extends Controller
 
                     // --- Statutory deductions (via PayrollCalculationService) ---
                     $deductions = $this->calculationService->calculateMandatoryDeductions($basicRate);
-                    $taxWithheld = 0.00; // Placeholder — withholding tax formula TBD
                     $gsisPremium = $deductions['gsis_premium'];
                     $philhealthPremium = $deductions['philhealth_premium'];
                     $pagibigPremium = $deductions['pagibig_premium'];
+                    $taxWithheld = $this->calculationService->calculateWithholdingTax(
+                        $basicRate,
+                        $gsisPremium,
+                        $philhealthPremium,
+                        $pagibigPremium
+                    );
                     $otherDeductions = [];
 
                     // --- Loan amortization (sum of all outstanding active loans) ---
@@ -411,6 +417,7 @@ class PayrollController extends Controller
     public function show(Request $request, string $id)
     {
         $period = PayrollPeriod::findOrFail($id);
+        $this->applyStatutoryDeductions($period);
 
         $gender = strtolower((string) $request->query('gender', ''));
         $position = strtolower((string) $request->query('position', $request->query('filter', '')));
@@ -523,10 +530,13 @@ class PayrollController extends Controller
 
         $payrollRecords = $query->paginate(15)->withQueryString();
 
+        $layoutVersion = session('deduction_version', 'v1');
+
         $categories = DeductionCategory::with(['types' => function ($tQuery) {
             $tQuery->active()->orderBy('name');
         }])
             ->active()
+            ->where('profile_version', $layoutVersion)
             ->orderBy('sort_order')
             ->get();
 
@@ -539,6 +549,7 @@ class PayrollController extends Controller
             'records' => $payrollRecords,
             'categories' => $categories,
             'incomeTypes' => $incomeTypes,
+            'layoutVersion' => $layoutVersion,
             'currentPosition' => $position,
             'currentGender' => $gender,
             'counts' => [
@@ -563,6 +574,74 @@ class PayrollController extends Controller
             'totalDeductions' => $totalDeductions,
             'totalNet' => $totalNet,
         ]);
+    }
+
+    /**
+     * Fill GSIS, PhilHealth, Pag-IBIG, and TRAIN withholding tax on a draft
+     * regular payroll that was saved before those amounts were calculated.
+     * Bonus runs stay at zero premiums. Finalized periods are left unchanged.
+     */
+    private function applyStatutoryDeductions(PayrollPeriod $period): void
+    {
+        if ($period->status !== 'DRAFT' || $period->payroll_type->isBonus()) {
+            return;
+        }
+
+        $records = PayrollRecord::where('payroll_period_id', $period->id)
+            ->where('is_full_lwop', false)
+            ->where('basic_rate', '>', 0)
+            ->get();
+
+        foreach ($records as $record) {
+            $basic = (float) $record->basic_rate;
+            $gsis = (float) $record->gsis_premium;
+            $philhealth = (float) $record->philhealth_premium;
+            $pagibig = (float) $record->pagibig_premium;
+            $premiumsMissing = $gsis <= 0 && $philhealth <= 0 && $pagibig <= 0;
+
+            if ($premiumsMissing) {
+                $computed = $this->calculationService->calculateMandatoryDeductions($basic);
+                $gsis = $computed['gsis_premium'];
+                $philhealth = $computed['philhealth_premium'];
+                $pagibig = $computed['pagibig_premium'];
+            }
+
+            $tax = $this->calculationService->calculateWithholdingTax($basic, $gsis, $philhealth, $pagibig);
+            $taxUnchanged = round((float) $record->tax_withheld, 2) === $tax;
+            $premiumsUnchanged = ! $premiumsMissing;
+
+            if ($taxUnchanged && $premiumsUnchanged) {
+                continue;
+            }
+
+            $delta = round(
+                ($tax - (float) $record->tax_withheld)
+                + ($gsis - (float) $record->gsis_premium)
+                + ($philhealth - (float) $record->philhealth_premium)
+                + ($pagibig - (float) $record->pagibig_premium),
+                2
+            );
+
+            $record->gsis_premium = $gsis;
+            $record->philhealth_premium = $philhealth;
+            $record->pagibig_premium = $pagibig;
+            $record->tax_withheld = $tax;
+            $record->total_deductions = round((float) $record->total_deductions + $delta, 2);
+            $record->net_amount = round((float) $record->net_amount - $delta, 2);
+            $record->save();
+        }
+    }
+
+    /**
+     * Toggle the deduction UI layout version stored in the session.
+     */
+    public function toggleDeductionVersion(Request $request)
+    {
+        $request->validate(['deduction_version' => 'required|string|in:v1,v2,v3']);
+
+        session(['deduction_version' => $request->deduction_version]);
+
+        return redirect()->back()->with('success', 'Deduction layout updated to '.strtoupper($request->deduction_version).'.');
     }
 
     /**

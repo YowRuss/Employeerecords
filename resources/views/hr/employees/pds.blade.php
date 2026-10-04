@@ -12,7 +12,9 @@
         </div>
         <div>
             <a href="{{ route('hr.view_profile', $employee->id) }}" class="btn btn-outline-secondary shadow-sm fw-bold me-2"><i class="bi bi-arrow-left me-1"></i> Back to Profile</a>
-            <button class="btn btn-accent shadow-sm fw-bold" onclick="window.print()"><i class="bi bi-printer me-1"></i> Print / Export PDS</button>
+            <a href="{{ route('pds.export', $employee->id) }}" class="btn btn-accent shadow-sm fw-bold">
+                <i class="bi bi-file-earmark-excel me-1"></i> Export Official PDS (Excel)
+            </a>
         </div>
     </div>
 

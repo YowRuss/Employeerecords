@@ -28,7 +28,7 @@
     </div>
 
     {{-- Payslip Card --}}
-    <div class="card shadow-sm border-0">
+    <div class="card shadow-sm rounded-3">
         {{-- Header --}}
         <div class="card-header bg-white border-bottom py-4 px-4">
             <div class="d-flex flex-column flex-md-row align-items-md-center gap-3">
@@ -61,13 +61,13 @@
                                     <tr>
                                         <td class="ps-3 py-2 text-muted">Basic Rate (Monthly Salary)</td>
                                         <td class="text-end pe-3 py-2 font-monospace fw-semibold">
-                                            ₱{{ number_format((float) $record->basic_rate, 2) }}
+                                            {{ number_format((float) $record->basic_rate, 2) }}
                                         </td>
                                     </tr>
                                     <tr>
                                         <td class="ps-3 py-2 text-muted">PERA Allowance</td>
                                         <td class="text-end pe-3 py-2 font-monospace fw-semibold">
-                                            ₱{{ number_format((float) $record->pera_amount, 2) }}
+                                            {{ number_format((float) $record->pera_amount, 2) }}
                                         </td>
                                     </tr>
 
@@ -80,8 +80,8 @@
                                                     <i class="bi bi-wallet2 me-1 text-success" style="font-size: 0.7rem;"></i>
                                                     {{ $payrollIncome->incomeType->name ?? 'Allowance' }}
                                                 </td>
-                                                <td class="text-end pe-3 py-2 font-monospace fw-semibold text-success">
-                                                    ₱{{ number_format((float) $payrollIncome->amount, 2) }}
+                                                <td class="text-end pe-3 py-2 font-monospace fw-semibold" style="color: #1A3E6F;">
+                                                    {{ number_format((float) $payrollIncome->amount, 2) }}
                                                 </td>
                                             </tr>
                                             @endif
@@ -92,7 +92,7 @@
                                     <tr class="border-top">
                                         <td class="ps-3 py-2 fw-bold" style="color: #1A3E6F;">Gross Earned</td>
                                         <td class="text-end pe-3 py-2 font-monospace fw-bold" style="color: #1A3E6F;">
-                                            ₱{{ number_format((float) $record->gross_earned, 2) }}
+                                            {{ number_format((float) $record->gross_earned, 2) }}
                                         </td>
                                     </tr>
                                 </tfoot>
@@ -116,7 +116,7 @@
                                     <tr>
                                         <td class="ps-3 py-2 text-muted">Absences (LWOP)</td>
                                         <td class="text-end pe-3 py-2 font-monospace text-danger">
-                                            {{ (float) $record->absences_amount > 0 ? '₱' . number_format((float) $record->absences_amount, 2) : '—' }}
+                                            {{ (float) $record->absences_amount > 0 ? number_format((float) $record->absences_amount, 2) : '—' }}
                                         </td>
                                     </tr>
 
@@ -124,7 +124,7 @@
                                     <tr>
                                         <td class="ps-3 py-2 text-muted">Withholding Tax</td>
                                         <td class="text-end pe-3 py-2 font-monospace text-danger">
-                                            {{ (float) $record->tax_withheld > 0 ? '₱' . number_format((float) $record->tax_withheld, 2) : '—' }}
+                                            {{ (float) $record->tax_withheld > 0 ? number_format((float) $record->tax_withheld, 2) : '—' }}
                                         </td>
                                     </tr>
 
@@ -132,7 +132,7 @@
                                     <tr>
                                         <td class="ps-3 py-2 text-muted">GSIS Premium</td>
                                         <td class="text-end pe-3 py-2 font-monospace text-danger">
-                                            {{ (float) $record->gsis_premium > 0 ? '₱' . number_format((float) $record->gsis_premium, 2) : '—' }}
+                                            {{ (float) $record->gsis_premium > 0 ? number_format((float) $record->gsis_premium, 2) : '—' }}
                                         </td>
                                     </tr>
 
@@ -140,7 +140,7 @@
                                     <tr>
                                         <td class="ps-3 py-2 text-muted">PhilHealth Premium</td>
                                         <td class="text-end pe-3 py-2 font-monospace text-danger">
-                                            {{ (float) $record->philhealth_premium > 0 ? '₱' . number_format((float) $record->philhealth_premium, 2) : '—' }}
+                                            {{ (float) $record->philhealth_premium > 0 ? number_format((float) $record->philhealth_premium, 2) : '—' }}
                                         </td>
                                     </tr>
 
@@ -148,7 +148,7 @@
                                     <tr>
                                         <td class="ps-3 py-2 text-muted">Pag-IBIG Premium</td>
                                         <td class="text-end pe-3 py-2 font-monospace text-danger">
-                                            {{ (float) $record->pagibig_premium > 0 ? '₱' . number_format((float) $record->pagibig_premium, 2) : '—' }}
+                                            {{ (float) $record->pagibig_premium > 0 ? number_format((float) $record->pagibig_premium, 2) : '—' }}
                                         </td>
                                     </tr>
 
@@ -161,7 +161,7 @@
                                                     {{ $loanLabels[$key] ?? ucwords(str_replace('_', ' ', $key)) }}
                                                 </td>
                                                 <td class="text-end pe-3 py-2 font-monospace text-danger">
-                                                    ₱{{ number_format((float) $amount, 2) }}
+                                                    {{ number_format((float) $amount, 2) }}
                                                 </td>
                                             </tr>
                                         @endif
@@ -171,7 +171,7 @@
                                     <tr class="border-top">
                                         <td class="ps-3 py-2 fw-bold text-danger">Total Deductions</td>
                                         <td class="text-end pe-3 py-2 font-monospace fw-bold text-danger">
-                                            ₱{{ number_format((float) $record->total_deductions, 2) }}
+                                            {{ number_format((float) $record->total_deductions, 2) }}
                                         </td>
                                     </tr>
                                 </tfoot>
@@ -182,10 +182,10 @@
             </div>
 
             {{-- NET PAY FOOTER --}}
-            <div class="mt-4 p-4 rounded-3 text-center" style="background: linear-gradient(135deg, #1A3E6F 0%, #2A5298 100%);">
-                <p class="text-white-50 small mb-1 text-uppercase fw-semibold" style="letter-spacing: 1px;">Net Take Home Pay</p>
-                <h2 class="text-white fw-bold mb-0" style="font-size: 2.2rem; letter-spacing: -0.5px;">
-                    ₱{{ number_format((float) $record->net_amount, 2) }}
+            <div class="mt-4 p-4 rounded-3 text-center bg-white" style="border-top: 4px solid #fde047;">
+                <p class="text-muted small mb-1 text-uppercase fw-semibold" style="letter-spacing: 1px;">Net Take Home Pay</p>
+                <h2 class="fw-bold mb-0" style="color: #1A3E6F; font-size: 2.2rem; letter-spacing: -0.5px;">
+                    {{ number_format((float) $record->net_amount, 2) }}
                 </h2>
             </div>
         </div>

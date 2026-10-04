@@ -1,6 +1,29 @@
 @extends('layouts.app')
 
 @section('content')
+<style>
+    #bir2316Table th,
+    #bir2316Table td {
+        border: 1px solid #e2e8f0;
+        vertical-align: middle;
+    }
+    #bir2316Table thead th {
+        background-color: #f8fafc;
+        white-space: nowrap;
+    }
+    #bir2316Table .employee-name {
+        white-space: nowrap;
+    }
+    @media (max-width: 575.98px) {
+        .bir-pagination .d-none.flex-sm-fill.d-sm-flex.align-items-sm-center.justify-content-sm-between {
+            display: flex !important;
+        }
+        .bir-pagination .pagination {
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+    }
+</style>
 <div class="container-fluid py-4">
     {{-- Header Section --}}
     <div class="row mb-4 align-items-center">
@@ -14,8 +37,8 @@
             {{-- Year Selector --}}
             <form method="GET" action="{{ route('hr.bir2316.index') }}" class="d-inline-flex align-items-center gap-2">
                 <label for="yearSelect" class="fw-semibold text-muted small text-nowrap mb-0">Tax Year:</label>
-                <select name="year" id="yearSelect" class="form-select form-select-sm shadow-sm border"
-                        style="width: 120px; border-color: #1A3E6F;" onchange="this.form.submit()">
+                <select name="year" id="yearSelect" class="form-select form-select-sm shadow-sm"
+                        style="width: 120px;" onchange="this.form.submit()">
                     @for($y = now()->year; $y >= now()->year - 5; $y--)
                         <option value="{{ $y }}" {{ $year == $y ? 'selected' : '' }}>{{ $y }}</option>
                     @endfor
@@ -42,10 +65,10 @@
     @endif
 
     {{-- Employees Table --}}
-    <div class="card shadow-sm border-0 rounded-3 bg-white">
-        <div class="card-header bg-white border-bottom py-3 d-flex align-items-center justify-content-between">
-            <div class="d-flex align-items-center gap-2">
-                <span class="badge rounded-pill" style="background-color: rgba(26, 62, 111, 0.1); color: #1A3E6F; font-size: 0.85rem;">
+    <div class="card shadow-sm rounded-3 bg-white">
+        <div class="card-header bg-white border-bottom py-3">
+            <div class="d-flex flex-wrap align-items-center gap-2">
+                <span class="badge rounded-pill bg-accent fw-semibold" style="font-size: 0.85rem;">
                     {{ $employees->total() }} {{ Str::plural('Employee', $employees->total()) }}
                 </span>
                 <span class="text-muted small">Active employees for tax year <strong>{{ $year }}</strong></span>
@@ -60,14 +83,14 @@
                 </div>
             @else
                 <div class="table-responsive">
-                    <table class="table table-hover align-middle mb-0">
+                    <table class="table table-hover align-middle mb-0" id="bir2316Table">
                         <thead>
                             <tr class="text-uppercase small text-muted" style="font-size: 0.75rem; letter-spacing: 0.5px;">
                                 <th class="ps-4 py-3" style="width: 50px;">#</th>
                                 <th class="py-3">Employee Name</th>
-                                <th class="py-3">Position</th>
+                                <th class="py-3 d-none d-md-table-cell">Position</th>
                                 <th class="py-3">TIN</th>
-                                <th class="text-center py-3 pe-4" style="width: 180px;">Action</th>
+                                <th class="text-center py-3 pe-4">Action</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -86,10 +109,11 @@
                                 <tr>
                                     <td class="ps-4 text-muted small fw-semibold">{{ ($employees->firstItem() ?? 1) + $index }}</td>
                                     <td>
-                                        <span class="fw-semibold" style="color: #1A3E6F;">{{ $empName }}</span>
+                                        <span class="fw-semibold employee-name d-block" style="color: #1A3E6F;">{{ $empName }}</span>
+                                        <span class="text-muted small d-md-none">{{ $position }}</span>
                                     </td>
-                                    <td class="text-muted small">{{ $position }}</td>
-                                    <td>
+                                    <td class="text-muted small d-none d-md-table-cell">{{ $position }}</td>
+                                    <td class="text-nowrap">
                                         @if($tin !== '—')
                                             <code class="text-dark">{{ $tin }}</code>
                                         @else
@@ -98,10 +122,12 @@
                                     </td>
                                     <td class="text-center pe-4">
                                         <a href="{{ route('hr.bir2316.generate', ['user_id' => $emp->id, 'year' => $year]) }}"
-                                           class="btn btn-sm fw-semibold text-white rounded-pill px-3 shadow-sm"
-                                           style="background-color: #1A3E6F;"
+                                           class="btn btn-sm btn-accent fw-bold shadow-sm text-nowrap"
+                                           aria-label="Generate BIR Form 2316"
                                            target="_blank">
-                                            <i class="bi bi-file-earmark-pdf me-1"></i> Generate 2316
+                                            <i class="bi bi-file-earmark-pdf me-1"></i>
+                                            <span class="d-none d-sm-inline">Generate 2316</span>
+                                            <span class="d-inline d-sm-none">2316</span>
                                         </a>
                                     </td>
                                 </tr>
@@ -110,7 +136,7 @@
                     </table>
                 </div>
                 @if($employees->hasPages())
-                <div class="border-top bg-white py-3 pagination-centered">
+                <div class="border-top bg-white py-3 pagination-centered bir-pagination">
                     {{ $employees->links('pagination::bootstrap-5') }}
                 </div>
                 @endif

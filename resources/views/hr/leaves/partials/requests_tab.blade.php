@@ -218,8 +218,8 @@
                                     Review
                                 </button>
                                 @if(in_array($leave->status, ['APPROVED', 'DISAPPROVED']))
-                                    <a href="{{ route('hr.leave.print', $leave->id) }}" class="btn btn-sm ms-1" style="background-color: #ffffff; color: #1A3E6F; border: 1px solid #1A3E6F; font-weight: bold;">
-                                        <i class="bi bi-file-earmark-pdf"></i> Download PDF
+                                    <a href="{{ route('hr.leave.print', $leave->id) }}" target="_blank" rel="noopener" class="btn btn-sm ms-1" style="background-color: #ffffff; color: #1A3E6F; border: 1px solid #1A3E6F; font-weight: bold;">
+                                        <i class="bi bi-eye"></i> View PDF
                                     </a>
                                 @endif
                             </td>
@@ -306,8 +306,8 @@
                                         <div class="modal-footer bg-light border-top-0 d-flex justify-content-between">
                                             <div>
                                                 @if(in_array($leave->status, ['APPROVED', 'DISAPPROVED']))
-                                                    <a href="{{ route('hr.leave.print', $leave->id) }}" class="btn btn-sm" style="background-color: #ffffff; color: #1A3E6F; border: 1px solid #1A3E6F; font-weight: bold;">
-                                                        <i class="bi bi-file-earmark-pdf"></i> Download PDF
+                                                    <a href="{{ route('hr.leave.print', $leave->id) }}" target="_blank" rel="noopener" class="btn btn-sm" style="background-color: #ffffff; color: #1A3E6F; border: 1px solid #1A3E6F; font-weight: bold;">
+                                                        <i class="bi bi-eye"></i> View PDF
                                                     </a>
                                                 @endif
                                             </div>
